@@ -7,7 +7,7 @@ import { useState } from "react"
 import { useStore } from "@/hooks/useStore"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { useRouter } from "next/navigation"
-import { Chrome } from "lucide-react"
+import { Chrome, Eye, EyeOff } from "lucide-react"
 
 export default function LoginClient() {
     const supabase = getSupabaseBrowserClient()
@@ -15,6 +15,7 @@ export default function LoginClient() {
     const [password, setPassword] = useState("")
     const [error, setError] = useState("")
     const [isLoading, setIsLoading] = useState(false)
+    const [showPassword, setShowPassword] = useState(false)
     const { login } = useStore()
     const router = useRouter()
 
@@ -127,15 +128,24 @@ export default function LoginClient() {
                     <label htmlFor="password" className="block text-sm font-semibold text-tm-text mb-2">
                         Password
                     </label>
-                    <Input
-                        id="password"
-                        type="password"
-                        placeholder="Enter your password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                        className="w-full"
-                    />
+                    <div className="relative">
+                        <Input
+                            id="password"
+                            type={showPassword ? "text" : "password"}
+                            placeholder="Enter your password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            required
+                            className="w-full"
+                        />
+                        <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                        >
+                            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                    </div>
                 </div>
 
                 <div className="flex items-center justify-between">

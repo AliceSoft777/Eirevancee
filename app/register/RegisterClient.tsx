@@ -7,7 +7,7 @@ import { useState } from "react"
 import { getSupabaseBrowserClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { useStore } from "@/hooks/useStore"
-import { Chrome } from "lucide-react"
+import { Chrome, Eye, EyeOff } from "lucide-react"
 
 export default function RegisterClient() {
   const [formData, setFormData] = useState({
@@ -21,6 +21,8 @@ export default function RegisterClient() {
   const [error, setError] = useState("")
   const [message, setMessage] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
   const router = useRouter()
   const { login } = useStore()
@@ -42,6 +44,7 @@ export default function RegisterClient() {
     setIsLoading(true)
 
     try {
+      const supabase = getSupabaseBrowserClient()
       const { data, error: signUpError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
@@ -91,6 +94,7 @@ export default function RegisterClient() {
   const handleGoogleSignup = async () => {
     setIsLoading(true)
     try {
+      const supabase = getSupabaseBrowserClient()
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -139,23 +143,41 @@ export default function RegisterClient() {
           required
         />
 
-        <Input
-          type="password"
-          placeholder="Password"
-          value={formData.password}
-          onChange={(e) => handleChange("password", e.target.value)}
-          required
-        />
+        <div className="relative">
+          <Input
+            type={showPassword ? "text" : "password"}
+            placeholder="Password"
+            value={formData.password}
+            onChange={(e) => handleChange("password", e.target.value)}
+            required
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+          >
+            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          </button>
+        </div>
 
-        <Input
-          type="password"
-          placeholder="Confirm password"
-          value={formData.confirmPassword}
-          onChange={(e) =>
-            handleChange("confirmPassword", e.target.value)
-          }
-          required
-        />
+        <div className="relative">
+          <Input
+            type={showConfirmPassword ? "text" : "password"}
+            placeholder="Confirm password"
+            value={formData.confirmPassword}
+            onChange={(e) =>
+              handleChange("confirmPassword", e.target.value)
+            }
+            required
+          />
+          <button
+            type="button"
+            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+          >
+            {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          </button>
+        </div>
 
         <Button type="submit" className="w-full" disabled={isLoading}>
           {isLoading ? "Creating Account..." : "Create Account"}
