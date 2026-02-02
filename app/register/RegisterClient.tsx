@@ -1,0 +1,187 @@
+"use client"
+
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import Link from "next/link"
+import { useState } from "react"
+import { getSupabaseBrowserClient } from "@/lib/supabase/client"
+import { useRouter } from "next/navigation"
+import { useStore } from "@/hooks/useStore"
+import { Chrome } from "lucide-react"
+
+export default function RegisterClient() {
+  const [formData, setFormData] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+  })
+
+  const [error, setError] = useState("")
+  const [message, setMessage] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+
+  const router = useRouter()
+  const { login } = useStore()
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError("")
+
+    if (formData.password !== formData.confirmPassword) {
+      setError("Passwords do not match")
+      return
+    }
+
+    if (formData.password.length < 6) {
+      setError("Password must be at least 6 characters")
+      return
+    }
+
+    setIsLoading(true)
+
+    try {
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            name: `${formData.firstName} ${formData.lastName}`,
+          },
+        },
+      })
+
+      if (signUpError) {
+        setError(signUpError.message)
+        setIsLoading(false)
+        return
+      }
+
+      if (!data.user) {
+        setError("User creation failed")
+        setIsLoading(false)
+        return
+      }
+
+      // Profile is automatically created by database trigger
+      const userName = `${formData.firstName} ${formData.lastName}`
+      
+      // If the user is not automatically logged in (requires email confirmation)
+      if (!data.session) {
+        setMessage("Account created! Please check your email to confirm your account.")
+        setIsLoading(false)
+        return
+      }
+
+      login(data.user.id, userName, formData.email, "customer")
+
+      router.push("/")
+      router.refresh()
+    } catch {
+      setError("An unexpected error occurred. Please try again.")
+      setIsLoading(false)
+    }
+  }
+
+  const handleChange = (field: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }))
+  }
+
+  const handleGoogleSignup = async () => {
+    setIsLoading(true)
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        }
+      })
+      if (error) {
+        setError(error.message)
+        setIsLoading(false)
+      }
+    } catch (err) {
+      setError("Google signup failed")
+      setIsLoading(false)
+    }
+  }
+
+
+
+  return (
+    <div className="max-w-md mx-auto bg-white rounded-lg shadow-md p-8">
+      <h1 className="text-3xl font-bold mb-2">Create Account</h1>
+
+      {error && <p className="text-red-600 mb-4">{error}</p>}
+      {message && <p className="text-green-600 mb-4">{message}</p>}
+
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <Input
+          placeholder="First name"
+          value={formData.firstName}
+          onChange={(e) => handleChange("firstName", e.target.value)}
+          required
+        />
+
+        <Input
+          placeholder="Last name"
+          value={formData.lastName}
+          onChange={(e) => handleChange("lastName", e.target.value)}
+          required
+        />
+
+        <Input
+          type="email"
+          placeholder="Email"
+          value={formData.email}
+          onChange={(e) => handleChange("email", e.target.value)}
+          required
+        />
+
+        <Input
+          type="password"
+          placeholder="Password"
+          value={formData.password}
+          onChange={(e) => handleChange("password", e.target.value)}
+          required
+        />
+
+        <Input
+          type="password"
+          placeholder="Confirm password"
+          value={formData.confirmPassword}
+          onChange={(e) =>
+            handleChange("confirmPassword", e.target.value)
+          }
+          required
+        />
+
+        <Button type="submit" className="w-full" disabled={isLoading}>
+          {isLoading ? "Creating Account..." : "Create Account"}
+        </Button>
+      </form>
+
+      <div className="mt-8 pt-6 border-t border-tm-border">
+        <p className="text-xs text-center text-tm-text-muted mb-4">Or continue with</p>
+        <Button 
+          type="button"
+          variant="outline" 
+          className="w-full text-tm-text hover:text-tm-text hover:bg-gray-50"
+          onClick={handleGoogleSignup}
+          disabled={isLoading}
+        >
+          <Chrome className="w-4 h-4 mr-2" />
+          Google
+        </Button>
+      </div>
+
+      <p className="text-sm mt-6 text-center">
+        Already have an account?{" "}
+        <Link href="/login" className="underline">
+          Login
+        </Link>
+      </p>
+    </div>
+  )
+}
