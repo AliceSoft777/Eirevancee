@@ -13,7 +13,7 @@ import { StatusBadge } from "@/components/admin/StatusBadge"
 import { StatusUpdateDialog } from "@/components/admin/StatusUpdateDialog"
 import { formatPrice } from "@/lib/utils"
 import { formatOrderDate, getValidNextStatuses } from "@/lib/order-utils"
-import { ChevronDown, Save } from "lucide-react"
+import { ChevronDown } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
 
@@ -24,7 +24,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const [order, setOrder] = useState<Order | null>(null)
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null)
   const [showDialog, setShowDialog] = useState(false)
-  const [internalNotes, setInternalNotes] = useState("")
+  const [isUpdating, setIsUpdating] = useState(false)
   
   useEffect(() => {
     let mounted = true
@@ -34,7 +34,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
       if (mounted) {
         if (result) {
           setOrder(result)
-          setInternalNotes(result.internalNotes || "")
+
         } else {
           notFound()
         }
@@ -47,36 +47,50 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     }
   }, [id, getOrderById])
 
-  useEffect(() => {
-    if (order) {
-      setInternalNotes(order.internalNotes || "")
+  const handleStatusChange = (newStatus: string) => {
+    setSelectedStatus(newStatus)
+    setShowDialog(true)
+  }
+
+  const handleConfirmStatusChange = async (note: string) => {
+    if (selectedStatus && user && order) {
+      console.log('[Order Detail] Starting status update:', { orderId: order.id, from: order.status, to: selectedStatus, user: user.name })
+      setIsUpdating(true)
+      try {
+        console.log('[Order Detail] Calling updateOrderStatus...')
+        await updateOrderStatus(order.id, selectedStatus, note, user.name)
+        console.log('[Order Detail] Status update successful')
+        toast.success(`Order status updated to ${selectedStatus}`)
+        setShowDialog(false)
+        setSelectedStatus(null)
+        // Reload the order to show updated status
+        try {
+          console.log('[Order Detail] Reloading order...')
+          const updatedOrder = await getOrderById(order.id)
+          if (updatedOrder) {
+            console.log('[Order Detail] Order reloaded successfully, new status:', updatedOrder.status)
+            setOrder(updatedOrder)
+          }
+        } catch (reloadError) {
+          console.error('Failed to reload order after status update:', reloadError)
+          toast.error('Order updated but failed to reload. Please refresh the page.')
+        }
+      } catch (error) {
+        console.error('Failed to update order status:', error)
+        toast.error(error instanceof Error ? error.message : 'Failed to update order status')
+      } finally {
+        setIsUpdating(false)
+      }
+    } else {
+      console.error('[Order Detail] Cannot update - missing data:', { selectedStatus, user: !!user, order: !!order })
     }
-  }, [order])
+  }
 
   if (!order) {
     return null
   }
 
   const validNextStatuses = getValidNextStatuses(order.status)
-
-  const handleStatusChange = (newStatus: string) => {
-    setSelectedStatus(newStatus)
-    setShowDialog(true)
-  }
-
-  const handleConfirmStatusChange = (note: string) => {
-    if (selectedStatus && user) {
-      updateOrderStatus(order.id, selectedStatus, note, user.name)
-      toast.success(`Order status updated to ${selectedStatus}`)
-      setShowDialog(false)
-      setSelectedStatus(null)
-    }
-  }
-
-  const handleSaveNotes = () => {
-    updateOrderNotes(order.id, internalNotes)
-    toast.success("Internal notes saved")
-  }
 
   return (
     <AdminRoute>
@@ -255,23 +269,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Internal Notes</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <textarea
-                className="w-full min-h-[100px] p-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring"
-                placeholder="Add internal notes here (not visible to customer)..."
-                value={internalNotes}
-                onChange={(e) => setInternalNotes(e.target.value)}
-              />
-              <Button onClick={handleSaveNotes} size="sm">
-                <Save className="w-4 h-4 mr-2" />
-                Save Notes
-              </Button>
-            </CardContent>
-          </Card>
+
         </div>
 
         <StatusUpdateDialog
@@ -283,6 +281,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
             setShowDialog(false)
             setSelectedStatus(null)
           }}
+          isLoading={isUpdating}
         />
       </AdminLayout>
     </AdminRoute>

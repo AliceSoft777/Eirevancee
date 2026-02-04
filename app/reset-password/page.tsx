@@ -1,3 +1,4 @@
+import { Suspense } from "react"
 import ResetPasswordClient from "./ResetPasswordClient"
 
 export const metadata = {
@@ -8,7 +9,10 @@ export const metadata = {
 export default function ResetPasswordPage() {
   return (
     <div className="container mx-auto px-4 py-16">
-      <ResetPasswordClient />
+      {/* Wrap with Suspense to allow client-side search params access */}
+      <Suspense fallback={<div className="text-center py-10">Loading...</div>}>
+        <ResetPasswordClient />
+      </Suspense>
     </div>
   )
 }

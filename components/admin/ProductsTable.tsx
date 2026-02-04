@@ -64,7 +64,9 @@ export function ProductsTable({ products, onDelete, onEdit }: ProductsTableProps
                 <div className="font-medium">{product.name}</div>
                 <div className="text-xs text-muted-foreground truncate max-w-[200px]">{product.assigned_code || 'No Code'}</div>
               </TableCell>
-              <TableCell className="capitalize">{product.categories?.name || product.subcategory || "Uncategorized"}</TableCell>
+              <TableCell className="capitalize">
+                {product.categoryName || "Uncategorized"}
+              </TableCell>
               <TableCell className="text-right font-medium">
                 {formatPrice(product.price)}
               </TableCell>

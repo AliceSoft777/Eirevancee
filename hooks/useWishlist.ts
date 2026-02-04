@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { getSupabaseBrowserClient } from '@/lib/supabase'
 import { useStore } from '@/hooks/useStore'
 
@@ -12,7 +12,8 @@ export interface WishlistItem {
 }
 
 export function useWishlist() {
-  const supabase = getSupabaseBrowserClient()
+  // Create supabase client inside hook to avoid stale references
+  const supabase = useMemo(() => getSupabaseBrowserClient(), [])
   const [wishlistItems, setWishlistItems] = useState<WishlistItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -53,7 +54,7 @@ export function useWishlist() {
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [supabase])
 
   // Sync wishlist IDs to Zustand store ONLY after hydration and when data changes
   useEffect(() => {
@@ -95,7 +96,7 @@ export function useWishlist() {
     })
 
     try {
-        const { data, error } = await supabase
+        const { data, error } = await (supabase as any)
           .from('wishlist_items')
           .insert([{
             user_id: user.id,

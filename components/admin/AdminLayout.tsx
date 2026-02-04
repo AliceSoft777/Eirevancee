@@ -79,6 +79,8 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
   const handleLogout = async () => {
     try {
+      const supabase = getSupabaseBrowserClient()
+      
       // ✅ Sign out from Supabase
       await supabase.auth.signOut()
       
@@ -134,7 +136,6 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           variant="ghost"
           size="sm"
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          className="lg:hidden"
         >
           {isSidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </Button>
@@ -151,9 +152,10 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
         {/* Sidebar */}
         <aside className={cn(
-          "fixed lg:sticky top-0 left-0 z-50 h-screen w-64 bg-card border-r border-border flex flex-col transition-transform duration-300 ease-in-out",
-          "lg:translate-x-0",
-          isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+          "fixed lg:sticky top-0 left-0 h-screen bg-card border-r border-border flex flex-col transition-all duration-300 ease-in-out",
+          "w-60 sm:w-64",
+          "z-50 lg:z-auto",
+          isSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}>
           {/* Logo - Desktop only */}
           <div className="hidden lg:block p-6 border-b border-border">
@@ -225,8 +227,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 min-h-screen lg:min-h-[calc(100vh)] overflow-auto">
-          {/* Responsive padding: mobile (p-4), tablet (p-6), desktop (p-8) */}
+        <main className="flex-1 w-full min-h-screen overflow-auto">
           <div className="p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto">
             {children}
           </div>

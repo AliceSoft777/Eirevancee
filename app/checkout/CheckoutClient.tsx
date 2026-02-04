@@ -32,6 +32,23 @@ export default function CheckoutClient({ isLoggedIn }: CheckoutClientProps) {
     const [selectedAddressId, setSelectedAddressId] = useState<string>("")
     const [useNewAddress, setUseNewAddress] = useState(true)
 
+    // ✅ BULLETPROOF: Single source of truth for form data (Aligned with DB schema)
+    const [formData, setFormData] = useState({
+        full_name: "",
+        email: "",
+        phone: "",
+        street: "",
+        city: "",
+        state: "",
+        pincode: "",
+        payment: "card"
+    })
+
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const { name, value } = e.target
+        setFormData(prev => ({ ...prev, [name]: value }))
+    }
+
     const subtotal = getCartTotal()
     const TAX_RATE = 0.23 // 23% VAT for Ireland
     const SHIPPING_THRESHOLD = 100
@@ -47,38 +64,31 @@ export default function CheckoutClient({ isLoggedIn }: CheckoutClientProps) {
             const { data: { user } } = await supabase.auth.getUser()
             if (user) {
                 setUserId(user.id)
+                // Pre-fill email from user object
+                if (user.email) {
+                    setFormData(prev => ({ ...prev, email: user.email! }))
+                }
             }
         }
         getUser()
     }, [])
 
-    // ✅ NEW: Auto-fill form when saved address is selected
+    // ✅ BULLETPROOF: Auto-fill form via State Update (Using exact DB fields)
     const handleAddressSelection = (addressId: string) => {
         setSelectedAddressId(addressId)
         const address = addresses.find(a => a.id === addressId)
         
-        if (address && typeof window !== 'undefined') {
-            // Pre-fill form fields
-            const form = document.querySelector('form') as HTMLFormElement
-            if (form) {
-                const firstNameInput = form.elements.namedItem('firstName') as HTMLInputElement
-                const lastNameInput = form.elements.namedItem('lastName') as HTMLInputElement
-                const address1Input = form.elements.namedItem('address1') as HTMLInputElement
-                const address2Input = form.elements.namedItem('address2') as HTMLInputElement
-                const cityInput = form.elements.namedItem('city') as HTMLInputElement
-                const countyInput = form.elements.namedItem('county') as HTMLInputElement
-                const postcodeInput = form.elements.namedItem('postcode') as HTMLInputElement
-                const phoneInput = form.elements.namedItem('phone') as HTMLInputElement
-                
-                if (firstNameInput) firstNameInput.value = address.full_name.split(' ')[0]
-                if (lastNameInput) lastNameInput.value = address.full_name.split(' ').slice(1).join(' ')
-                if (address1Input) address1Input.value = address.street
-                if (address2Input) address2Input.value = ''
-                if (cityInput) cityInput.value = address.city
-                if (countyInput) countyInput.value = address.state
-                if (postcodeInput) postcodeInput.value = address.pincode
-                if (phoneInput) phoneInput.value = address.phone
-            }
+        if (address) {
+            setFormData(prev => ({
+                ...prev,
+                full_name: address.full_name,
+                street: address.street,
+                city: address.city,
+                state: address.state,
+                pincode: address.pincode,
+                phone: address.phone
+            }))
+
             setUseNewAddress(false)
             toast.success(`✅ Address loaded: ${address.full_name}`)
         }
@@ -95,30 +105,28 @@ export default function CheckoutClient({ isLoggedIn }: CheckoutClientProps) {
         }, 30000)
 
         try {
-            // Get form data
-            const formData = new FormData(e.currentTarget)
-            const firstName = formData.get("firstName") as string
-            const lastName = formData.get("lastName") as string
-            const email = formData.get("email") as string
-            const phone = formData.get("phone") as string
-            const address1 = formData.get("address1") as string
-            const address2 = formData.get("address2") as string
-            const city = formData.get("city") as string
-            const county = formData.get("county") as string
-            const postcode = formData.get("postcode") as string
-            const paymentMethod = formData.get("payment") as string || 'card'
+            // Get data from Controlled State instead of DOM
+            const {
+                full_name,
+                email,
+                phone,
+                street,
+                city,
+                state,
+                pincode,
+                payment: paymentMethod
+            } = formData;
 
             // Validate required fields
-            if (!firstName || !lastName || !email || !phone || !address1 || !city || !county || !postcode) {
+            if (!full_name || !email || !phone || !street || !city || !state || !pincode) {
                 clearTimeout(timeoutId)
                 toast.error("Please fill in all required fields")
                 setIsProcessing(false)
                 return
             }
 
-            // Get current user
-            const { data: { user }, error: userError } = await supabase.auth.getUser()
-            if (userError || !user) {
+            // Use cached userId from state (fetched on mount) - avoids AbortError
+            if (!userId) {
                 clearTimeout(timeoutId)
                 toast.error("You must be logged in to place an order")
                 router.push("/login")
@@ -126,34 +134,23 @@ export default function CheckoutClient({ isLoggedIn }: CheckoutClientProps) {
                 return
             }
 
-            // Create delivery address as JSONB object (Ireland format)
+            // Create delivery address as JSONB object
             const deliveryAddressObj = {
-                street: address1,
-                street2: address2 || null,
+                street: street,
                 city: city,
-                county: county,
-                postal_code: postcode,
+                state: state,
+                pincode: pincode,
                 country: "Ireland"
             }
 
             // ✅ STEP 0: Save address to customer_addresses table (non-blocking)
-            console.log('[Checkout] 🔍 STEP 0: Saving address to customer_addresses table')
-            console.log('[Checkout] Address data:', {
-                user_id: user.id,
-                full_name: `${firstName} ${lastName}`,
-                street: address1,
-                city: city,
-                pincode: postcode,
-                phone: phone
-            })
-
             const addressPayload = {
-                user_id: user.id,
-                full_name: `${firstName} ${lastName}`,
-                street: address1,
+                user_id: userId,
+                full_name: full_name,
+                street: street,
                 city: city,
-                state: county,
-                pincode: postcode,
+                state: state,
+                pincode: pincode,
                 country: "Ireland",
                 phone: phone,
                 is_default: false,
@@ -203,9 +200,9 @@ export default function CheckoutClient({ isLoggedIn }: CheckoutClientProps) {
 
             // 1. Create order record with CORRECT payload
             const orderPayload = {
-                user_id: user.id,
-                customer_id: user.id,
-                customer_name: `${firstName} ${lastName}`,
+                user_id: userId,
+                customer_id: userId,
+                customer_name: full_name,
                 customer_email: email,
                 customer_phone: phone,
                 subtotal: Number(subtotal.toFixed(2)),
@@ -347,23 +344,17 @@ export default function CheckoutClient({ isLoggedIn }: CheckoutClientProps) {
                                 <CardTitle>Billing Details</CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-4">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium mb-2">First Name *</label>
-                                        <Input required placeholder="John" name="firstName" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium mb-2">Last Name *</label>
-                                        <Input required placeholder="Doe" name="lastName" />
-                                    </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-2">Full Name *</label>
+                                    <Input required placeholder="John Doe" name="full_name" value={formData.full_name} onChange={handleInputChange} />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium mb-2">Email *</label>
-                                    <Input type="email" required placeholder="john@example.com" name="email" />
+                                    <Input type="email" required placeholder="john@example.com" name="email" value={formData.email} onChange={handleInputChange} />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium mb-2">Phone *</label>
-                                    <Input type="tel" required placeholder="+353 1 234 5678" name="phone" />
+                                    <Input type="tel" required placeholder="+353 1 234 5678" name="phone" value={formData.phone} onChange={handleInputChange} />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium mb-2">Coupon Code (Optional)</label>
@@ -410,6 +401,8 @@ export default function CheckoutClient({ isLoggedIn }: CheckoutClientProps) {
                                         onClick={() => {
                                             setSelectedAddressId("")
                                             setUseNewAddress(true)
+                                            // Optional: Clear form when choosing "Enter New Address"
+                                            // setFormData(prev => ({ ...prev, firstName: "", lastName: "", address1: "", address2: "", city: "", county: "", postcode: "", phone: "" }))
                                         }}
                                         className="w-full p-4 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-400 hover:bg-blue-50 transition text-center font-medium"
                                     >
@@ -420,31 +413,27 @@ export default function CheckoutClient({ isLoggedIn }: CheckoutClientProps) {
                         )}
 
                         {/* Delivery Address */}
-                        <Card>
+                        <Card key={`delivery-${selectedAddressId || 'new'}`}>
                             <CardHeader>
                                 <CardTitle>Delivery Address</CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 <div>
-                                    <label className="block text-sm font-medium mb-2">Address Line 1 *</label>
-                                    <Input required placeholder="123 Main Street" name="address1" />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium mb-2">Address Line 2</label>
-                                    <Input placeholder="Apartment, suite, etc." name="address2" />
+                                    <label className="block text-sm font-medium mb-2">Street Address *</label>
+                                    <Input required placeholder="123 Main Street" name="street" value={formData.street} onChange={handleInputChange} />
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div>
                                         <label className="block text-sm font-medium mb-2">City *</label>
-                                        <Input required placeholder="Dublin" name="city" />
+                                        <Input required placeholder="Dublin" name="city" value={formData.city} onChange={handleInputChange} />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium mb-2">County *</label>
-                                        <Input required placeholder="Dublin" name="county" />
+                                        <label className="block text-sm font-medium mb-2">County/State *</label>
+                                        <Input required placeholder="Dublin" name="state" value={formData.state} onChange={handleInputChange} />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium mb-2">Postal Code *</label>
-                                        <Input required placeholder="D02 XY12" name="postcode" />
+                                        <Input required placeholder="D02 XY12" name="pincode" value={formData.pincode} onChange={handleInputChange} />
                                     </div>
                                 </div>
                             </CardContent>
@@ -458,13 +447,27 @@ export default function CheckoutClient({ isLoggedIn }: CheckoutClientProps) {
                             <CardContent className="space-y-4">
                                 <div className="border border-border rounded-lg p-4">
                                     <label className="flex items-center gap-3 cursor-pointer">
-                                        <input type="radio" name="payment" value="card" defaultChecked className="w-4 h-4" />
+                                        <input 
+                                            type="radio" 
+                                            name="payment" 
+                                            value="card" 
+                                            checked={formData.payment === 'card'} 
+                                            onChange={(e) => setFormData(prev => ({ ...prev, payment: e.target.value }))}
+                                            className="w-4 h-4" 
+                                        />
                                         <span className="font-medium">Credit/Debit Card</span>
                                     </label>
                                 </div>
                                 <div className="border border-border rounded-lg p-4">
                                     <label className="flex items-center gap-3 cursor-pointer">
-                                        <input type="radio" name="payment" value="offline_cash" className="w-4 h-4" />
+                                        <input 
+                                            type="radio" 
+                                            name="payment" 
+                                            value="offline_cash" 
+                                            checked={formData.payment === 'offline_cash'} 
+                                            onChange={(e) => setFormData(prev => ({ ...prev, payment: e.target.value }))}
+                                            className="w-4 h-4" 
+                                        />
                                         <span className="font-medium">Offline Cash Payment</span>
                                         <span className="text-xs text-muted-foreground">(Pay in store)</span>
                                     </label>

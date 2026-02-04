@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation"
 import { SiteHeader } from "@/components/layout/site-header"
-import { Footer } from "@/components/layout/footer"
 import { getServerSession, getNavData } from "@/lib/loaders"
 import RegisterClient from "./RegisterClient"
 
@@ -25,7 +24,6 @@ export default async function RegisterPage() {
                     <RegisterClient />
                 </div>
             </main>
-            <Footer />
         </>
     )
 }

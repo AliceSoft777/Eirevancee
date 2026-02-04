@@ -6,6 +6,7 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { MegaMenu } from "./mega-menu";
 import { ClearanceMegaMenu } from "./clearance-mega-menu";
+import { ProductsOnlyMegaMenu } from "./products-only-mega-menu";
 import type { CategoryWithChildren } from "@/lib/loaders";
 import type { Product } from "@/lib/supabase-types";
 
@@ -22,12 +23,22 @@ export function MainNav({ categories, products }: MainNavProps) {
   const hasClearanceProducts = products.some(p => p.is_clearance === true && p.status === 'active');
 
   // Categories are already root-only with children embedded
-  const navItems = categories.map(cat => ({
-    name: cat.name,
-    href: `/${cat.slug}`,
-    hasMegaMenu: cat.children && cat.children.length > 0,
-    category: cat
-  }));
+  const navItems = categories.map(cat => {
+    const hasSubcategories = cat.children && cat.children.length > 0;
+    // Check if category has products (for categories without subcategories)
+    const hasProducts = products.some(
+      p => p.category_id === cat.id && p.status === 'active' && p.is_clearance !== true
+    );
+    
+    return {
+      name: cat.name,
+      href: `/${cat.slug}`,
+      hasSubcategories,
+      hasProductsOnly: !hasSubcategories && hasProducts, // No subcategories but has products
+      hasMegaMenu: hasSubcategories || (!hasSubcategories && hasProducts), // Show menu for either case
+      category: cat
+    };
+  });
 
   return (
     <nav
@@ -80,6 +91,15 @@ export function MainNav({ categories, products }: MainNavProps) {
                 onMouseEnter={() =>
                   item.hasMegaMenu && setActiveMenu(item.name)
                 }
+                onMouseLeave={() => {
+                  // Only close if not entering mega menu
+                  setTimeout(() => {
+                    const megaMenu = document.querySelector("[data-mega-menu]");
+                    if (!megaMenu || !megaMenu.matches(":hover")) {
+                      setActiveMenu(null);
+                    }
+                  }, 100);
+                }}
               >
                 <Link
                   href={item.href}
@@ -102,7 +122,7 @@ export function MainNav({ categories, products }: MainNavProps) {
 
       {/* Mega Menu - Rendered outside li elements for full-width positioning */}
       {navItems.map((item) => (
-        item.hasMegaMenu && activeMenu === item.name && (
+        item.hasSubcategories && activeMenu === item.name && (
           <div
             key={item.name}
             data-mega-menu
@@ -112,6 +132,25 @@ export function MainNav({ categories, products }: MainNavProps) {
             onMouseLeave={() => setActiveMenu(null)}
           >
             <MegaMenu 
+              category={item.category}
+              products={products}
+            />
+          </div>
+        )
+      ))}
+
+      {/* Products-Only Mega Menu - For categories without subcategories but with products */}
+      {navItems.map((item) => (
+        item.hasProductsOnly && activeMenu === item.name && (
+          <div
+            key={`products-${item.name}`}
+            data-mega-menu
+            className="absolute left-0 right-0 w-full"
+            style={{ top: '100%', zIndex: 9999 }}
+            onMouseEnter={() => setActiveMenu(item.name)}
+            onMouseLeave={() => setActiveMenu(null)}
+          >
+            <ProductsOnlyMegaMenu 
               category={item.category}
               products={products}
             />

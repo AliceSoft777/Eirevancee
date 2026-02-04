@@ -63,7 +63,7 @@ export const useProductReviews = (productId: string | null): UseProductReviewsRe
         requestInProgress.add(productId)
         console.log('🔄 Starting new reviews request:', productId)
 
-        // Create the fetch promise as proper async function
+        // Create the fetch promise
         const fetchPromise: Promise<Review[]> = (async () => {
           const supabase = getSupabaseBrowserClient()
           const { data, error: err } = await supabase
@@ -75,6 +75,10 @@ export const useProductReviews = (productId: string | null): UseProductReviewsRe
             .limit(20)
 
           if (err) {
+            // ✅ IGNORE ABORT ERRORS: Supabase internal signal handling
+            if (err.message?.includes('AbortError') || err.code === 'PGRST301') {
+              throw new Error('AbortError')
+            }
             console.error('Supabase reviews fetch error:', err)
             throw new Error(err.message)
           }
@@ -101,6 +105,15 @@ export const useProductReviews = (productId: string | null): UseProductReviewsRe
         }, 30000)
       } catch (err: unknown) {
         requestInProgress.delete(productId)
+        
+        // ✅ SILENTLY IGNORE ABORT ERRORS: Expected when component unmounts or React strict mode
+        if (err instanceof Error && (err.message.includes('AbortError') || err.name === 'AbortError')) {
+          if (isMounted) {
+            setLoading(false)
+          }
+          return
+        }
+        
         if (isMounted) {
           const errorMsg = err instanceof Error ? err.message : 'Failed to load reviews'
           console.error('Fetch reviews error:', errorMsg)

@@ -75,6 +75,10 @@ Products List_V2.xlsx
 temp-output.css
 eslint-report.json
 
+# Database files
+*.sql
+*.csv
+
 # Python virtual environment
 .venv/
 venv/

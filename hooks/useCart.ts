@@ -1,10 +1,8 @@
 "use client"
 
-import { useEffect, useState } from 'react'
-import { getSupabaseBrowserClient } from "@/lib/supabase"
+import { useEffect, useState, useRef } from 'react'
+import { supabaseBrowserClient } from "@/lib/supabase/client"
 import useStore from "@/hooks/useStore"
-
-const supabase = getSupabaseBrowserClient()
 
 export interface CartItem {
   id: string
@@ -21,51 +19,65 @@ export interface CartItem {
 }
 
 export function useCart() {
+  // Use the singleton client directly - no useMemo needed
+  const supabase = supabaseBrowserClient
+  
   const [cartItems, setCartItems] = useState<CartItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [hasFetched, setHasFetched] = useState(false)
 
-  // Sync to global store
+  // Get user from Zustand store - this is already synced and won't cause AbortError
+  const storeUser = useStore((state) => state.user)
   const setCartCountInStore = useStore((state) => state.setCartCount)
   const hasHydrated = useStore((state) => state._hasHydrated)
+  
+  // Track previous user ID to detect login/logout changes
+  const prevUserIdRef = useRef<string | null | undefined>(undefined)
 
-  // Only fetch once after hydration
+  // Fetch cart when hydrated and when user changes
   useEffect(() => {
-    if (!hasHydrated || hasFetched) return
+    if (!hasHydrated) return
+    
+    const currentUserId = storeUser?.id || null
+    
+    // Skip if user hasn't changed (but not on first run)
+    if (prevUserIdRef.current !== undefined && prevUserIdRef.current === currentUserId) {
+      return
+    }
+    prevUserIdRef.current = currentUserId
 
     const fetchCart = async () => {
       try {
         setIsLoading(true)
         setError(null)
         
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) {
+        // No user = empty cart
+        if (!currentUserId) {
           setCartItems([])
           setIsLoading(false)
-          setHasFetched(true)
           return
         }
 
         const { data, error: fetchError } = await supabase
           .from('cart_items')
           .select('*')
-          .eq('user_id', user.id)
+          .eq('user_id', currentUserId)
           .order('created_at', { ascending: false })
 
         if (fetchError) throw fetchError
         setCartItems(data || [])
       } catch (err: unknown) {
+        // Ignore AbortError - it's a React concurrent mode artifact
+        if (err instanceof Error && err.name === 'AbortError') return
         setError(err instanceof Error ? err.message : 'Failed to fetch cart')
         setCartItems([])
       } finally {
         setIsLoading(false)
-        setHasFetched(true)
       }
     }
 
     fetchCart()
-  }, [hasHydrated, hasFetched])
+  }, [hasHydrated, storeUser?.id, supabase])
 
   // Sync cart count to store
   useEffect(() => {
@@ -82,13 +94,15 @@ export function useCart() {
     quantity?: number
   }) {
     console.log('[useCart] addToCart starting for product:', item.product_id);
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      console.warn('[useCart] No user found for addToCart');
+    
+    // Use store user - this doesn't need an async call
+    if (!storeUser?.id) {
+      console.warn('[useCart] No user found in store for addToCart');
       throw new Error('Must be logged in to add to cart')
     }
 
-    console.log('[useCart] User:', user.id, '| Product:', item.product_id);
+    const userId = storeUser.id
+    console.log('[useCart] User:', userId, '| Product:', item.product_id);
 
     // Check if item already exists in cart
     const existingItem = (cartItems || []).find(
@@ -101,28 +115,21 @@ export function useCart() {
     }
 
     console.log('[useCart] Inserting new item into cart_items...');
-    console.log('[useCart] Payload:', {
-      user_id: user.id,
+    const payload = {
+      user_id: userId,
       product_id: item.product_id,
       variant_id: item.variant_id || null,
       product_name: item.product_name || 'Unknown Item',
       product_price: item.product_price || 0,
       product_image: item.product_image || null,
       quantity: item.quantity || 1
-    });
+    }
+    console.log('[useCart] Payload:', payload);
 
     // Insert new item
     const { data: insertData, error: insertError } = await (supabase as any)
       .from('cart_items')
-      .insert([{
-        user_id: user.id,
-        product_id: item.product_id,
-        variant_id: item.variant_id || null,
-        product_name: item.product_name || 'Unknown Item',
-        product_price: item.product_price || 0,
-        product_image: item.product_image || null,
-        quantity: item.quantity || 1
-      }])
+      .insert([payload])
       .select()
       .single()
 

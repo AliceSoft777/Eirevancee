@@ -24,7 +24,6 @@ export interface Order {
   deliveryAddress: any
   invoiceFileId: string | null
   invoiceGeneratedAt: string | null
-  internalNotes: string | null
   source: string | null
   createdAt: string
   updatedAt: string
@@ -49,7 +48,7 @@ export interface StatusHistoryEntry {
   timestamp: string
 }
 
-export function useOrders(userId: string | null) {
+export function useOrders(userId?: string | null) {
   const [orders, setOrders] = useState<Order[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -162,6 +161,7 @@ export function useOrders(userId: string | null) {
   }
 
   async function getOrderById(id: string) {
+    const supabase = getSupabaseBrowserClient()
     const { data: dbOrder, error } = await (supabase as any)
       .from('orders')
       .select('*')
@@ -199,6 +199,9 @@ export function useOrders(userId: string | null) {
     updatedBy: string
   ) {
     try {
+      console.log('[updateOrderStatus] Starting update:', { orderId, status, note, updatedBy })
+      const supabase = getSupabaseBrowserClient()
+      
       // 1. Get current order to access existing status_history
       const { data: orderData, error: fetchError } = await (supabase as any)
         .from('orders')
@@ -206,7 +209,12 @@ export function useOrders(userId: string | null) {
         .eq('id', orderId)
         .single()
 
-      if (fetchError) throw fetchError
+      if (fetchError) {
+        console.error('[updateOrderStatus] Fetch error:', fetchError)
+        throw fetchError
+      }
+
+      console.log('[updateOrderStatus] Current order data:', orderData)
 
       // 2. Parse existing history (it's a JSONB array)
       const existingHistory = (orderData?.status_history || []) as any[]
@@ -214,26 +222,36 @@ export function useOrders(userId: string | null) {
       // 3. Add new status entry
       const newHistoryEntry = {
         status,
-        notes: note,
+        note: note || '',
         timestamp: new Date().toISOString(),
         updated_by: updatedBy
       }
       
       const updatedHistory = [...existingHistory, newHistoryEntry]
 
+      console.log('[updateOrderStatus] Updating with:', { status, historyCount: updatedHistory.length })
+
       // 4. Update order with new status AND updated history
       const { error: updateError } = await (supabase as any)
         .from('orders')
         .update({ 
           status,
-          status_history: updatedHistory
+          status_history: updatedHistory,
+          updated_at: new Date().toISOString()
         })
         .eq('id', orderId)
 
-      if (updateError) throw updateError
+      if (updateError) {
+        console.error('[updateOrderStatus] Update error:', updateError)
+        throw updateError
+      }
 
-      // 5. Refresh orders
-      await fetchOrders()
+      console.log('[updateOrderStatus] Update successful')
+
+      // 5. Only refresh if we have a userId (user-specific orders)
+      if (userId) {
+        await fetchOrders()
+      }
     } catch (err) {
       console.error('[updateOrderStatus] Error:', err)
       throw err

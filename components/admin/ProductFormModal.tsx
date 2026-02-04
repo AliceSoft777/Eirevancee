@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -37,10 +37,32 @@ export function ProductFormModal({ isOpen, onClose, onSave, product }: ProductFo
     price: "",
     stock: "",
     status: "active",
-    environment: "indoor", // Default
+    environment: "Indoor", // Default
     description: "",
+    model: "", // ✅ NEW: Model field
+    material: "",
+    finish: "",
+    thickness: "",
+    sqm_per_box: "",
+    brand: "",
+    availability: "",
+    panel_length: "",
+    panel_width: "",
+    package_included: "",
+    has_led: false,
     is_clearance: false, // ✅ NEW: Clearance flag
   })
+
+  // Format categories with parent names for hierarchy display
+  const formattedCategories = useMemo(() => {
+    return categories.map((cat) => {
+      const parent = categories.find(p => p.id === cat.parent_id)
+      return {
+        ...cat,
+        displayName: parent ? `${parent.name} > ${cat.name}` : cat.name
+      }
+    }).sort((a, b) => a.displayName.localeCompare(b.displayName))
+  }, [categories])
 
   // Fetch existing images when editing a product
   useEffect(() => {
@@ -77,9 +99,20 @@ export function ProductFormModal({ isOpen, onClose, onSave, product }: ProductFo
             price: product.price?.toString() || "0",
             stock: product.stock?.toString() || "0",
             status: product.status || "active",
-            environment: product.indoor_outdoor || "indoor",
+            environment: product.application_area || "Indoor",
             description: product.description || "",
-            is_clearance: product.is_clearance === true || product.is_clearance === 'true' // ✅ Handle both boolean and string 'true'
+            model: product.model || "",
+            material: product.material || "",
+            finish: product.finish || "",
+            thickness: product.thickness || "",
+            sqm_per_box: product.sqm_per_box || "",
+            brand: product.brand || "",
+            availability: product.availability || "",
+            panel_length: product.panel_length || "",
+            panel_width: product.panel_width || "",
+            package_included: product.package_included || "",
+            has_led: product.has_led || false,
+            is_clearance: product.is_clearance || false // ✅ Boolean from database
         })
     } else {
         // Create Mode (Reset)
@@ -91,8 +124,19 @@ export function ProductFormModal({ isOpen, onClose, onSave, product }: ProductFo
             price: "",
             stock: "",
             status: "active",
-            environment: "indoor",
+            environment: "Indoor",
             description: "",
+            model: "",
+            material: "",
+            finish: "",
+            thickness: "",
+            sqm_per_box: "",
+            brand: "",
+            availability: "",
+            panel_length: "",
+            panel_width: "",
+            package_included: "",
+            has_led: false,
             is_clearance: false // ✅ Default to false for new products
         })
         setProductImages([])
@@ -119,7 +163,18 @@ export function ProductFormModal({ isOpen, onClose, onSave, product }: ProductFo
             status: formData.status,
             application_area: formData.environment, // Map environment to application_area column
             description: formData.description,
-            is_clearance: Boolean(formData.is_clearance) // ✅ Ensure boolean type
+            // Note: 'model' field is in UI but NOT in database - excluded from payload
+            material: formData.material,
+            finish: formData.finish,
+            thickness: formData.thickness,
+            sqm_per_box: formData.sqm_per_box,
+            brand: formData.brand,
+            availability: formData.availability,
+            panel_length: formData.panel_length,
+            panel_width: formData.panel_width,
+            package_included: formData.package_included,
+            has_led: formData.has_led,
+            is_clearance: Boolean(formData.is_clearance)
         }
 
         if (product) {
@@ -178,11 +233,20 @@ export function ProductFormModal({ isOpen, onClose, onSave, product }: ProductFo
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="subtitle">Model / Size</Label>
+              <Label htmlFor="subtitle">Subtitle</Label>
               <Input 
                 id="subtitle" 
                 value={formData.subtitle} 
                 onChange={(e) => handleChange("subtitle", e.target.value)} 
+                placeholder="Product summary or subtitle"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="model">Model / Size</Label>
+              <Input 
+                id="model" 
+                value={formData.model} 
+                onChange={(e) => handleChange("model", e.target.value)} 
                 placeholder="e.g. M1636 or 60x60cm"
               />
             </div>
@@ -199,8 +263,8 @@ export function ProductFormModal({ isOpen, onClose, onSave, product }: ProductFo
                   <SelectValue placeholder="Select Category" />
                 </SelectTrigger>
                 <SelectContent>
-                  {categories.map(cat => (
-                    <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                  {formattedCategories.map(cat => (
+                    <SelectItem key={cat.id} value={cat.id}>{cat.displayName}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -269,15 +333,117 @@ export function ProductFormModal({ isOpen, onClose, onSave, product }: ProductFo
                         <SelectValue placeholder="Select Environment" />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="indoor">Indoor</SelectItem>
-                        <SelectItem value="outdoor">Outdoor</SelectItem>
-                        <SelectItem value="both">Both</SelectItem>
-                    </SelectContent>
-                </Select>
+                        <SelectItem value="Indoor">Indoor</SelectItem>
+                        <SelectItem value="Outdoor">Outdoor</SelectItem>
+                        <SelectItem value="Both">Both</SelectItem>
+                    </SelectContent>                </Select>
             </div>
-             <div className="space-y-2">
-               {/* Placeholder for other specs like thickness if needed later */}
-             </div>
+          </div>
+
+          {/* Section 4: Specifications */}
+          <div className="space-y-4 border-t pt-4">
+            <h3 className="text-sm font-semibold text-slate-700">Specifications</h3>
+            
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="material">Material</Label>
+                <Input 
+                  id="material" 
+                  value={formData.material} 
+                  onChange={(e) => handleChange("material", e.target.value)} 
+                  placeholder="e.g. Porcelain"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="finish">Finish</Label>
+                <Input 
+                  id="finish" 
+                  value={formData.finish} 
+                  onChange={(e) => handleChange("finish", e.target.value)} 
+                  placeholder="e.g. Glossy"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="thickness">Thickness</Label>
+                <Input 
+                  id="thickness" 
+                  value={formData.thickness} 
+                  onChange={(e) => handleChange("thickness", e.target.value)} 
+                  placeholder="e.g. 9mm"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="sqm_per_box">SQM per Box</Label>
+                <Input 
+                  id="sqm_per_box" 
+                  value={formData.sqm_per_box} 
+                  onChange={(e) => handleChange("sqm_per_box", e.target.value)} 
+                  placeholder="e.g. 1.44"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="brand">Brand</Label>
+                <Input 
+                  id="brand" 
+                  value={formData.brand} 
+                  onChange={(e) => handleChange("brand", e.target.value)} 
+                  placeholder="e.g. Celtic Tiles"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="availability">Availability</Label>
+                <Input 
+                  id="availability" 
+                  value={formData.availability} 
+                  onChange={(e) => handleChange("availability", e.target.value)} 
+                  placeholder="e.g. In Stock"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="panel_length">Panel Length</Label>
+                <Input 
+                  id="panel_length" 
+                  value={formData.panel_length} 
+                  onChange={(e) => handleChange("panel_length", e.target.value)} 
+                  placeholder="e.g. 120cm"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="panel_width">Panel Width</Label>
+                <Input 
+                  id="panel_width" 
+                  value={formData.panel_width} 
+                  onChange={(e) => handleChange("panel_width", e.target.value)} 
+                  placeholder="e.g. 60cm"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="package_included">Package Included</Label>
+                <Input 
+                  id="package_included" 
+                  value={formData.package_included} 
+                  onChange={(e) => handleChange("package_included", e.target.value)} 
+                  placeholder="e.g. 4 tiles"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="has_led"
+                checked={formData.has_led}
+                onChange={(e) => handleChange("has_led", e.target.checked)}
+                className="w-4 h-4"
+              />
+              <Label htmlFor="has_led" className="cursor-pointer">Has LED lighting</Label>
+            </div>
           </div>
 
           <div className="space-y-2">

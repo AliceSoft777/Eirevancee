@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import Link from "next/link"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useStore } from "@/hooks/useStore"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { useRouter } from "next/navigation"
@@ -16,6 +16,7 @@ export default function LoginClient() {
     const [error, setError] = useState("")
     const [isLoading, setIsLoading] = useState(false)
     const [showPassword, setShowPassword] = useState(false)
+    const [rememberMe, setRememberMe] = useState(false)
     const { login } = useStore()
     const router = useRouter()
 
@@ -25,6 +26,12 @@ export default function LoginClient() {
         setIsLoading(true)
         
         try {
+            // ⚠️ CRITICAL: Set preference BEFORE signInWithPassword
+            // The storage adapter checks this when storing the session
+            // 'false' = use sessionStorage (auto-clears on browser close)
+            // 'true' = use localStorage (persists across sessions)
+            localStorage.setItem('auth_remember_me', rememberMe.toString())
+            
             const { data, error: authError } = await supabase.auth.signInWithPassword({
                 email,
                 password,
@@ -37,15 +44,16 @@ export default function LoginClient() {
             }
             
             if (data.session && data.user) {
+
                 // Fetch user's profile with role
-                // Try simple query first, then join if needed
+                // Use left join (not !inner) to allow login even if role is missing
                 const { data: profile, error: profileError } = await supabase
                     .from('profiles')
-                    .select('role_id, roles!inner(name)')
+                    .select('role_id, roles(name)')
                     .eq('id', data.user.id)
                     .single()
                 
-                if (profileError) {
+                if (profileError && profileError.code !== 'PGRST116') {
                     console.error('Error fetching profile:', profileError)
                     // Continue with default role if profile fetch fails
                 }
@@ -149,8 +157,13 @@ export default function LoginClient() {
                 </div>
 
                 <div className="flex items-center justify-between">
-                    <label className="flex items-center gap-2 text-sm">
-                        <input type="checkbox" className="rounded border-tm-border" />
+                    <label className="flex items-center gap-2 text-sm cursor-pointer">
+                        <input 
+                            type="checkbox" 
+                            className="rounded border-tm-border" 
+                            checked={Boolean(rememberMe)} 
+                            onChange={(e) => setRememberMe(e.target.checked)}
+                        />
                         <span className="text-tm-text-muted">Remember me</span>
                     </label>
                     <Link href="/forgot-password" className="text-sm text-tm-red hover:underline">
@@ -178,7 +191,7 @@ export default function LoginClient() {
                 </p>
             </div>
 
-            <div className="mt-8 pt-6 border-t border-tm-border">
+            {/* <div className="mt-8 pt-6 border-t border-tm-border">
                 <p className="text-xs text-center text-tm-text-muted mb-4">Or continue with</p>
                 <Button 
                     type="button"
@@ -190,7 +203,7 @@ export default function LoginClient() {
                     <Chrome className="w-4 h-4 mr-2" />
                     Google
                 </Button>
-            </div>
+            </div> */}
         </div>
     )
 }

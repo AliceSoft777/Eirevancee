@@ -161,16 +161,16 @@ export default function HomeClient({
                 </Suspense>
 
                 {/* Visit our Showrooms */}
-                <section className="py-24 md:py-32 bg-[#E5E9F0]">
+                <section className="py-10 md:py-10 bg-[#E5E9F0]">
                     <div className="container mx-auto max-w-[1400px] px-6">
                         <div className="neu-raised rounded-[3rem] p-8 md:p-12 lg:p-16 bg-[#E5E9F0] overflow-hidden">
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-24">
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-22">
                                 {/* Left Column - Content */}
                                 <div className="flex flex-col justify-center space-y-10">
                                     <div>
                                         <h2 className="font-serif text-4xl md:text-6xl font-bold text-slate-800 leading-tight">
                                             Visit our <br />
-                                            <span className="text-primary italic">Showrooms</span>
+                                            <span className="text-primary italic">Showroom</span>
                                         </h2>
                                         <p className="text-xl text-slate-500 mt-6 leading-relaxed max-w-xl">
                                             Experience the texture and quality of our tiles in person. Our experts in Dublin are ready to help you design your dream space.
@@ -180,7 +180,7 @@ export default function HomeClient({
                                     {/* Showroom Locations - Neumorphic Cards */}
                                     <div className="space-y-8">
                                         <div className="neu-inset rounded-[2rem] p-8 flex items-start gap-6 group">
-                                            <div className="h-14 w-14 rounded-2xl neu-raised bg-[#E5E9F0] flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+                                            <div className="h-12 w-12 rounded-2xl neu-raised bg-[#E5E9F0] flex items-center justify-center text-primary group-hover:scale-100 transition-transform">
                                                 <MapPin className="h-7 w-7" />
                                             </div>
                                             <div className="flex-1">
@@ -190,7 +190,15 @@ export default function HomeClient({
                                                 </p>
                                                 <div className="flex items-center gap-2 mt-4 text-primary font-bold text-xs uppercase tracking-widest">
                                                     <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
-                                                    Open Mon-Sun, 9am - 6pm
+                                                    Open Monday - Friday: 8am - 8pm
+                                                </div>
+                                                <div className="flex items-center gap-2 mt-4 text-primary font-bold text-xs uppercase tracking-widest">
+                                                    <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+                                                    Open Saturday: 9am - 6pm
+                                                </div>
+                                                <div className="flex items-center gap-2 mt-4 text-primary font-bold text-xs uppercase tracking-widest">
+                                                    <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+                                                    Open Sunday: 10am - 5pm
                                                 </div>
                                             </div>
                                         </div>
@@ -204,7 +212,7 @@ export default function HomeClient({
                                 
                                 {/* Right Column - Google Map */}
                                 <div className="relative group">
-                                    <div className="neu-raised rounded-[2.5rem] p-4 bg-[#E5E9F0] h-[500px] lg:h-[650px]">
+                                    <div className="neu-raised rounded-[2.5rem] p-2 bg-[#E5E9F0] h-[500px] lg:h-[600px]">
                                         <div className="relative w-full h-full rounded-[2rem] overflow-hidden shadow-inner border border-white/20">
                                             <iframe 
                                                 src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2383.072588924593!2d-6.3380458!3d53.3240536!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x4867133caf418fc7%3A0x8584650c497326da!2sCeltic%20Tiles!5e0!3m2!1sen!2sin!4v1769794286118!5m2!1sen!2sin" 
@@ -221,7 +229,7 @@ export default function HomeClient({
                                     </div>
                                     
                                     {/* Map Floating Badge */}
-                                    <div className="absolute -bottom-6 -right-6 md:right-12 z-10 scale-90 md:scale-100">
+                                    <div className="absolute -bottom-3 -right-5 md:right-12 z-10 scale-90 md:scale-100">
                                         <div className="neu-raised bg-white p-6 rounded-[2rem] flex items-center gap-4 shadow-2xl">
                                             <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
                                                 ★
@@ -239,7 +247,7 @@ export default function HomeClient({
                 </section>
             </main>
 
-            <Footer />
+            <Footer categories={categories} />
         </>
     )
 }

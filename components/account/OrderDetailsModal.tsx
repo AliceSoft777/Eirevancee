@@ -252,19 +252,7 @@ export function OrderDetailsModal() {
             </CardContent>
           </Card>
 
-          {/* Internal Notes (if any) */}
-          {selectedOrder.internalNotes && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Notes</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  {selectedOrder.internalNotes}
-                </p>
-              </CardContent>
-            </Card>
-          )}
+
 
           {/* Status History */}
           {selectedOrder.statusHistory && selectedOrder.statusHistory.length > 0 && (

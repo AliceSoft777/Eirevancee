@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { AdminRoute } from "@/components/admin/AdminRoute"
 import { AdminLayout } from "@/components/admin/AdminLayout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -34,8 +35,14 @@ export default function OrdersListClient({
 }: {
   orders: OrderListItem[]
 }) {
+  const router = useRouter()
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+
+  // Refresh data when component mounts (e.g., after navigation back from detail page)
+  useEffect(() => {
+    router.refresh()
+  }, [])
 
   const filteredOrders = useMemo(() => {
     return orders.filter(order => {

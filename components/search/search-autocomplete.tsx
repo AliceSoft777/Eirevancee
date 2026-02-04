@@ -70,15 +70,16 @@ export function SearchAutocomplete({ onSearch }: SearchAutocompleteProps) {
 
   // Search products from Supabase with debounce
   const searchProducts = useCallback(async (searchQuery: string) => {
+    // Cancel any pending request
     if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-      abortControllerRef.current = new AbortController();
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
 
     if (searchQuery.trim().length < 1) {
-      
       setSuggestions([]);
       setIsOpen(false);
+      setIsLoading(false);
       return;
     }
 
@@ -91,20 +92,23 @@ export function SearchAutocomplete({ onSearch }: SearchAutocompleteProps) {
         .eq("status", "active")
         .limit(8);
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase search error:", error);
+        throw error;
+      }
 
       setSuggestions(data || []);
       setIsOpen((data || []).length > 0);
       setSelectedIndex(-1);
     } catch (err: any) {
-  // Silently ignore AbortError
-  if (err?.name === 'AbortError') return;
-  console.error("Search error:", err);
-  setSuggestions([]);
-} finally {
+      // Silently ignore AbortError
+      if (err?.name === 'AbortError') return;
+      console.error("Search error:", err);
+      setSuggestions([]);
+    } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [supabase]);
 
   // Debounced search effect
   useEffect(() => {

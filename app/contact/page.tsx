@@ -35,7 +35,7 @@ export default function ContactPage() {
                                     </div>
                                     <div>
                                         <h3 className="font-semibold text-foreground mb-1">Phone</h3>
-                                        <p className="text-muted-foreground">+353 1 234 5678</p>
+                                        <p className="text-muted-foreground">+353 14090558</p>
                                         <p className="text-sm text-muted-foreground">Mon-Fri 9am-6pm, Sat 10am-4pm</p>
                                     </div>
                                 </div>
@@ -47,7 +47,7 @@ export default function ContactPage() {
                                     </div>
                                     <div>
                                         <h3 className="font-semibold text-foreground mb-1">Email</h3>
-                                        <p className="text-muted-foreground">info@tilemerchant.ie</p>
+                                        <p className="text-muted-foreground">contact@tilemerchant.ie</p>
                                         <p className="text-sm text-muted-foreground">We&apos;ll respond within 24 hours</p>
                                     </div>
                                 </div>
@@ -59,8 +59,8 @@ export default function ContactPage() {
                                     </div>
                                     <div>
                                         <h3 className="font-semibold text-foreground mb-1">Showroom Address</h3>
-                                        <p className="text-muted-foreground">123 Main Street</p>
-                                        <p className="text-muted-foreground">Dublin, Ireland</p>
+                                        <p className="text-muted-foreground">Besides AXA insurance, Finches Industrial Park, Long Mile Rd, Walkinstown</p>
+                                        <p className="text-muted-foreground">Dublin, D12 FP74, Ireland</p>
                                     </div>
                                 </div>
 
@@ -90,7 +90,7 @@ export default function ContactPage() {
                                     <input
                                         type="text"
                                         id="name"
-                                        className="w-full px-4 py-2 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-background"
+                                        className="w-full px-4 py-2 border border-input rounded-none focus:outline-none focus:ring-2 focus:ring-primary bg-background"
                                         required
                                     />
                                 </div>
@@ -102,7 +102,7 @@ export default function ContactPage() {
                                     <input
                                         type="email"
                                         id="email"
-                                        className="w-full px-4 py-2 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-background"
+                                        className="w-full px-4 py-2 border border-input rounded-none focus:outline-none focus:ring-2 focus:ring-primary bg-background"
                                         required
                                     />
                                 </div>
@@ -114,7 +114,7 @@ export default function ContactPage() {
                                     <input
                                         type="tel"
                                         id="phone"
-                                        className="w-full px-4 py-2 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-background"
+                                        className="w-full px-4 py-2 border border-input rounded-none focus:outline-none focus:ring-2 focus:ring-primary bg-background"
                                     />
                                 </div>
 
@@ -125,7 +125,7 @@ export default function ContactPage() {
                                     <textarea
                                         id="message"
                                         rows={5}
-                                        className="w-full px-4 py-2 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-none bg-background"
+                                        className="w-full px-4 py-2 border border-input rounded-none focus:outline-none focus:ring-2 focus:ring-primary resize-none bg-background"
                                         required
                                     />
                                 </div>

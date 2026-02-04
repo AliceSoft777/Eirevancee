@@ -25,6 +25,12 @@ interface DbProduct {
   thickness: string | null
   sqm_per_box: string | null
   application_area: string | null
+  brand: string | null
+  availability: string | null
+  panel_length: string | null
+  panel_width: string | null
+  package_included: string | null
+  has_led: boolean | null
   created_at: string
   updated_at: string
 }
@@ -53,6 +59,12 @@ export interface Product {
   thickness: string | null
   sqm_per_box: string | null
   application_area: string | null
+  brand: string | null
+  availability: string | null
+  panel_length: string | null
+  panel_width: string | null
+  package_included: string | null
+  has_led: boolean | null
   inStock: boolean
   created_at: string
   updated_at: string
@@ -112,11 +124,24 @@ function transformProduct(dbProduct: any): Product {
     thickness: dbProduct.thickness,
     sqm_per_box: dbProduct.sqm_per_box,
     application_area: dbProduct.application_area,
+    brand: dbProduct.brand,
+    availability: dbProduct.availability,
+    panel_length: dbProduct.panel_length,
+    panel_width: dbProduct.panel_width,
+    package_included: dbProduct.package_included,
+    has_led: dbProduct.has_led,
     inStock: dbProduct.stock > 0,
     created_at: dbProduct.created_at,
     updated_at: dbProduct.updated_at,
     categories: dbProduct.categories || null,
-    categoryName: dbProduct.categories?.name || null,
+    categoryName: (() => {
+      if (!dbProduct.categories) return null
+      const cat = dbProduct.categories
+      // Supabase self-join can return empty array [] or object {name: ...}
+      const parentCat = Array.isArray(cat.categories) ? cat.categories[0] : cat.categories
+      const parentName = parentCat?.name
+      return parentName ? `${parentName} > ${cat.name}` : cat.name
+    })(),
     // Legacy fields for backward compatibility
     rating: 0,
     reviews: 0,
@@ -140,16 +165,28 @@ export function useProducts() {
       // Fetch products with category info and images
       const { data, error: fetchError } = await supabase
         .from('products')
-        .select('*, categories!category_id(name, parent_id), product_images!left(id, image_url, is_primary, display_order)')
+        .select('*, categories!category_id(name, parent_id, categories!parent_id(name)), product_images!left(id, image_url, is_primary, display_order)')
         .order('created_at', { ascending: false })
 
-      if (fetchError) throw fetchError
-
+      if (fetchError) {
+        // Silently ignore AbortErrors (expected during React Strict Mode remounts)
+        if (fetchError.message?.includes('AbortError')) {
+          setIsLoading(false)
+          return
+        }
+        throw fetchError
+      }
       // Transform each product
       const transformedProducts = (data || []).map((p: any) => transformProduct(p))
 
       setProducts(transformedProducts)
     } catch (err: any) {
+      // ✅ SILENTLY IGNORE ABORT ERRORS: Expected during React Strict Mode
+      if (err?.message?.includes('AbortError') || err?.name === 'AbortError') {
+        setIsLoading(false)
+        return
+      }
+      
       console.error('Error fetching products:', err)
       setError(err.message)
     } finally {
@@ -162,7 +199,7 @@ export function useProducts() {
     fetchProducts()
   }, [])
 
-  async function addProduct(product: Partial<Product>) {
+  async function addProduct(product: Partial<Product>): Promise<DbProduct | null> {
     // Generate slug from name if not provided
     const slug = product.slug || product.name?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || `product-${Date.now()}`
     
@@ -185,6 +222,14 @@ export function useProducts() {
       thickness: product.thickness,
       sqm_per_box: product.sqm_per_box,
       application_area: product.application_area,
+      model: product.model,
+      brand: product.brand,
+      availability: product.availability,
+      panel_length: product.panel_length,
+      panel_width: product.panel_width,
+      package_included: product.package_included,
+      has_led: product.has_led,
+      is_clearance: product.is_clearance,
     }
     
     const { data: newProduct, error: productError} = await supabase
@@ -207,7 +252,9 @@ export function useProducts() {
       'name', 'slug', 'subtitle', 'description', 'price', 'image',
       'category_id', 'stock', 'status', 'low_stock_threshold',
       'assigned_code', 'material', 'size', 'finish', 'thickness',
-      'sqm_per_box', 'application_area', 'is_clearance' // ✅ Added is_clearance
+      'sqm_per_box', 'application_area', 'is_clearance', 'model',
+      'brand', 'availability', 'panel_length', 'panel_width',
+      'package_included', 'has_led'
     ]
     
     for (const field of allowedFields) {

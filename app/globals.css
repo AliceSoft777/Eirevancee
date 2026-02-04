@@ -28,8 +28,11 @@
     --neu-bg: 210 20% 92%;
     --neu-light: 0 0% 100%;
     --neu-dark: 210 20% 84%;
-    --neu-shadow-raised: 8px 8px 16px hsl(var(--neu-dark)), -8px -8px 16px hsl(var(--neu-light));
-    --neu-shadow-inset: inset 4px 4px 8px hsl(var(--neu-dark)), inset -4px -4px 8px hsl(var(--neu-light));
+    --neu-shadow-raised:
+      8px 8px 16px hsl(var(--neu-dark)), -8px -8px 16px hsl(var(--neu-light));
+    --neu-shadow-inset:
+      inset 4px 4px 8px hsl(var(--neu-dark)),
+      inset -4px -4px 8px hsl(var(--neu-light));
 
     /* shadcn compatibility - Using burgundy as primary instead of green */
     --background: var(--neu-bg);
@@ -78,13 +81,16 @@
   }
 
   /* Specific refinements for components */
-  .bg-white, .bg-card {
+  .bg-white,
+  .bg-card {
     background: hsl(var(--neu-bg)) !important;
     box-shadow: var(--neu-shadow-raised);
     border: none !important;
   }
 
-  input, textarea, select {
+  input,
+  textarea,
+  select {
     background: hsl(var(--neu-bg)) !important;
     box-shadow: var(--neu-shadow-inset) !important;
     border: none !important;
@@ -132,4 +138,10 @@ button,
 .swiper-slide {
   padding-top: 16px;
   padding-bottom: 16px;
+}
+
+/* Reduce placeholder opacity for better distinction from entered text */
+input::placeholder,
+textarea::placeholder {
+  opacity: 0.7;
 }

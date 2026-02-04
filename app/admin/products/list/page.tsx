@@ -50,10 +50,23 @@ export default async function ProductsListPage() {
   }
 
   // Transform to include computed fields
-  const productsWithInStock = (products || []).map((p: any) => ({
-    ...p,
-    inStock: p.stock > (p.low_stock_threshold || 0)
-  }))
+  const productsWithInStock = (products || []).map((p: any) => {
+    // Compute categoryName from categories data
+    let categoryName = null
+    if (p.categories) {
+      const cat = p.categories
+      // Handle parent category - can be array or object
+      const parentCat = Array.isArray(cat.categories) ? cat.categories[0] : cat.categories
+      const parentName = parentCat?.name
+      categoryName = parentName ? `${parentName} > ${cat.name}` : cat.name
+    }
+    
+    return {
+      ...p,
+      inStock: p.stock > (p.low_stock_threshold || 0),
+      categoryName
+    }
+  })
 
   return <ProductsListClient initialProducts={productsWithInStock} />
 }

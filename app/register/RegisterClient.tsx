@@ -184,7 +184,7 @@ export default function RegisterClient() {
         </Button>
       </form>
 
-      <div className="mt-8 pt-6 border-t border-tm-border">
+      {/* <div className="mt-8 pt-6 border-t border-tm-border">
         <p className="text-xs text-center text-tm-text-muted mb-4">Or continue with</p>
         <Button 
           type="button"
@@ -196,7 +196,7 @@ export default function RegisterClient() {
           <Chrome className="w-4 h-4 mr-2" />
           Google
         </Button>
-      </div>
+      </div> */}
 
       <p className="text-sm mt-6 text-center">
         Already have an account?{" "}

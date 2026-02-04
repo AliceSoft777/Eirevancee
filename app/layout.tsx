@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Playfair_Display } from "next/font/google";
 import { Toaster } from "sonner";
 import { AuthProvider } from "@/components/auth/AuthProvider";
+import "@/lib/suppress-abort-errors"; // Suppress Supabase dev errors
 import "./globals.css";
 
 const inter = Inter({

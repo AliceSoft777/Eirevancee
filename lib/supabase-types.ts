@@ -72,6 +72,7 @@ export interface Database {
           category_id: string | null
           stock: number
           status: string
+          is_clearance: boolean
           low_stock_threshold: number
           assigned_code: string | null
           material: string | null
@@ -80,6 +81,12 @@ export interface Database {
           thickness: string | null
           sqm_per_box: string | null
           application_area: string | null
+          package_included: string | null
+          has_led: boolean
+          brand: string | null
+          availability: string | null
+          panel_length: string | null
+          panel_width: string | null
           created_at: string
           updated_at: string
         }
@@ -94,6 +101,7 @@ export interface Database {
           category_id?: string | null
           stock?: number
           status?: string
+          is_clearance?: boolean
           low_stock_threshold?: number
           assigned_code?: string | null
           material?: string | null
@@ -102,6 +110,12 @@ export interface Database {
           thickness?: string | null
           sqm_per_box?: string | null
           application_area?: string | null
+          package_included?: string | null
+          has_led?: boolean
+          brand?: string | null
+          availability?: string | null
+          panel_length?: string | null
+          panel_width?: string | null
         }
         Update: {
           name?: string
@@ -113,6 +127,7 @@ export interface Database {
           category_id?: string | null
           stock?: number
           status?: string
+          is_clearance?: boolean
           low_stock_threshold?: number
           assigned_code?: string | null
           material?: string | null
@@ -121,6 +136,12 @@ export interface Database {
           thickness?: string | null
           sqm_per_box?: string | null
           application_area?: string | null
+          package_included?: string | null
+          has_led?: boolean
+          brand?: string | null
+          availability?: string | null
+          panel_length?: string | null
+          panel_width?: string | null
         }
       }
       orders: {

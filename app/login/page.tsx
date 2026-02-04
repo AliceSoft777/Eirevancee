@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation"
 import { SiteHeader } from "@/components/layout/site-header"
-import { Footer } from "@/components/layout/footer"
 import { getServerSession, getNavData } from "@/lib/loaders"
 import LoginClient from "./LoginClient"
 
@@ -25,7 +24,6 @@ export default async function LoginPage() {
                     <LoginClient />
                 </div>
             </main>
-            <Footer />
         </>
     )
 }

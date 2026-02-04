@@ -32,8 +32,19 @@ export async function middleware(request: NextRequest) {
   // issues with users being randomly logged out.
 
   // This refreshes the session if expired - required for Server Components
-  await supabase.auth.getUser()
-
+  try {
+    await supabase.auth.getUser()
+  } catch (error) {
+    // "Refresh Token Not Found" is expected when user has no active session
+    const isExpectedNoSession = error instanceof Error && 
+      error.message?.includes('Refresh Token Not Found')
+    
+    if (isExpectedNoSession) {
+      console.debug('Auth refresh attempted with no valid session')
+    } else {
+      console.error('Unexpected auth error in middleware:', error)
+    }
+  }
   return supabaseResponse
 }
 

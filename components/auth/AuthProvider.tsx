@@ -1,13 +1,16 @@
 "use client"
 
-import { useEffect, useCallback } from "react"
+import { useEffect, useCallback, useMemo } from "react"
 import { getSupabaseBrowserClient  } from "@/lib/supabase/client"
 import { useStore } from "@/hooks/useStore"
 import type { UserRole } from "@/lib/auth"
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { login, logout } = useStore()
-    const supabase = getSupabaseBrowserClient()
+    
+    // ✅ FIX: Use useMemo to prevent re-initialization on every render
+    // This prevents AbortError from locks.ts in React Strict Mode
+    const supabase = useMemo(() => getSupabaseBrowserClient(), [])
 
     // Stable reference to fetchUserProfile using useCallback
     const fetchUserProfile = useCallback(async (userId: string) => {
@@ -41,11 +44,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
         } catch (err: unknown) {
              const error = err as { name?: string; message?: string }
-             if (error.name !== 'AbortError') {
+             // ✅ Silently ignore AbortError (expected in dev mode)
+             if (error.name !== 'AbortError' && !error.message?.includes('AbortError')) {
                 console.error("Error in fetchUserProfile:", err)
              }
         }
-    }, [login])
+    }, [login, supabase])
 
     useEffect(() => {
         let mounted = true
@@ -69,7 +73,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 }
             } catch (err: unknown) {
                 const error = err as { name?: string; message?: string }
-                if (error.name !== 'AbortError') {
+                // ✅ Silently ignore AbortError (expected in dev mode)
+                if (error.name !== 'AbortError' && !error.message?.includes('AbortError')) {
                     console.warn('Auth error:', error.message)
                 }
             }
@@ -94,7 +99,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             mounted = false
             subscription?.unsubscribe()
         }
-    }, [login, logout])
+    }, [fetchUserProfile, logout, supabase])
 
 
 
