@@ -1,22 +1,19 @@
 import { notFound } from "next/navigation";
 import { createServerSupabase } from "@/lib/supabase/server";
 import ProductClient from "./ProductClient";
+import { SiteHeader } from "@/components/layout/site-header";
+import { Footer } from "@/components/layout/footer";
 
-import type { Product } from "@/hooks/useProducts";
-import type { Category } from "@/lib/supabase-types";
+import { getProducts, getNavData, getCartData, getWishlistData, getServerSession } from "@/lib/loaders";
 
-import {
-  getNavData,
-  getCartData,
-  getWishlistData,
-  getServerSession,
-} from "@/lib/loaders";
+import type { Product } from "@/lib/supabase-types"; // ✅ correct Product type
+import type { CategoryWithChildren } from "@/lib/loaders"; // ✅ correct categories type
 
 /* ---------------------------------------------------
    Helpers
 --------------------------------------------------- */
 
-// Normalize DB → Product type (STRICT)
+// ✅ Normalize DB → Product type that matches ProductClient usage
 function transformProduct(dbProduct: Record<string, unknown>): Product {
   const rawCategories = dbProduct.categories as
     | { name?: string | null; parent_id?: string | null }
@@ -30,11 +27,24 @@ function transformProduct(dbProduct: Record<string, unknown>): Product {
     : null;
 
   // ✅ BUILD IMAGES ARRAY FROM product_images TABLE
-  const productImages = (dbProduct.product_images as Array<any>) ?? []
-  const sortedImages = productImages.sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
-  const allImages = sortedImages.map((img) => img.image_url).filter(Boolean) || []
-  const primaryImage = sortedImages.find((img) => img.is_primary)?.image_url || allImages[0] || (dbProduct.image as string) || null
-  const finalImages = allImages.length > 0 ? allImages : (dbProduct.image ? [dbProduct.image as string] : [])
+  const productImages = (dbProduct.product_images as Array<any>) ?? [];
+  const sortedImages = productImages.sort(
+    (a, b) => (a.display_order ?? 0) - (b.display_order ?? 0)
+  );
+  const allImages =
+    sortedImages.map((img) => img.image_url).filter(Boolean) || [];
+  const primaryImage =
+    sortedImages.find((img) => img.is_primary)?.image_url ||
+    allImages[0] ||
+    (dbProduct.image as string) ||
+    null;
+
+  const finalImages =
+    allImages.length > 0
+      ? allImages
+      : dbProduct.image
+      ? [(dbProduct.image as string)]
+      : [];
 
   return {
     id: dbProduct.id as string,
@@ -43,50 +53,39 @@ function transformProduct(dbProduct: Record<string, unknown>): Product {
     subtitle: (dbProduct.subtitle as string) ?? null,
     description: (dbProduct.description as string) ?? null,
     price: (dbProduct.price as number) || 0,
+
     image: primaryImage,
     images: finalImages,
+
     assigned_code: (dbProduct.assigned_code as string) ?? null,
     model: (dbProduct.model as string) ?? null,
     size: (dbProduct.size as string) ?? null,
     finish: (dbProduct.finish as string) ?? null,
     thickness: (dbProduct.thickness as string) ?? null,
     sqm_per_box: (dbProduct.sqm_per_box as string) ?? null,
-    indoor_outdoor: (dbProduct.indoor_outdoor as string) ?? null,
     application_area: (dbProduct.application_area as string) ?? null,
     category_id: (dbProduct.category_id as string) ?? null,
+
     stock: (dbProduct.stock as number) || 0,
     low_stock_threshold: (dbProduct.low_stock_threshold as number) || 10,
     cost_price: (dbProduct.cost_price as number) ?? null,
-    status: dbProduct.status as string,
-    inStock: ((dbProduct.stock as number) || 0) > 0,
+    status: dbProduct.status as any,
     created_at: dbProduct.created_at as string,
     updated_at: dbProduct.updated_at as string,
 
-    categories,
-    categoryName: categories?.name ?? null,
-
-    // Legacy / compatibility fields
-    rating: 0,
-    reviews: 0,
-    pricePerSqm: (dbProduct.sqm_per_box as string) ? ((dbProduct.price as number) || 0) : null,
+    // ✅ fields missing in your error
+    is_clearance: (dbProduct.is_clearance as boolean) ?? false,
     material: (dbProduct.material as string) ?? null,
-    coverage: (dbProduct.sqm_per_box as string) ?? null,
-    subcategory: null,
-  };
-}
+    brand: (dbProduct.brand as string) ?? null,
+    availability: (dbProduct.availability as string) ?? null,
+    panel_length: (dbProduct.panel_length as string) ?? null,
+    panel_width: (dbProduct.panel_width as string) ?? null,
+    package_included: (dbProduct.package_included as string) ?? null,
+    has_led: (dbProduct.has_led as boolean) ?? null,
 
-// Flatten nested categories for header
-function flattenCategories(categories: Category[]): Category[] {
-  return categories.map((cat) => ({
-    id: cat.id,
-    name: cat.name,
-    slug: cat.slug,
-    parent_id: cat.parent_id ?? null,
-    description: cat.description ?? null,
-    image: cat.image ?? null,
-    display_order: cat.display_order ?? 0,
-    created_at: cat.created_at,
-  }));
+    // extra / compatibility
+    categories: categories as any,
+  } as Product;
 }
 
 /* ---------------------------------------------------
@@ -99,19 +98,20 @@ export default async function Page({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const supabase = await createServerSupabase()
+  const supabase = await createServerSupabase();
 
-  // Header/session data
+  // ✅ Session + cart/wishlist counts
   const session = await getServerSession();
   const [{ cartCount }, { wishlistCount }] = await Promise.all([
     getCartData(session.userId),
     getWishlistData(session.userId),
   ]);
 
-  const { categories: rawCategories } = await getNavData();
-  const categories = flattenCategories(rawCategories);
+  // ✅ IMPORTANT: do NOT flatten categories; SiteHeader needs children
+  const { categories } = await getNavData(); // CategoryWithChildren[]
+  const { products } = await getProducts(); // used for MegaMenu
 
-  // Fetch product with product_images ✅
+  // ✅ Fetch product + images
   const { data: rawProduct } = await supabase
     .from("products")
     .select(
@@ -129,7 +129,7 @@ export default async function Page({
 
   const product = transformProduct(rawProduct as Record<string, unknown>);
 
-  // Related products (SAFE for nullable category_id) ✅ with images
+  // ✅ Related products + images
   const relatedQuery = supabase
     .from("products")
     .select(
@@ -154,13 +154,25 @@ export default async function Page({
   );
 
   return (
-    <ProductClient
-      product={product}
-      relatedProducts={relatedProducts}
-      categories={categories as any}
-      session={session}
-      initialCartCount={cartCount}
-      initialWishlistCount={wishlistCount}
-    />
+    <>
+      <SiteHeader
+        session={session}
+        categories={categories as CategoryWithChildren[]}
+        products={products}
+        initialCartCount={cartCount}
+        initialWishlistCount={wishlistCount}
+      />
+
+      <ProductClient
+        product={product as any}
+        relatedProducts={relatedProducts as any}
+        categories={categories as any}
+        session={session}
+        initialCartCount={cartCount}
+        initialWishlistCount={wishlistCount}
+      />
+
+      <Footer categories={categories as any} />
+    </>
   );
 }

@@ -85,7 +85,10 @@ export const useStore = create<StoreState>()(
 
             // Cart
             cartCount: 0,
-            setCartCount: (count) => set({ cartCount: count }),
+            setCartCount: (count) => {
+                console.log('[useStore] Setting cart count to:', count)
+                set({ cartCount: count })
+            },
         }),
         {
             name: 'celtic-tiles-storage',

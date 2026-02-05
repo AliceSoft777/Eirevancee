@@ -9,7 +9,7 @@ import { formatPrice } from "@/lib/utils"
 import { TrendingUp, Package, Users } from "lucide-react"
 
 export default function SalesReportPage() {
-  const { orders } = useOrders()
+  const { orders } = useOrders('ALL') // Fetch all orders for admin reports
   const { } = useProducts()
 
   // Calculate metrics

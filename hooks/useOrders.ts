@@ -48,33 +48,43 @@ export interface StatusHistoryEntry {
   timestamp: string
 }
 
-export function useOrders(userId?: string | null) {
+export function useOrders(userId?: string | null | 'ALL') {
   const [orders, setOrders] = useState<Order[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const fetchOrders = useCallback(async () => {
-    if (!userId) {
-      console.log('[useOrders] ❌ No userId provided - skipping fetch')
-      setOrders([])
-      setIsLoading(false)
-      return
-    }
-
     try {
       setIsLoading(true)
       setError(null)
 
       const supabase = getSupabaseBrowserClient()
-      console.log('[useOrders] 🔍 Fetching orders for userId:', userId)
-      console.log('[useOrders] userId type:', typeof userId)
       
-      // 1. Fetch Orders filtered by userId
-      const { data: dbOrders, error: orderError } = await (supabase as any)
+      // Admin mode: fetch ALL orders when userId is 'ALL' or undefined
+      const isAdminMode = userId === 'ALL' || userId === undefined
+      
+      if (isAdminMode) {
+        console.log('[useOrders] 🔍 Fetching ALL orders (admin mode)')
+      } else if (!userId) {
+        console.log('[useOrders] ❌ No userId provided - skipping fetch')
+        setOrders([])
+        setIsLoading(false)
+        return
+      } else {
+        console.log('[useOrders] 🔍 Fetching orders for userId:', userId)
+      }
+      
+      // Build query - conditionally filter by user_id
+      let query = (supabase as any)
         .from('orders')
         .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
+      
+      // Only filter by user_id if not in admin mode
+      if (!isAdminMode && userId) {
+        query = query.eq('user_id', userId)
+      }
+      
+      const { data: dbOrders, error: orderError } = await query.order('created_at', { ascending: false })
 
       if (orderError) {
         console.error('[useOrders] ❌ Order fetch error:', orderError)

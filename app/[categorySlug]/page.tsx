@@ -2,10 +2,12 @@ import { notFound } from "next/navigation"
 import { createServerSupabase } from "@/lib/supabase/server"
 import { SiteHeader } from "@/components/layout/site-header"
 import { Footer } from "@/components/layout/footer"
-import { getNavData, getServerSession } from "@/lib/loaders"
+import { getNavData, getServerSession, getCartData, getWishlistData } from "@/lib/loaders"
 import { ProductCard } from "@/components/products/product-card"
 import { ProductFilters } from "@/components/products/product-filters"
 import { Product, Category } from "@/lib/supabase-types"
+import { getProducts } from "@/lib/loaders";
+
 
 // Reserved slugs that should not be handled by this dynamic route
 const RESERVED_SLUGS = [
@@ -109,17 +111,27 @@ export default async function CategoryPage(props: Props) {
           break
   }
 
-  const { data: products } = await query
+ // Products for GRID (category only)
+const { data: categoryProductsRaw } = await query
+  const categoryProducts: Product[] = categoryProductsRaw ?? []
+// FULL SITE PRODUCTS for mega-menu
+const { products: allProducts } = await getProducts()
+
   
   // Get nav data and session for header
   const { categories } = await getNavData()
   const session = await getServerSession()
+
   
+    const [{ cartCount }, { wishlistCount }] = await Promise.all([
+    getCartData(session.userId),
+    getWishlistData(session.userId),
+  ])
   // Handle empty category with friendly message
-  if (!products || products.length === 0) {
+  if (categoryProducts.length === 0) {
     return (
       <>
-        <SiteHeader session={session} categories={categories} />
+        <SiteHeader session={session} categories={categories} products={allProducts}/>
         <main className="bg-background min-h-screen">
           <div className="container mx-auto max-w-[1400px] px-4 py-12">
             <div className="mb-8 border-b border-border pb-4">
@@ -141,7 +153,13 @@ export default async function CategoryPage(props: Props) {
   
   return (
     <>
-      <SiteHeader session={session} categories={categories} />
+      <SiteHeader
+  session={session}
+  categories={categories}
+  products={allProducts}
+  initialCartCount={cartCount}
+  initialWishlistCount={wishlistCount}
+/>
       <main className="bg-background min-h-screen">
         <div className="container mx-auto max-w-[1400px] px-4 py-12">
           <div className="mb-8 border-b border-border pb-4">
@@ -149,18 +167,18 @@ export default async function CategoryPage(props: Props) {
             {typedCategory.description && (
               <p className="text-muted-foreground">{typedCategory.description}</p>
             )}
-            <p className="text-sm text-muted-foreground mt-2">{products.length} product{products.length !== 1 ? 's' : ''}</p>
+            <p className="text-sm text-muted-foreground mt-2">{categoryProducts.length} product{categoryProducts.length !== 1 ? 's' : ''}</p>
           </div>
           
           {/* Filters */}
           <ProductFilters />
           
           <div className="mt-6 mb-8 text-sm text-muted-foreground">
-             Showing {products.length} products
+             Showing {categoryProducts.length} products
           </div>
           
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {products.map((product: Product) => (
+            {categoryProducts.map((product: Product) => (
               <ProductCard key={product.id} product={product} />
             ))}
           </div>

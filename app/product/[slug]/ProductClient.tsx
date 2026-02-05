@@ -70,13 +70,7 @@ export default function ProductClient({
 
   return (
     <>
-      <SiteHeader 
-        session={session}
-        categories={categories} 
-        products={relatedProducts} // Using related products for featured in mega menu
-        initialCartCount={initialCartCount}
-        initialWishlistCount={initialWishlistCount}
-      />
+      
 
       <main className="bg-white min-h-screen">
         <div className="container mx-auto max-w-[1200px] px-4 py-12">
@@ -125,6 +119,27 @@ export default function ProductClient({
                   {product.name}
                 </h1>
 
+                {/* Subtitle */}
+                {product.subtitle && (
+                  <p className="text-lg text-slate-600 mb-3">
+                    {product.subtitle}
+                  </p>
+                )}
+
+                {/* Brand & SKU */}
+                <div className="flex items-center gap-4 mb-3">
+                  {product.brand && (
+                    <span className="text-sm font-medium text-slate-700">
+                      <span className="text-slate-500">Brand:</span> {product.brand}
+                    </span>
+                  )}
+                  {product.assigned_code && (
+                    <span className="text-sm text-slate-500">
+                      SKU: {product.assigned_code}
+                    </span>
+                  )}
+                </div>
+
                 {/* Rating */}
                 <div className="flex items-center gap-2 mb-4">
                   <StarRating
@@ -139,8 +154,15 @@ export default function ProductClient({
 
                 {/* Price */}
                 <div className="mb-6">
-                  <div className="text-3xl font-bold text-slate-900">
-                    {formatPrice(product.price)}
+                  <div className="flex items-center gap-3">
+                    <div className="text-3xl font-bold text-slate-900">
+                      {formatPrice(product.price)}
+                    </div>
+                    {product.is_clearance && (
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-red-500 text-white animate-pulse">
+                        🔥 CLEARANCE
+                      </span>
+                    )}
                   </div>
                   {!!product.pricePerSqm && (
                     <p className="text-xs text-slate-500 mt-1">
@@ -149,7 +171,7 @@ export default function ProductClient({
                   )}
                 </div>
 
-                {/* Stock Status Badge */}
+                {/* Stock Status & Availability & Availability Badge */}
                 <div className="flex items-center gap-2">
                   {product.stock === 0 ? (
                     <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
@@ -164,6 +186,11 @@ export default function ProductClient({
                       ✅ In Stock
                     </span>
                   )}
+                  {product.availability && product.availability !== 'In Stock' && (
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
+                      {product.availability}
+                    </span>
+                  )}
                 </div>
 
                 {/* Description */}
@@ -176,6 +203,18 @@ export default function ProductClient({
               <div>
                 <h3 className="text-sm font-bold text-slate-900 mb-4">Specifications</h3>
                 <div className="space-y-2 max-w-sm">
+                  {product.brand && (
+                    <div className="flex justify-between text-xs py-1 border-b border-slate-50">
+                      <span className="text-slate-500 font-medium">Brand:</span>
+                      <span className="text-slate-900 font-bold">{product.brand}</span>
+                    </div>
+                  )}
+                  {product.assigned_code && (
+                    <div className="flex justify-between text-xs py-1 border-b border-slate-50">
+                      <span className="text-slate-500 font-medium">Product Code:</span>
+                      <span className="text-slate-900 font-bold">{product.assigned_code}</span>
+                    </div>
+                  )}
                   {product.size && product.size !== '0' && (
                     <div className="flex justify-between text-xs py-1 border-b border-slate-50">
                       <span className="text-slate-500 font-medium">Size:</span>
@@ -200,14 +239,63 @@ export default function ProductClient({
                       <span className="text-slate-900 font-bold">{product.thickness}</span>
                     </div>
                   )}
+                  {product.sqm_per_box && (
+                    <div className="flex justify-between text-xs py-1 border-b border-slate-50">
+                      <span className="text-slate-500 font-medium">Coverage per Box:</span>
+                      <span className="text-slate-900 font-bold">{product.sqm_per_box} m²</span>
+                    </div>
+                  )}
                   {product.coverage && (
                     <div className="flex justify-between text-xs py-1 border-b border-slate-50">
                       <span className="text-slate-500 font-medium">Coverage:</span>
                       <span className="text-slate-900 font-bold">{product.coverage}</span>
                     </div>
                   )}
+                  {product.panel_length && (
+                    <div className="flex justify-between text-xs py-1 border-b border-slate-50">
+                      <span className="text-slate-500 font-medium">Panel Length:</span>
+                      <span className="text-slate-900 font-bold">{product.panel_length}</span>
+                    </div>
+                  )}
+                  {product.panel_width && (
+                    <div className="flex justify-between text-xs py-1 border-b border-slate-50">
+                      <span className="text-slate-500 font-medium">Panel Width:</span>
+                      <span className="text-slate-900 font-bold">{product.panel_width}</span>
+                    </div>
+                  )}
+                  {product.has_led !== null && (
+                    <div className="flex justify-between text-xs py-1 border-b border-slate-50">
+                      <span className="text-slate-500 font-medium">Built-in LED:</span>
+                      <span className="text-slate-900 font-bold">{product.has_led ? 'Yes' : 'No'}</span>
+                    </div>
+                  )}
                 </div>
               </div>
+
+              {/* Application Area */}
+              {product.application_area && (
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 mb-3">Suitable For</h3>
+                  <p className="text-sm text-slate-600 bg-blue-50 p-3 rounded-lg">
+                    {product.application_area}
+                  </p>
+                </div>
+              )}
+
+              {/* Package Contents */}
+              {product.package_included && (
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 mb-3">Package Contents</h3>
+                  <div className="text-sm text-slate-600 bg-slate-50 p-3 rounded-lg">
+                    {product.package_included.split(',').map((item, idx) => (
+                      <div key={idx} className="flex items-start gap-2 py-1">
+                        <span className="text-green-600 mt-0.5">✓</span>
+                        <span>{item.trim()}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Tile Calculator */}
               {(!!product.pricePerSqm || !!product.coverage || !!product.sqm_per_box) && (
@@ -221,6 +309,46 @@ export default function ProductClient({
                     onCalculationChange={setCalculatorValues}
                   />
                 </Suspense>
+              )}
+
+              {/* Quantity Selector - Only for non-sqm products */}
+              {!product.pricePerSqm && (
+                <div className="space-y-2">
+                  <h3 className="text-sm font-bold text-slate-900">Quantity</h3>
+                  <div className="flex items-center gap-3">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-10 w-10 rounded-md border-2 border-slate-200 hover:bg-slate-100 hover:text-slate-900 text-slate-900"
+                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                      disabled={quantity <= 1}
+                    >
+                      <Minus className="h-4 w-4 text-slate-900" />
+                    </Button>
+                    <div className="flex-1 text-center">
+                      <input
+                        type="number"
+                        min="1"
+                        max={product.stock}
+                        value={quantity}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value) || 1
+                          setQuantity(Math.min(product.stock, Math.max(1, val)))
+                        }}
+                        className="w-20 text-center text-lg font-bold border-2 border-slate-200 rounded-md py-2 focus:outline-none focus:border-primary"
+                      />
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-10 w-10 rounded-md border-2 border-slate-200 hover:bg-slate-100 hover:text-slate-900 text-slate-900"
+                      onClick={() => setQuantity(Math.min(product.stock, quantity + 1))}
+                      disabled={quantity >= product.stock}
+                    >
+                      <Plus className="h-4 w-4 text-slate-900" />
+                    </Button>
+                  </div>
+                </div>
               )}
 
               {/* Action Button */}
@@ -243,6 +371,16 @@ export default function ProductClient({
                       return;
                     }
                     
+                    // Check stock availability
+                    const requestedQty = product.pricePerSqm
+                      ? (calculatorValues?.boxes || 1)
+                      : quantity;
+                    
+                    if (requestedQty > product.stock) {
+                      toast.error(`Only ${product.stock} units available`);
+                      return;
+                    }
+                    
                     setIsAddingToCart(true);
                     try {
                       const qty = product.pricePerSqm
@@ -254,16 +392,31 @@ export default function ProductClient({
                         ? product.price * coverageVal 
                         : product.price;
 
-                      await addToCart({
+                      const result = await addToCart({
                         product_id: product.id,
                         product_name: product.name,
                         product_price: actualPrice,
                         product_image: product.image,
-                        quantity: qty
+                        quantity: requestedQty
                       });
-                      toast.success("Added to cart!");
-                    } catch (err) {
-                      toast.error(err instanceof Error ? err.message : "Failed to add to cart");
+                      
+                      if (result) {
+                        console.log('[ProductClient] addToCart SUCCESS:', result);
+                        toast.success(`Added ${requestedQty} ${requestedQty === 1 ? 'item' : 'items'} to cart!`);
+                      } else {
+                        console.warn('[ProductClient] addToCart returned undefined, but no error thrown');
+                        toast.success(`Added ${requestedQty} ${requestedQty === 1 ? 'item' : 'items'} to cart!`);
+                      }
+                    } catch (err: any) {
+                      console.error('[ProductClient] addToCart error:', err);
+                      console.error('[ProductClient] Error name:', err?.name);
+                      console.error('[ProductClient] Error message:', err?.message);
+                      // Don't show error for AbortError
+                      if (err?.name !== 'AbortError' && !err?.message?.includes('AbortError')) {
+                        toast.error(err instanceof Error ? err.message : "Failed to add to cart");
+                      } else {
+                        console.log('[ProductClient] Suppressed AbortError toast');
+                      }
                     } finally {
                       setIsAddingToCart(false);
                     }
@@ -403,7 +556,7 @@ export default function ProductClient({
         </div>
       </main>
 
-      <Footer />
+      
     </>
   );
 }

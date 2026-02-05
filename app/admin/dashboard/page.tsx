@@ -19,7 +19,7 @@ import {
 } from "lucide-react"
 
 export default function AdminDashboardPage() {
-  const { orders } = useOrders()
+  const { orders } = useOrders('ALL') // Fetch all orders for admin
   const { getLowStockProducts } = useProducts()
 
   // Calculate stats
@@ -148,15 +148,15 @@ export default function AdminDashboardPage() {
 
           {/* Quick Actions */}
           <div className="flex gap-4">
-            <Button asChild>
+            <Button asChild className="hover:text-white">
               <Link href="/admin/orders/list">
                 <ShoppingBag className="w-4 h-4 mr-2" />
                 View All Orders
               </Link>
             </Button>
-            <Button asChild variant="outline">
+            <Button asChild variant="outline" className="hover:text-slate-900">
               <Link href="/admin/products/list">
-                <Plus className="w-4 h-4 mr-2" />
+                <Plus className="w-4 h-4 mr-2 text-slate-900" />
                 Manage Products
               </Link>
             </Button>

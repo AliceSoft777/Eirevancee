@@ -209,12 +209,12 @@ export default async function TradePage() {
 
     return (
         <>
-            <SiteHeader 
+            {/* <SiteHeader 
                 initialCartCount={cartCount} 
                 initialWishlistCount={wishlistCount}
                 categories={categories}
                 products={products} // Pass mock trade products to share with mega menu if needed
-            />
+            /> */}
 
             <main>
                 {/* Page Header with Yellow Accent */}

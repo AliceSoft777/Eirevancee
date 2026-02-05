@@ -72,6 +72,10 @@ COMPLETE_SESSION_FIXES_SUMMARY.txt
 NEXTJS_15_PARAMS_FIX_PROOF.txt
 PRODUCT_MANAGEMENT_COMPLETE.md
 Products List_V2.xlsx
+~$*.xlsx
+~$*.xls
+~$*.doc*
+~$*.ppt*
 temp-output.css
 eslint-report.json
 
@@ -106,3 +110,4 @@ Thumbs.db
 .env.development.local
 .env.test.local
 .env.production.local
+~$Products List_V2.xlsx

@@ -128,7 +128,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   return (
     <div className="min-h-screen bg-background">
       {/* Mobile Header */}
-      <header className="lg:hidden sticky top-0 z-40 bg-card border-b border-border px-4 py-3 flex items-center justify-between">
+      <header className="lg:hidden sticky top-0 z-40 bg-card border-b border-border px-4 py-3 flex items-center justify-between" suppressHydrationWarning>
         <h1 className="text-lg font-serif font-bold text-primary">
           Celtic Tiles <span className="text-xs font-sans text-muted-foreground">{isAdmin() ? "Admin" : "Staff"}</span>
         </h1>
@@ -136,8 +136,10 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           variant="ghost"
           size="sm"
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+          suppressHydrationWarning
+          className="hover:text-slate-900"
         >
-          {isSidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          {isSidebarOpen ? <X className="h-5 w-5 text-slate-900" /> : <Menu className="h-5 w-5 text-slate-900" />}
         </Button>
       </header>
 
@@ -167,8 +169,8 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           {/* Mobile close button */}
           <div className="lg:hidden p-4 border-b border-border flex items-center justify-between">
             <span className="font-medium">Menu</span>
-            <Button variant="ghost" size="sm" onClick={() => setIsSidebarOpen(false)}>
-              <X className="h-5 w-5" />
+            <Button variant="ghost" size="sm" onClick={() => setIsSidebarOpen(false)} suppressHydrationWarning className="hover:text-slate-900">
+              <X className="h-5 w-5 text-slate-900" />
             </Button>
           </div>
 
@@ -217,10 +219,11 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             <Button
               variant="outline"
               size="sm"
-              className="w-full"
+              className="w-full hover:text-slate-900"
               onClick={handleLogout}
+              suppressHydrationWarning
             >
-              <LogOut className="w-4 h-4 mr-2" />
+              <LogOut className="w-4 h-4 mr-2 text-slate-900" />
               Logout
             </Button>
           </div>

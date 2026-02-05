@@ -82,7 +82,7 @@ export interface Database {
           sqm_per_box: string | null
           application_area: string | null
           package_included: string | null
-          has_led: boolean
+          has_led: boolean | null
           brand: string | null
           availability: string | null
           panel_length: string | null
@@ -111,7 +111,7 @@ export interface Database {
           sqm_per_box?: string | null
           application_area?: string | null
           package_included?: string | null
-          has_led?: boolean
+          has_led?: boolean | null
           brand?: string | null
           availability?: string | null
           panel_length?: string | null
@@ -137,7 +137,7 @@ export interface Database {
           sqm_per_box?: string | null
           application_area?: string | null
           package_included?: string | null
-          has_led?: boolean
+          has_led?: boolean | null
           brand?: string | null
           availability?: string | null
           panel_length?: string | null

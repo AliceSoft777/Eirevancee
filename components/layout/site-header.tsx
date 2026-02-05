@@ -97,8 +97,8 @@ export function SiteHeader({
   const isSales = () => user?.role === 'sales';
   const canAccessDashboard = () => user?.role === 'admin' || user?.role === 'sales';
   
-  // Use server-provided counts initially, then switch to actual state after hydration
-  const cartCount = _hasHydrated ? useStore.getState().cartCount : initialCartCount;
+  // ✅ Use reactive subscription to cart count from Zustand store
+  const cartCount = useStore((state) => state.cartCount);
   const wishlistCount = _hasHydrated ? wishlist.length : initialWishlistCount;
   
   const [isDimensionsModalOpen, setIsDimensionsModalOpen] = useState(false);
@@ -196,6 +196,7 @@ export function SiteHeader({
                     alt="Celtic Tiles Logo"
                     fill
                     className="object-contain"
+                    sizes="(max-width: 768px) 128px, (max-width: 1024px) 192px, 224px"
                     priority
                   />
                 </div>

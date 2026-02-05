@@ -159,18 +159,29 @@ export async function getNavData(): Promise<{ categories: CategoryWithChildren[]
 export async function getProducts(): Promise<{ products: Product[] }> {
   try {
     const supabase = await createServerSupabase()
+
     const { data, error } = await supabase
       .from('products')
-      .select('*')
+      .select(`
+        *,
+        categories (
+          id,
+          name,
+          slug,
+          parent_id
+        )
+      `)
       .eq('status', 'active')
       .order('created_at', { ascending: false })
 
     if (error) throw error
+
     return { products: (data || []) as Product[] }
   } catch {
     return { products: [] }
   }
 }
+
 
 /**
  * Get cart items for user

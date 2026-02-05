@@ -19,7 +19,7 @@ import { toast } from "sonner"
 
 export default function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
-  const { getOrderById, updateOrderStatus, updateOrderNotes } = useOrders()
+  const { getOrderById, updateOrderStatus, updateOrderNotes } = useOrders('ALL') // Admin needs access to all orders
   const { user } = useStore()
   const [order, setOrder] = useState<Order | null>(null)
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null)
@@ -123,9 +123,10 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                       key={status}
                       onClick={() => handleStatusChange(status)}
                       variant="outline"
+                      className="hover:text-slate-900"
                     >
                       Mark as {status}
-                      <ChevronDown className="w-4 h-4 ml-2" />
+                      <ChevronDown className="w-4 h-4 ml-2 text-slate-900" />
                     </Button>
                   ))}
                 </div>

@@ -54,6 +54,7 @@ class ConditionalStorage implements SupportedStorage {
 }
 
 // ✅ Create client ONCE at module load time with conditional storage
+// Simple, clean initialization without error handling that interferes with operations
 export const supabaseBrowserClient = createBrowserClient<Database>(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -61,8 +62,14 @@ export const supabaseBrowserClient = createBrowserClient<Database>(
     auth: {
       storage: new ConditionalStorage(),
       persistSession: true,
-      // IMPORTANT: Do NOT override storageKey - Supabase SSR needs the default format
-      // for cookie-based middleware synchronization
+      autoRefreshToken: false, // ✅ Disable auto-refresh to prevent lock conflicts
+      detectSessionInUrl: true,
+      flowType: 'pkce',
+    },
+    global: {
+      headers: {
+        'x-client-info': 'celtic-tiles-browser',
+      },
     },
   }
 )

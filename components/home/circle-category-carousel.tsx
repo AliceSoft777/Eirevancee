@@ -52,6 +52,8 @@ export function CircleCategoryCarousel({ title, categories }: CircleCategoryCaro
                         modules={[Navigation]}
                         spaceBetween={20}
                         slidesPerView={2.5}
+                        centeredSlides={categories.length <= 6}
+                        centeredSlidesBounds={true}
                         navigation={{
                             prevEl: prevRef.current,
                             nextEl: nextRef.current,
@@ -68,7 +70,7 @@ export function CircleCategoryCarousel({ title, categories }: CircleCategoryCaro
                         breakpoints={{
                             480: { slidesPerView: 3.5, spaceBetween: 20 },
                             768: { slidesPerView: 5, spaceBetween: 30 },
-                            1024: { slidesPerView: 7, spaceBetween: 40 },
+                            1024: { slidesPerView: 6, spaceBetween: 40 },
                         }}
                     >
                         {categories.map((category) => (

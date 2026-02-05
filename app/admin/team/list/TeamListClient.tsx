@@ -11,6 +11,8 @@ import { EmptyState } from '@/components/admin/EmptyState'
 import { DeleteConfirmDialog } from '@/components/admin/DeleteConfirmDialog'
 import { TeamMemberModal } from '@/components/admin/TeamMemberModal'
 import { Pagination } from '@/components/admin/Pagination'
+import { AdminLayout } from '@/components/admin/AdminLayout'
+import { AdminRoute } from '@/components/admin/AdminRoute'
 import * as React from "react"
 
 interface TeamListClientProps {
@@ -82,14 +84,16 @@ export default function TeamListClient({ initialTeamMembers, serverError }: Team
   }
 
   return (
-    <div className="space-y-6 p-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+    <AdminRoute>
+      <AdminLayout>
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Team Management</h1>
           <p className="text-muted-foreground mt-1">Manage admin and sales team members</p>
         </div>
-        <Button onClick={handleAddMember} className="w-full md:w-auto">
+        <Button onClick={handleAddMember} className="w-full md:w-auto" suppressHydrationWarning>
           <Plus className="w-4 h-4 mr-2" />
           Add Member
         </Button>
@@ -119,6 +123,7 @@ export default function TeamListClient({ initialTeamMembers, serverError }: Team
               setCurrentPage(1)
             }}
             className="pl-9"
+            suppressHydrationWarning
           />
         </div>
       </div>
@@ -181,15 +186,17 @@ export default function TeamListClient({ initialTeamMembers, serverError }: Team
                         variant="ghost"
                         size="sm"
                         onClick={() => handleEditMember(member)}
-                        className="h-8 w-8 p-0"
+                        className="h-8 w-8 p-0 hover:text-slate-900"
+                        suppressHydrationWarning
                       >
-                        <Edit className="w-4 h-4" />
+                        <Edit className="w-4 h-4 text-slate-900" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => setDeleteId(member.id)}
                         className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        suppressHydrationWarning
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
@@ -225,15 +232,17 @@ export default function TeamListClient({ initialTeamMembers, serverError }: Team
         onCancel={() => setDeleteId(null)}
       />
 
-      {/* Team Member Modal */}
-      <TeamMemberModal
-        isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false)
-          setSelectedMember(null)
-        }}
-        member={selectedMember}
-      />
-    </div>
+          {/* Team Member Modal */}
+          <TeamMemberModal
+            isOpen={isModalOpen}
+            onClose={() => {
+              setIsModalOpen(false)
+              setSelectedMember(null)
+            }}
+            member={selectedMember}
+          />
+        </div>
+      </AdminLayout>
+    </AdminRoute>
   )
 }
