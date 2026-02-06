@@ -37,7 +37,7 @@ export default async function PrivacyPage() {
                             <section>
                                 <h2 className="text-2xl font-bold text-slate-800 mb-4">1. Introduction</h2>
                                 <p className="bg-[#E5E9F0] neu-inset p-6 rounded-2xl">
-                                    Tile Merchant (&quot;we&quot;, &quot;our&quot;, &quot;us&quot;) is committed to protecting your privacy. This Privacy Policy explains
+                                    Celtic Tiles (&quot;we&quot;, &quot;our&quot;, &quot;us&quot;) is committed to protecting your privacy. This Privacy Policy explains
                                     how we collect, use, and protect your personal information when you use our website and services.
                                 </p>
                             </section>

@@ -39,8 +39,8 @@ export default async function TermsPage() {
                                     <span className="text-primary/40 text-3xl font-serif">1.</span> Introduction
                                 </h2>
                                 <p className="bg-[#E5E9F0] neu-inset p-6 rounded-2xl">
-                                    These Terms and Conditions govern your use of the Tile Merchant website and the purchase of products
-                                    from Tile Merchant. By using our website and placing orders, you agree to these terms.
+                                    These Terms and Conditions govern your use of the Celtic Tiles website and the purchase of products
+                                    from Celtic Tiles. By using our website and placing orders, you agree to these terms.
                                 </p>
                             </section>
 
@@ -121,7 +121,7 @@ export default async function TermsPage() {
                                     <span className="text-primary/40 text-3xl font-serif">7.</span> Intellectual Property
                                 </h2>
                                 <p className="leading-relaxed pl-4">
-                                    All content on this website, including images, text, and logos, is the property of Tile Merchant
+                                    All content on this website, including images, text, and logos, is the property of Celtic Tiles
                                     and protected by copyright laws.
                                 </p>
                             </section>

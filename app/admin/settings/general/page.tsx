@@ -29,15 +29,15 @@ export default function GeneralSettingsPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-2">Store Email</label>
-                <Input type="email" defaultValue="info@celtictiles.com" />
+                <Input type="email" defaultValue="contact@celtictiles.ie" />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-2">Phone Number</label>
-                <Input type="tel" defaultValue="+91 98765 43210" />
+                <Input type="tel" defaultValue="+353 14090558" />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-2">Address</label>
-                <Input defaultValue="123 Tile Street, Dublin, Ireland" />
+                <Input defaultValue="Besides AXA insurance, Finches Industrial Park, Long Mile Rd, Walkinstown, Dublin, D12 FP74" />
               </div>
               <Button>
                 <Save className="w-4 h-4 mr-2" />
@@ -54,11 +54,11 @@ export default function GeneralSettingsPage() {
             <CardContent className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-2">Currency Symbol</label>
-                <Input defaultValue="₹" />
+                <Input defaultValue="€" />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-2">Tax Rate (%)</label>
-                <Input type="number" defaultValue="18" />
+                <Input type="number" defaultValue="23" />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-2">Free Shipping Threshold</label>
