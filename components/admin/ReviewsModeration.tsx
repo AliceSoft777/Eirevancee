@@ -51,7 +51,11 @@ export function ReviewsModeration() {
                     rating,
                     comment,
                     created_at,
-                    admin_response
+                    admin_response,
+                      products (
+                        name,
+                        slug
+                    )
                     `
                 )
                 .eq('status', 'pending')
@@ -93,7 +97,7 @@ export function ReviewsModeration() {
         setIsSubmitting(true)
         try {
             // @ts-ignore - reviews table is not recognized in type definitions
-            const { error } = await supabase
+            const { error } = await (supabase as any)
                 .from('reviews')
                 .update({
                     status: 'published',
@@ -121,7 +125,7 @@ export function ReviewsModeration() {
         setIsSubmitting(true)
         try {
             // @ts-ignore - reviews table is not recognized in type definitions
-            const { error } = await supabase
+            const { error } = await (supabase as any)
                 .from('reviews')
                 .update({ status: 'rejected' })
                 .eq('id', selectedReview.id)

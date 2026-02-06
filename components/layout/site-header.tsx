@@ -99,7 +99,7 @@ export function SiteHeader({
   
   // ✅ Use reactive subscription to cart count from Zustand store
   const cartCount = useStore((state) => state.cartCount);
-  const wishlistCount = _hasHydrated ? wishlist.length : initialWishlistCount;
+  const wishlistCount = user ? (_hasHydrated ? wishlist.length : initialWishlistCount) : 0;
   
   const [isDimensionsModalOpen, setIsDimensionsModalOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);

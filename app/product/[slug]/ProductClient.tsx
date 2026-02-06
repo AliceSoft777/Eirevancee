@@ -327,6 +327,7 @@ export default function ProductClient({
                     </Button>
                     <div className="flex-1 text-center">
                       <input
+                      suppressHydrationWarning
                         type="number"
                         min="1"
                         max={product.stock}

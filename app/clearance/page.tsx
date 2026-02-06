@@ -3,7 +3,7 @@ import { MainNav } from "@/components/layout/main-nav";
 import { Footer } from "@/components/layout/footer";
 import { ProductCard } from "@/components/products/product-card";
 import { createServerSupabase } from "@/lib/supabase/server";
-import { getNavData, getCartData, getWishlistData, getServerSession } from "@/lib/loaders";
+import { getNavData, getCartData, getWishlistData, getServerSession,  getProducts } from "@/lib/loaders";
 import type { Product } from "@/lib/supabase-types";
 
 export default async function ClearancePage() {
@@ -17,7 +17,8 @@ export default async function ClearancePage() {
   ]);
   // Fetch nav data (categories and products for MainNav)
   const { categories } = await getNavData();
-  
+  const { products: allProducts } = await getProducts();
+
   // ✅ FIXED: Fetch only clearance products (is_clearance = true)
   const { data } = await supabase
     .from("products")
@@ -34,7 +35,7 @@ export default async function ClearancePage() {
         initialCartCount={cartCount} 
         initialWishlistCount={wishlistCount}
         categories={categories}
-        products={clearanceProducts}
+        products={allProducts}
       />
 
       <main className="min-h-screen bg-gray-50 py-12">

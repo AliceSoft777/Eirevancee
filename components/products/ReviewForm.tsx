@@ -16,6 +16,8 @@ interface ReviewFormProps {
 
 export function ReviewForm({ productId, productName, onReviewSubmitted }: ReviewFormProps) {
     const user = useStore((state) => state.user)
+    const supabase = getSupabaseBrowserClient()
+
     const [rating, setRating] = useState(0)
     const [hoveredRating, setHoveredRating] = useState(0)
     const [comment, setComment] = useState('')

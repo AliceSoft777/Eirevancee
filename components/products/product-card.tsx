@@ -102,7 +102,7 @@ export const ProductCard = memo(function ProductCard({ product }: ProductCardPro
                         <Button
                             variant="ghost"
                             size="icon"
-                            className={`rounded-full bg-white/80 hover:bg-white transition-colors h-8 w-8 ${isWishlisted ? 'text-red-500' : 'text-tm-text-muted'}`}
+                            className={`rounded-full bg-white/60 hover:bg-white/10 transition-colors h-8 w-8 ${isWishlisted ? 'text-red-500' : 'text-tm-text-muted'}`}
                             onClick={handleWishlist}
                             disabled={isTogglingWishlist}
                         >

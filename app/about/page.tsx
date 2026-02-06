@@ -1,6 +1,19 @@
 import { CheckCircle } from "lucide-react";
+import { SiteHeader } from "@/components/layout/site-header";
+import { Footer } from "@/components/layout/footer";
+import { getServerSession, getNavData, getCartData, getWishlistData, getProducts } from "@/lib/loaders";
 
-export default function AboutPage() {
+export default async function AboutPage() {
+  const [session, { categories }, { products }] = await Promise.all([
+     getServerSession(),
+     getNavData(),
+     getProducts()
+   ])
+   const [{ cartCount }, { wishlistCount }] = await Promise.all([
+     getCartData(session.userId),
+     getWishlistData(session.userId)
+   ])
+
   const features = [
     "Wide range of premium products",
     "Competitive pricing with price match guarantee",
@@ -26,69 +39,72 @@ export default function AboutPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#E5E9F0]">
-      {/* Hero Section */}
-      <section className="py-20 bg-[#E5E9F0]">
-        <div className="container mx-auto max-w-[1400px] px-6">
-          <div className="text-center mb-12">
-            <h1 className="font-serif text-5xl md:text-6xl font-bold text-tm-text mb-4">
-              ABOUT CELTIC TILES
-            </h1>
-            <p className="text-xl text-tm-text-muted max-w-3xl mx-auto">
-              Ireland's leading supplier of quality tiles, flooring, and bathroom products
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Our Story Section */}
-      <section className="py-20 bg-white">
-        <div className="container mx-auto max-w-[1400px] px-6">
-          <h2 className="text-4xl font-bold text-tm-text mb-8">Our Story</h2>
-          <div className="space-y-6 text-lg text-tm-text-muted max-w-4xl">
-            <p>
-              Celtic Tiles is a traditional irish company driven by creativity and an endless passion for helping you find the perfect tile for your project. Each person on our team is eager to develop a long lasting relationship with you. We are a strong, personality-driven brand that's carved a unique niche in the renovation and interior design landscape, with a customer experience that remains unmatched in style, service, and selection.
-            </p>
-            <p>
-              Our goal is to deliver you endless inspiration and the perfect tile pairing for your design project. We can't wait to work together and make you a part of our family today.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Why Choose Us Section */}
-      <section className="py-20 bg-[#E5E9F0]">
-        <div className="container mx-auto max-w-[1400px] px-6">
-          <h2 className="text-4xl font-bold text-tm-text text-center mb-16">
-            Why Choose Celtic Tiles?
-          </h2>
-          <div className="grid md:grid-cols-2 gap-8 max-w-3xl mx-auto">
-            {features.map((feature, index) => (
-              <div key={index} className="flex items-start gap-4">
-                <CheckCircle className="w-6 h-6 text-tm-red flex-shrink-0 mt-1" />
-                <p className="text-lg text-tm-text font-medium">{feature}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Our Values Section */}
-      <section className="py-20 bg-white">
-        <div className="container mx-auto max-w-[1400px] px-6">
-          <h2 className="text-4xl font-bold text-tm-text mb-16">Our Values</h2>
-          <div className="grid md:grid-cols-3 gap-12">
-            {values.map((value, index) => (
-              <div key={index} className="space-y-4">
-                <h3 className="text-2xl font-bold text-tm-red">{value.title}</h3>
-                <p className="text-lg text-tm-text-muted leading-relaxed">
-                  {value.description}
+    <>
+      <SiteHeader 
+        session={session} 
+        categories={categories} 
+        products={products}
+        initialCartCount={cartCount} 
+        initialWishlistCount={wishlistCount} 
+      />
+      
+      <div className="bg-[#E5E9F0] min-h-screen">
+        {/* Hero Section Container */}
+        <div className="container mx-auto max-w-[1400px] px-4 py-12">
+           <div className="bg-[#E5E9F0] neu-raised rounded-[2.5rem] p-8 md:p-16 border border-white/40 mb-12">
+              <div className="text-center">
+                <h1 className="font-serif text-5xl md:text-6xl font-bold text-slate-800 mb-6">
+                  ABOUT CELTIC TILES
+                </h1>
+                <p className="text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed">
+                  Ireland&apos;s leading supplier of quality tiles, flooring, and bathroom products
                 </p>
               </div>
-            ))}
-          </div>
+           </div>
+           
+           {/* Our Story */}
+           <div className="bg-[#E5E9F0] neu-inset rounded-[2.5rem] p-8 md:p-16 mb-12 border border-white/20">
+             <h2 className="text-4xl font-bold text-slate-800 mb-8 font-serif">Our Story</h2>
+             <div className="space-y-6 text-lg text-slate-600 max-w-4xl leading-relaxed">
+               <p>
+                 Celtic Tiles is a traditional irish company driven by creativity and an endless passion for helping you find the perfect tile for your project. Each person on our team is eager to develop a long lasting relationship with you. We are a strong, personality-driven brand that's carved a unique niche in the renovation and interior design landscape, with a customer experience that remains unmatched in style, service, and selection.
+               </p>
+               <p>
+                 Our goal is to deliver you endless inspiration and the perfect tile pairing for your design project. We can't wait to work together and make you a part of our family today.
+               </p>
+             </div>
+           </div>
+           
+           {/* Why Choose Us */}
+            <div className="bg-[#E5E9F0] neu-raised rounded-[2.5rem] p-8 md:p-16 mb-12 border border-white/40">
+              <h2 className="text-4xl font-bold text-slate-800 text-center mb-16 font-serif">
+                Why Choose Celtic Tiles?
+              </h2>
+              <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+                {features.map((feature, index) => (
+                  <div key={index} className="flex items-start gap-4 p-4 rounded-2xl hover:bg-white/30 transition-colors">
+                    <CheckCircle className="w-6 h-6 text-tm-red flex-shrink-0 mt-1" />
+                    <p className="text-lg text-slate-700 font-medium">{feature}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Our Values */}
+            <div className="grid md:grid-cols-3 gap-8">
+              {values.map((value, index) => (
+                <div key={index} className="bg-[#E5E9F0] neu-raised rounded-[2rem] p-8 border border-white/40 hover:scale-[1.02] transition-transform duration-300">
+                  <h3 className="text-2xl font-bold text-tm-red mb-4">{value.title}</h3>
+                  <p className="text-slate-600 leading-relaxed">
+                    {value.description}
+                  </p>
+                </div>
+              ))}
+            </div>
         </div>
-      </section>
-    </div>
+      </div>
+      
+      <Footer categories={categories} />
+    </>
   );
 }

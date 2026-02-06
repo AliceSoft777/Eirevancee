@@ -1,10 +1,9 @@
-"use client"
-
 import { SiteHeader } from "@/components/layout/site-header"
 import { Footer } from "@/components/layout/footer"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import { getServerSession, getNavData, getCartData, getWishlistData, getProducts } from "@/lib/loaders"
 
 const faqs = [
     {
@@ -49,51 +48,72 @@ const faqs = [
     }
 ]
 
-export default function FAQPage() {
+export default async function FAQPage() {
+   const [session, { categories }, { products }] = await Promise.all([
+     getServerSession(),
+     getNavData(),
+     getProducts()
+   ])
+   const [{ cartCount }, { wishlistCount }] = await Promise.all([
+     getCartData(session.userId),
+     getWishlistData(session.userId)
+   ])
+
     return (
         <>
-            <SiteHeader />
+            <SiteHeader 
+              session={session} 
+              categories={categories} 
+              products={products}
+              initialCartCount={cartCount} 
+              initialWishlistCount={wishlistCount} 
+            />
 
-            <main className="bg-background min-h-screen">
-                <div className="container mx-auto max-w-[900px] px-4 py-12">
-                    {/* Page Header */}
-                    <div className="text-center mb-12">
-                        <h1 className="font-serif text-4xl md:text-5xl font-bold uppercase tracking-wider text-primary mb-4">
-                            Frequently Asked Questions
-                        </h1>
-                        <p className="text-muted-foreground max-w-2xl mx-auto">
-                            Find answers to common questions about our products, services, and policies
-                        </p>
-                    </div>
+            <main className="bg-[#E5E9F0] min-h-screen">
+                <div className="container mx-auto max-w-[1000px] px-4 py-12">
+                   
+                    {/* FAQ Main Card */}
+                    <div className="bg-[#E5E9F0] neu-raised rounded-[2.5rem] p-8 md:p-16 border border-white/40">
+                        <div className="text-center mb-16">
+                            <h1 className="font-serif text-4xl md:text-5xl font-bold uppercase tracking-wider text-slate-800 mb-6">
+                                Frequently Asked Questions
+                            </h1>
+                            <p className="text-slate-500 max-w-2xl mx-auto text-lg leading-relaxed">
+                                Find answers to common questions about our products, services, and policies
+                            </p>
+                        </div>
 
-                    {/* FAQ Accordion */}
-                    <Accordion type="single" collapsible className="space-y-4">
-                        {faqs.map((faq, index) => (
-                            <AccordionItem key={index} value={`item-${index}`} className="border border-border rounded-lg px-6">
-                                <AccordionTrigger className="text-left font-semibold text-foreground hover:text-primary">
-                                    {faq.question}
-                                </AccordionTrigger>
-                                <AccordionContent className="text-muted-foreground pt-2 pb-4">
-                                    {faq.answer}
-                                </AccordionContent>
-                            </AccordionItem>
-                        ))}
-                    </Accordion>
+                        {/* FAQ Accordion - Custom Styled */}
+                        <Accordion type="single" collapsible className="space-y-6">
+                            {faqs.map((faq, index) => (
+                                <AccordionItem key={index} value={`item-${index}`} className="border-none">
+                                    <div className="bg-[#E5E9F0] neu-raised rounded-2xl border border-white/60 overflow-hidden hover:translate-y-[-2px] transition-transform duration-300">
+                                        <AccordionTrigger className="text-left font-bold text-slate-800 hover:text-primary px-6 py-4 hover:no-underline text-lg">
+                                            {faq.question}
+                                        </AccordionTrigger>
+                                        <AccordionContent className="text-slate-600 px-6 pb-6 pt-2 leading-relaxed bg-white/30 text-base">
+                                            {faq.answer}
+                                        </AccordionContent>
+                                    </div>
+                                </AccordionItem>
+                            ))}
+                        </Accordion>
 
-                    {/* Contact CTA */}
-                    <div className="mt-12 bg-secondary/5 p-8 rounded-lg text-center border border-border">
-                        <h2 className="text-2xl font-bold text-foreground mb-3">Still have questions?</h2>
-                        <p className="text-muted-foreground mb-6">
-                            Our team is here to help! Get in touch and we&apos;ll be happy to assist you.
-                        </p>
-                        <Button className="bg-primary hover:bg-primary-dark text-white" asChild>
-                            <Link href="/contact">Contact Us</Link>
-                        </Button>
+                        {/* Contact CTA */}
+                        <div className="mt-16 bg-[#E5E9F0] neu-inset p-8 md:p-12 rounded-[2.5rem] text-center border-t border-white/50">
+                            <h2 className="text-3xl font-bold text-slate-800 mb-4 font-serif">Still have questions?</h2>
+                            <p className="text-slate-600 mb-8 max-w-xl mx-auto text-lg">
+                                Our team is here to help! Get in touch and we&apos;ll be happy to assist you with any query.
+                            </p>
+                            <Button className="bg-primary hover:bg-primary-dark text-white rounded-2xl h-14 px-8 text-lg font-bold shadow-lg hover:shadow-xl transition-all" asChild>
+                                <Link href="/contact">Contact Our Team</Link>
+                            </Button>
+                        </div>
                     </div>
                 </div>
             </main>
 
-            <Footer />
+            <Footer categories={categories} />
         </>
     )
 }
