@@ -25,7 +25,8 @@ export interface CustomerData {
 export default async function CustomersListPage() {
   const session = await getServerSession()
 
-  if (!session || session.userRole !== "admin") {
+  // Allow both admin and sales roles
+  if (!session || (session.userRole !== "admin" && session.userRole !== "sales")) {
     redirect("/")
   }
 
@@ -36,7 +37,7 @@ export default async function CustomersListPage() {
     .from('roles')
     .select('id')
     .eq('name', 'customer')
-    .single()
+    .single<{ id: string }>()
 
   if (roleError || !roleData) {
     console.error('[Admin Customers] Role error:', roleError)
@@ -60,6 +61,7 @@ export default async function CustomersListPage() {
   const { data: orders, error: ordersError } = await supabase
     .from('orders')
     .select('user_id, total, created_at')
+    .returns<Array<{ user_id: string | null; total: number | string; created_at: string }>>()
 
   if (ordersError) {
     console.error('[Admin Customers] Orders error:', ordersError)

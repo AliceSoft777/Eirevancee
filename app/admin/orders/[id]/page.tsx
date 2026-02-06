@@ -33,8 +33,14 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
       const result = await getOrderById(id)
       if (mounted) {
         if (result) {
+          // TODO: Add sales-specific order access control
+          // For now, sales users can view all orders (same permissions as admin)
+          // To restrict access, add 'created_by_user_id' field and check:
+          // if (user?.role === 'sales' && result.createdByUserId !== user.id) {
+          //   notFound()
+          //   return
+          // }
           setOrder(result)
-
         } else {
           notFound()
         }
@@ -45,7 +51,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     return () => {
       mounted = false
     }
-  }, [id, getOrderById])
+  }, [id, getOrderById, user])
 
   const handleStatusChange = (newStatus: string) => {
     setSelectedStatus(newStatus)

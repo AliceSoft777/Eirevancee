@@ -19,14 +19,22 @@ export const revalidate = 0
 export default async function OrdersListPage() {
   const session = await getServerSession()
 
-  if (!session || session.userRole !== "admin") {
+  // Allow both admin and sales roles
+  if (!session || (session.userRole !== "admin" && session.userRole !== "sales")) {
     redirect("/")
   }
 
   // ✅ Use server-side client (properly authenticated)
   const supabase = await createServerSupabase()
 
-  const { data: orders, error } = await supabase
+  // TODO: Implement sales-specific order filtering
+  // Currently, sales users see all orders (same as admin)
+  // To filter by sales person, you need to:
+  // 1. Add a 'created_by_user_id' field to the orders table
+  // 2. Set this field when orders are created by sales/admin users
+  // 3. Uncomment the filter below:
+  
+  let query = supabase
     .from("orders")
     .select(`
       id,
@@ -35,8 +43,16 @@ export default async function OrdersListPage() {
       customer_email,
       status,
       total,
-      created_at
+      created_at,
+      source
     `)
+
+  // FOR FUTURE: Filter orders created by this sales person
+  // if (session.userRole === "sales") {
+  //   query = query.eq("created_by_user_id", session.userId)
+  // }
+
+  const { data: orders, error } = await query
     .order("created_at", { ascending: false })
     .returns<OrderRow[]>()
 

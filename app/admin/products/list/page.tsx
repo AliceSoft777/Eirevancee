@@ -32,7 +32,8 @@ export interface ProductData {
 export default async function ProductsListPage() {
   const session = await getServerSession()
 
-  if (!session || session.userRole !== "admin") {
+  // Allow both admin and sales roles
+  if (!session || (session.userRole !== "admin" && session.userRole !== "sales")) {
     redirect("/")
   }
 

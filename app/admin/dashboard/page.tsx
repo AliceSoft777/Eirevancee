@@ -4,6 +4,7 @@ import { AdminRoute } from "@/components/admin/AdminRoute"
 import { AdminLayout } from "@/components/admin/AdminLayout"
 import { useOrders } from "@/hooks/useOrders"
 import { useProducts } from "@/hooks/useProducts"
+import { useStore } from "@/hooks/useStore"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
@@ -19,7 +20,10 @@ import {
 } from "lucide-react"
 
 export default function AdminDashboardPage() {
-  const { orders } = useOrders('ALL') // Fetch all orders for admin
+  const { user } = useStore()
+  // TODO: Currently both admin and sales users see all orders
+  // To filter sales orders, add 'created_by_user_id' field to orders table
+  const { orders } = useOrders('ALL')
   const { getLowStockProducts } = useProducts()
 
   // Calculate stats
