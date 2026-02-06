@@ -10,7 +10,7 @@ export interface UserAddress {
   full_name: string
   phone: string
   street: string
-  street2: string | null
+
   city: string
   state: string
   pincode: string

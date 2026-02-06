@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button"
 import { Mail, Phone, MapPin, Clock } from "lucide-react"
 import { getServerSession, getNavData, getCartData, getWishlistData, getProducts } from "@/lib/loaders"
 
+export const dynamic = "force-dynamic";
+
 export default async function ContactPage() {
    const [session, { categories }, { products }] = await Promise.all([
      getServerSession(),

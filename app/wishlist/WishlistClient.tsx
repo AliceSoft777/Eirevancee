@@ -141,9 +141,9 @@ export default function WishlistClient({ initialProducts, userId }: WishlistClie
                             <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-2 mb-1 min-h-[3rem]">
                                 {item.name}
                             </h3>
-                            {item.subtitle && (
+                            {/* {item.subtitle && (
                                 <p className="text-sm text-muted-foreground mb-2">{item.subtitle}</p>
-                            )}
+                            )} */}
                             <p className="text-lg font-bold text-primary">{formatPrice(item.price)}</p>
                         </Link>
 

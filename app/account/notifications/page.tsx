@@ -17,9 +17,9 @@ export default async function NotificationsPage() {
     return (
         <div className="bg-white p-12 rounded-lg shadow-sm border border-tm-border text-center">
             <CreditCard className="h-16 w-16 mx-auto mb-4 text-tm-text-muted opacity-20" />
-            <h1 className="text-3xl font-bold text-tm-text mb-4">Payment Methods</h1>
+            <h1 className="text-3xl font-bold text-tm-text mb-4">Notifications</h1>
             <p className="text-tm-text-muted text-lg">
-                Safe and secure payment management is coming soon. You will be able to save your card details for faster checkout.
+                Notification is coming soon. You will be able to save your card details for faster checkout.
             </p>
         </div>
     )

@@ -48,6 +48,8 @@ const faqs = [
     }
 ]
 
+export const dynamic = "force-dynamic";
+
 export default async function FAQPage() {
    const [session, { categories }, { products }] = await Promise.all([
      getServerSession(),

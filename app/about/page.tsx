@@ -3,6 +3,8 @@ import { SiteHeader } from "@/components/layout/site-header";
 import { Footer } from "@/components/layout/footer";
 import { getServerSession, getNavData, getCartData, getWishlistData, getProducts } from "@/lib/loaders";
 
+export const dynamic = "force-dynamic";
+
 export default async function AboutPage() {
   const [session, { categories }, { products }] = await Promise.all([
      getServerSession(),
