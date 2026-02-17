@@ -74,13 +74,22 @@ export async function addToCartAction(input: AddToCartInput): Promise<{ data: Ca
     }
 
     // Check if item already exists in cart
-    const { data: existingItems } = await supabase
+    const variantId = input.variant_id || null
+    let existingQuery = supabase
       .from('cart_items')
       .select('*')
       .eq('user_id', user.id)
       .eq('product_id', input.product_id)
-      .eq('variant_id', input.variant_id || null as any)
-      .limit(1)
+
+    // CRITICAL: .eq('col', null) produces "col = null" which NEVER matches in SQL.
+    // Must use .is('col', null) for null comparison.
+    if (variantId) {
+      existingQuery = existingQuery.eq('variant_id', variantId)
+    } else {
+      existingQuery = existingQuery.is('variant_id', null)
+    }
+
+    const { data: existingItems } = await existingQuery.limit(1)
 
     // If exists, update quantity
     if (existingItems && existingItems.length > 0) {

@@ -19,7 +19,9 @@ export async function getCartForUser(): Promise<{ cart: CartItem[]; isLoggedIn: 
         const supabase = await createServerSupabase()
         
         // Get current user
-        const { data: { user }, error: authError } = await supabase.auth.getUser()
+        const response = await supabase.auth.getUser()
+        const user = response?.data?.user
+        const authError = response?.error
         
         if (authError || !user) {
             return { cart: [], isLoggedIn: false }

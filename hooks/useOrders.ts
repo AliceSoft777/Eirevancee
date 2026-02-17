@@ -141,6 +141,29 @@ export function useOrders(userId?: string | null | 'ALL') {
     fetchOrders()
   }, [fetchOrders])
 
+  // Auto-refetch on window focus to prevent stale data after navigating back
+  useEffect(() => {
+    let lastFetchTime = Date.now()
+
+    const handleFocus = () => {
+      // Only refetch if more than 5 seconds since last fetch (avoid rapid refetches)
+      if (Date.now() - lastFetchTime > 5000) {
+        lastFetchTime = Date.now()
+        fetchOrders()
+      }
+    }
+
+    window.addEventListener('focus', handleFocus)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') handleFocus()
+    })
+
+    return () => {
+      window.removeEventListener('focus', handleFocus)
+      document.removeEventListener('visibilitychange', handleFocus)
+    }
+  }, [fetchOrders])
+
   function transformOrder(dbOrder: any, items: OrderItem[], statusHistory: StatusHistoryEntry[]): Order {
     return {
       id: dbOrder.id,

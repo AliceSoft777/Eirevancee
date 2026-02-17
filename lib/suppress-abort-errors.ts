@@ -1,75 +1,23 @@
-// Suppress Supabase AbortError in development (React Strict Mode + Fast Refresh)
-// This catches AbortError from locks.ts:109 that happens outside async/await chains
-if (typeof window !== 'undefined') {
-  // ✅ Suppress unhandled promise rejections (AbortError from Supabase locks)
-  window.addEventListener('unhandledrejection', (event: PromiseRejectionEvent) => {
-    const reason = event.reason
-    const reasonStr = String(reason?.message || reason || '')
-    
-    // Check for AbortError from Supabase (very aggressive matching)
-    if (
-      reason?.name === 'AbortError' ||
-      reasonStr.includes('AbortError') ||
-      reasonStr.includes('signal is aborted without reason') ||
-      reasonStr.includes('AbortSignal') ||
-      reasonStr.includes('locks.ts') ||
-      reasonStr.includes('abort') && reasonStr.includes('signal') ||
-      reason?.code === 20 || // DOMException code for AbortError
-      reason?.constructor?.name === 'DOMException'
-    ) {
-      console.debug('[suppress-abort-errors] Suppressed AbortError from Supabase')
-      event.preventDefault()
-      event.stopPropagation()
-      event.stopImmediatePropagation()
-      return
-    }
+// Patch navigator.locks.request to silently catch AbortError
+// This prevents the error from reaching Next.js dev overlay
+if (typeof window !== 'undefined' && navigator?.locks?.request) {
+  const orig = navigator.locks.request.bind(navigator.locks)
 
-    // Also suppress navigation aborts (Next.js fast refresh)
-    if (
-      reason?.message?.includes('NEXT_') ||
-      reason?.digest?.includes('NEXT_') ||
-      reason?.message?.includes('navigation')
-    ) {
-      console.debug('[suppress-abort-errors] Suppressed Next.js navigation abort:', reason)
-      event.preventDefault()
-      return
-    }
-  })
-
-  // ✅ Suppress console errors for AbortError
-  const originalConsoleError = console.error
-  console.error = (...args: any[]) => {
-    const message = String(args[0] || '')
-    const fullMessage = args.map(a => String(a)).join(' ')
-    
-    if (
-      message.includes('AbortError') ||
-      message.includes('signal is aborted without reason') ||
-      message.includes('AbortSignal') ||
-      message.includes('locks.ts') ||
-      fullMessage.includes('AbortError') ||
-      fullMessage.includes('signal is aborted') ||
-      (message.includes('abort') && message.includes('signal')) ||
-      args.some((arg: any) => arg?.name === 'AbortError' || arg?.code === 20)
-    ) {
-      // Completely suppress, don't even log
-      return
-    }
-    originalConsoleError.apply(console, args)
+  const patched = (
+    name: string,
+    second: any,
+    third?: any
+  ): Promise<any> => {
+    const p = third ? orig(name, second, third) : orig(name, second)
+    return p.catch((err: any) => {
+      if (err?.name === 'AbortError' || err?.message?.includes('signal is aborted') || err?.code === 20) {
+        return undefined
+      }
+      throw err
+    })
   }
 
-  // ✅ Global error handler for uncaught exceptions
-  window.addEventListener('error', (event: ErrorEvent) => {
-    if (
-      event.error?.name === 'AbortError' ||
-      event.message?.includes('AbortError') ||
-      event.message?.includes('signal is aborted without reason')
-    ) {
-      console.debug('[suppress-abort-errors] Suppressed global AbortError:', event.error)
-      event.preventDefault()
-      return
-    }
-  })
+  navigator.locks.request = patched as any
 }
 
 export {}

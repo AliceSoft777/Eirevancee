@@ -50,6 +50,7 @@ export function Footer({ categories = [] }: FooterProps) {
                 <li key={link.name}>
                   <Link
                     href={link.href}
+                    prefetch={false}
                     className="text-sm text-muted-foreground hover:text-primary transition-colors hover:translate-x-1 inline-block duration-200"
                   >
                     {link.name}
@@ -136,7 +137,10 @@ export function Footer({ categories = [] }: FooterProps) {
                 </div>
               </li>
               <li className="pt-2">
-                <Button className="w-full bg-primary hover:bg-primary-dark text-white font-semibold tracking-wide neu-raised rounded-lg">
+                <Button 
+                  className="w-full bg-primary hover:bg-primary-dark text-white font-semibold tracking-wide neu-raised rounded-lg"
+                  onClick={() => window.open('https://www.google.com/maps/place/Celtic+Tiles/@53.3240536,-6.3380458,17z/data=!3m1!4b1!4m6!3m5!1s0x4867133caf418fc7:0x8584650c497326da!8m2!3d53.3240536!4d-6.3380458!16s%2Fg%2F11c5q8y8qy', '_blank')}
+                >
                   <MapPin className="h-4 w-4 mr-2" />
                   Find a Showroom
                 </Button>
@@ -150,6 +154,17 @@ export function Footer({ categories = [] }: FooterProps) {
           <div className="flex flex-col md:flex-row justify-between items-center gap-6">
             <p className="text-sm text-muted-foreground">
               © {new Date().getFullYear()} Celtic Tiles. All rights reserved.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Powered by{" "}
+              <a
+                href="https://eirvancee.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline font-semibold"
+              >
+                Eirvancee
+              </a>
             </p>
             <div className="flex items-center gap-4 grayscale opacity-70 hover:grayscale-0 hover:opacity-100 transition-all duration-300">
               {/* Payment icons would go here */}

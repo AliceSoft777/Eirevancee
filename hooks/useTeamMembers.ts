@@ -68,7 +68,21 @@ export function useTeamMembers() {
   }, [fetchTeamMembers])
 
   async function addTeamMember(member: Omit<TeamMember, 'id' | 'created_at'> & { password: string }) {
-    //Get role_id from role name
+    // Create Supabase Auth account first
+    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+      email: member.email,
+      password: member.password,
+      email_confirm: true,
+      user_metadata: {
+        full_name: member.full_name,
+        role: member.role
+      }
+    })
+
+    if (authError) throw authError
+    if (!authData.user) throw new Error('Failed to create user')
+
+    // Get role_id from role name
     const { data: roleData } = await supabase
       .from('roles')
       .select('id')
@@ -77,9 +91,11 @@ export function useTeamMembers() {
 
     if (!roleData) throw new Error(`Role ${member.role} not found`)
 
+    // Create profile with auth user id
     const { data, error } = await supabase
       .from('profiles')
       .insert([{
+        id: authData.user.id,
         email: member.email,
         full_name: member.full_name,
         role_id: roleData.id,
@@ -159,6 +175,11 @@ export function useTeamMembers() {
   }
 
   async function deleteTeamMember(id: string) {
+    // Delete auth user first
+    const { error: authError } = await supabase.auth.admin.deleteUser(id)
+    if (authError) console.error('Auth delete error:', authError)
+
+    // Delete profile
     const { error } = await supabase
       .from('profiles')
       .delete()
@@ -168,6 +189,13 @@ export function useTeamMembers() {
     setTeamMembers(prev => prev.filter(m => m.id !== id))
   }
 
+  async function resetTeamMemberPassword(userId: string, newPassword: string) {
+    const { error } = await supabase.auth.admin.updateUserById(userId, {
+      password: newPassword
+    })
+    if (error) throw error
+  }
+
   return {
     teamMembers,
     isLoading,
@@ -175,6 +203,7 @@ export function useTeamMembers() {
     addTeamMember,
     updateTeamMember,
     deleteTeamMember,
+    resetTeamMemberPassword,
     refetch: fetchTeamMembers
   }
 }

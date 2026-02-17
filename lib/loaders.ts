@@ -35,7 +35,9 @@ export interface WishlistItemData {
 export async function getServerSession(): Promise<ServerSession> {
   try {
     const supabase = await createServerSupabase()
-    const { data: { user }, error } = await supabase.auth.getUser()
+    const response = await supabase.auth.getUser()
+    const user = response?.data?.user
+    const error = response?.error
 
     if (error || !user) {
       return { userId: null, userName: null, userEmail: null, userRole: 'customer' }
@@ -155,12 +157,13 @@ export async function getNavData(): Promise<{ categories: CategoryWithChildren[]
 
 /**
  * Get products for display
+ * @param limit - Optional limit on number of products to fetch (default: all)
  */
-export async function getProducts(): Promise<{ products: Product[] }> {
+export async function getProducts(limit?: number): Promise<{ products: Product[] }> {
   try {
     const supabase = await createServerSupabase()
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('products')
       .select(`
         *,
@@ -174,6 +177,13 @@ export async function getProducts(): Promise<{ products: Product[] }> {
       .eq('status', 'active')
       .order('created_at', { ascending: false })
 
+    // Apply limit if specified
+    if (limit) {
+      query = query.limit(limit)
+    }
+
+    const { data, error } = await query
+
     if (error) throw error
 
     return { products: (data || []) as Product[] }
@@ -182,6 +192,31 @@ export async function getProducts(): Promise<{ products: Product[] }> {
   }
 }
 
+/**
+ * Get lightweight product data for navigation mega menu only.
+ * Fetches minimal columns instead of select(*) — used by HeaderServerWrapper.
+ * DO NOT use this for product listing pages.
+ */
+export async function getNavProducts(): Promise<{ products: Product[] }> {
+  try {
+    const supabase = await createServerSupabase()
+    
+
+    const { data, error } = await supabase
+      .from('products')
+      .select('id, name, slug, price, image, category_id, status, is_clearance')
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      // console.log("getNavProducts result:", data, error);
+
+
+    if (error) throw error
+
+    return { products: (data || []) as Product[] }
+  } catch {
+    return { products: [] }
+  }
+}
 
 /**
  * Get cart items for user
@@ -237,12 +272,13 @@ export async function getWishlistData(userId: string | null): Promise<{ wishlist
 
 /**
  * Combined loader for home page - fetches all required data in parallel
+ * Optimized to fetch only necessary data for initial page load
  */
 export async function getHomePageData() {
   const [session, { categories }, { products }] = await Promise.all([
     getServerSession(),
     getNavData(),
-    getProducts()
+    getProducts(12)  // ✅ Fetch only 12 products for homepage (was: ALL products)
   ])
 
   const [{ cart, cartCount }, { wishlist, wishlistCount }] = await Promise.all([
@@ -260,3 +296,4 @@ export async function getHomePageData() {
     wishlistCount
   }
 }
+

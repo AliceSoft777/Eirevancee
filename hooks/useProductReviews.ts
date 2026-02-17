@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react'
 import { getSupabaseBrowserClient } from '@/lib/supabase'
 
-// ✅ MODULE-LEVEL CACHE: Shared between all components using this hook
-// Prevents duplicate requests when multiple components fetch same product reviews
+// Module-level cache: stores the in-flight or resolved promise per productId.
+// Shared between ProductReviews and ReviewsList so only one network request is made.
 const reviewsFetchCache = new Map<string, Promise<Review[]>>()
-const requestInProgress = new Set<string>()
 
 export interface Review {
   id: string
@@ -27,14 +26,23 @@ interface UseProductReviewsResult {
   averageRating: number
 }
 
+// Timeout helper: resolves with empty array after ms milliseconds
+function fetchWithTimeout(fetchPromise: Promise<Review[]>, ms: number): Promise<Review[]> {
+  const timeout = new Promise<Review[]>((resolve) =>
+    setTimeout(() => resolve([]), ms)
+  )
+  return Promise.race([fetchPromise, timeout])
+}
+
 export const useProductReviews = (productId: string | null): UseProductReviewsResult => {
   const [reviews, setReviews] = useState<Review[]>([])
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(!!productId) // true from the start if we have a productId
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!productId) {
       setReviews([])
+      setLoading(false)
       setError(null)
       return
     }
@@ -45,79 +53,44 @@ export const useProductReviews = (productId: string | null): UseProductReviewsRe
 
     const loadReviews = async () => {
       try {
-        // ✅ REQUEST DEDUPLICATION: Check if request already in flight
-        if (requestInProgress.has(productId)) {
-          console.log('✅ Waiting for in-progress request:', productId)
-          
-          // Use cached promise
-          const cachedData = await reviewsFetchCache.get(productId)!
-          if (isMounted) {
-            console.log('✅ Got cached reviews for product:', productId)
-            setReviews(cachedData)
-            setLoading(false)
-          }
-          return
+        // Reuse in-flight or cached promise if already started
+        let fetchPromise = reviewsFetchCache.get(productId)
+
+        if (!fetchPromise) {
+          fetchPromise = (async (): Promise<Review[]> => {
+            try {
+              const supabase = getSupabaseBrowserClient()
+              const { data, error: err } = await supabase
+                .from('reviews')
+                .select('*')
+                .eq('product_id', productId)
+                .eq('status', 'published')
+                .order('created_at', { ascending: false })
+                .limit(20)
+
+              if (err) return []
+              return (data as Review[]) || []
+            } catch {
+              return []
+            }
+          })()
+
+          reviewsFetchCache.set(productId, fetchPromise)
+
+          // Expire cache after 30 seconds so subsequent visits re-fetch
+          setTimeout(() => reviewsFetchCache.delete(productId), 30000)
         }
 
-        // ✅ NEW REQUEST: Mark as in-progress
-        requestInProgress.add(productId)
-        console.log('🔄 Starting new reviews request:', productId)
+        // Race against 8-second timeout — never hangs the page
+        const data = await fetchWithTimeout(fetchPromise, 8000)
 
-        // Create the fetch promise
-        const fetchPromise: Promise<Review[]> = (async () => {
-          const supabase = getSupabaseBrowserClient()
-          const { data, error: err } = await supabase
-            .from('reviews')
-            .select('*')
-            .eq('product_id', productId)
-            .eq('status', 'published')
-            .order('created_at', { ascending: false })
-            .limit(20)
-
-          if (err) {
-            // ✅ IGNORE ABORT ERRORS: Supabase internal signal handling
-            if (err.message?.includes('AbortError') || err.code === 'PGRST301') {
-              throw new Error('AbortError')
-            }
-            console.error('Supabase reviews fetch error:', err)
-            throw new Error(err.message)
-          }
-          return (data as Review[]) || []
-        })()
-
-        // ✅ CACHE: Store promise so other components can reuse
-        reviewsFetchCache.set(productId, fetchPromise)
-
-        // ✅ Wait for promise and update state
-        const data = await fetchPromise
-        requestInProgress.delete(productId)
-        
         if (isMounted) {
-          console.log('✅ Reviews loaded successfully:', productId, data.length, 'reviews')
           setReviews(data)
           setLoading(false)
         }
-
-        // ✅ CACHE EXPIRY: Clear cache after 30 seconds to allow fresh fetch
-        setTimeout(() => {
-          reviewsFetchCache.delete(productId)
-          console.log('✅ Cache cleared for product:', productId)
-        }, 30000)
-      } catch (err: unknown) {
-        requestInProgress.delete(productId)
-        
-        // ✅ SILENTLY IGNORE ABORT ERRORS: Expected when component unmounts or React strict mode
-        if (err instanceof Error && (err.message.includes('AbortError') || err.name === 'AbortError')) {
-          if (isMounted) {
-            setLoading(false)
-          }
-          return
-        }
-        
+      } catch {
         if (isMounted) {
-          const errorMsg = err instanceof Error ? err.message : 'Failed to load reviews'
-          console.error('Fetch reviews error:', errorMsg)
-          setError(errorMsg)
+          setReviews([])
           setLoading(false)
         }
       }
@@ -130,7 +103,6 @@ export const useProductReviews = (productId: string | null): UseProductReviewsRe
     }
   }, [productId])
 
-  // Calculate average rating
   const averageRating =
     reviews.length > 0
       ? reviews.reduce((sum, review) => sum + (review.rating || 0), 0) / reviews.length

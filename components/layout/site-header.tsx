@@ -32,7 +32,7 @@ import type { CategoryWithChildren } from "@/lib/loaders";
 import type { Product } from "@/lib/supabase-types";
 
 import { useStore } from "@/hooks/useStore";
-import { useCart } from "@/hooks/useCart";
+
 import { toast } from "sonner";
 import type { ServerSession } from "@/lib/loaders";
 
@@ -83,7 +83,7 @@ export function SiteHeader({
 }: SiteHeaderProps) {
   const router = useRouter();
   const { wishlist, logout, _hasHydrated } = useStore();
-  const { cartItems } = useCart();
+
   
   // Use server-provided session for auth (single source of truth)
   const user = session?.userId ? {
@@ -170,10 +170,13 @@ export function SiteHeader({
             Free Delivery on orders over €500
           </span>
           <span className="hidden md:inline-block h-3 w-px bg-white/30" />
-          <span className="flex items-center gap-2">
+          <button 
+            onClick={() => window.open('https://www.google.com/maps/place/Celtic+Tiles/@53.3240536,-6.3380458,17z/data=!3m1!4b1!4m6!3m5!1s0x4867133caf418fc7:0x8584650c497326da!8m2!3d53.3240536!4d-6.3380458!16s%2Fg%2F11c5q8y8qy', '_blank')}
+            className="flex items-center gap-2 hover:text-white/80 transition-colors cursor-pointer"
+          >
             <Store className="h-3 w-3" />
             Visit our Dublin Showroom
-          </span>
+          </button>
           <Link href="/contact" className="hidden sm:flex items-center gap-2 hover:text-white/80 transition-colors underline underline-offset-4">
             Get in touch
           </Link>
@@ -375,6 +378,7 @@ export function SiteHeader({
                       <Link
                         key={category.id}
                         href={`/${category.slug}`}
+                        prefetch={false}
                         onClick={() => setIsMobileMenuOpen(false)}
                         className="block px-4 py-3 rounded-xl text-slate-700 font-bold hover:bg-white/40 transition-colors"
                       >

@@ -143,7 +143,7 @@ export function AdminHeader({ session }: AdminHeaderProps) {
               <div className="relative" ref={profileRef} suppressHydrationWarning>
                 <button
                   onClick={() => setIsProfileOpen(!isProfileOpen)}
-                  className="flex items-center gap-2 text-foreground hover:text-accent transition-colors group"
+                  className="flex items-center gap-2 text-foreground hover:text-primary transition-colors group"
                   suppressHydrationWarning
                 >
                   <div className="flex items-center gap-2">

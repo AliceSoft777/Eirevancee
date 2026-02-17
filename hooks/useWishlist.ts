@@ -31,7 +31,9 @@ export function useWishlist() {
       setError(null)
 
       // Get current user first
-      const { data: { user } } = await supabase.auth.getUser()
+      const response = await supabase.auth.getUser()
+      const user = response?.data?.user
+      
       if (!user) {
         // Not logged in = empty wishlist
         setWishlistItems([])
@@ -79,7 +81,8 @@ export function useWishlist() {
   }, [fetchWishlist])
 
   async function addToWishlist(productId: string) {
-    const { data: { user } } = await supabase.auth.getUser()
+    const response = await supabase.auth.getUser()
+    const user = response?.data?.user
     if (!user) throw new Error('Must be logged in')
 
     // Optimistic update
@@ -121,7 +124,8 @@ export function useWishlist() {
   }
 
   async function removeFromWishlist(productId: string) {
-    const { data: { user } } = await supabase.auth.getUser()
+    const response = await supabase.auth.getUser()
+    const user = response?.data?.user
     if (!user) return
 
     // Optimistic update

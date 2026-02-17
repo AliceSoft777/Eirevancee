@@ -5,7 +5,7 @@ import { useTeamMembers, TeamMember } from '@/hooks/useTeamMembers'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Plus, Edit, Trash2, Search, AlertCircle, Mail, Users } from 'lucide-react'
+import { Plus, Edit, Trash2, Search, AlertCircle, Mail, Users, Key } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/admin/EmptyState'
 import { DeleteConfirmDialog } from '@/components/admin/DeleteConfirmDialog'
@@ -13,6 +13,8 @@ import { TeamMemberModal } from '@/components/admin/TeamMemberModal'
 import { Pagination } from '@/components/admin/Pagination'
 import { AdminLayout } from '@/components/admin/AdminLayout'
 import { AdminRoute } from '@/components/admin/AdminRoute'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { toast } from 'sonner'
 import * as React from "react"
 
 interface TeamListClientProps {
@@ -21,7 +23,7 @@ interface TeamListClientProps {
 }
 
 export default function TeamListClient({ initialTeamMembers, serverError }: TeamListClientProps) {
-  const { teamMembers: currentTeamMembers, addTeamMember, updateTeamMember, deleteTeamMember, isLoading } = useTeamMembers()
+  const { teamMembers: currentTeamMembers, addTeamMember, updateTeamMember, deleteTeamMember, resetTeamMemberPassword, isLoading } = useTeamMembers()
   
   // Use server-fetched data initially, then switch to hook data once loaded
   const teamMembers = !isLoading ? currentTeamMembers : initialTeamMembers
@@ -31,6 +33,8 @@ export default function TeamListClient({ initialTeamMembers, serverError }: Team
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null)
+  const [resetPasswordId, setResetPasswordId] = useState<string | null>(null)
+  const [newPassword, setNewPassword] = useState('')
   const itemsPerPage = 10
 
   // Filter and paginate
@@ -69,6 +73,18 @@ export default function TeamListClient({ initialTeamMembers, serverError }: Team
       }
     } catch (err: any) {
       console.error('Delete error:', err)
+    }
+  }
+
+  const handleResetPassword = async () => {
+    if (!resetPasswordId || !newPassword) return
+    try {
+      await resetTeamMemberPassword(resetPasswordId, newPassword)
+      toast.success('Password reset successfully')
+      setResetPasswordId(null)
+      setNewPassword('')
+    } catch (err: any) {
+      toast.error('Failed to reset password: ' + err.message)
     }
   }
 
@@ -185,8 +201,20 @@ export default function TeamListClient({ initialTeamMembers, serverError }: Team
                       <Button
                         variant="ghost"
                         size="sm"
+                        onClick={() => {
+                          setResetPasswordId(member.id)
+                          setNewPassword('')
+                        }}
+                        className="h-8 w-8 p-0"
+                        suppressHydrationWarning
+                      >
+                        <Key className="w-4 h-4 text-slate-900" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => handleEditMember(member)}
-                        className="h-8 w-8 p-0 hover:text-slate-900"
+                        className="h-8 w-8 p-0"
                         suppressHydrationWarning
                       >
                         <Edit className="w-4 h-4 text-slate-900" />
@@ -241,6 +269,30 @@ export default function TeamListClient({ initialTeamMembers, serverError }: Team
             }}
             member={selectedMember}
           />
+
+          {/* Reset Password Dialog */}
+          {resetPasswordId && (
+            <Dialog open={!!resetPasswordId} onOpenChange={(open) => !open && setResetPasswordId(null)}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Reset Password</DialogTitle>
+                  <DialogDescription>Enter a new password for this team member</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <Input
+                    type="password"
+                    placeholder="New password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                  />
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setResetPasswordId(null)}>Cancel</Button>
+                  <Button onClick={handleResetPassword} disabled={!newPassword}>Reset Password</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
       </AdminLayout>
     </AdminRoute>

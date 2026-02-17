@@ -18,23 +18,74 @@ import {
   PackageX,
   Plus
 } from "lucide-react"
+import { useState, useMemo } from "react"
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+
+type DateRange = 'today' | '7d' | '30d' | 'all'
 
 export default function AdminDashboardPage() {
   const { user } = useStore()
-  // TODO: Currently both admin and sales users see all orders
-  // To filter sales orders, add 'created_by_user_id' field to orders table
   const { orders } = useOrders('ALL')
   const { getLowStockProducts } = useProducts()
+  const [dateRange, setDateRange] = useState<DateRange>('30d')
 
-  // Calculate stats
-  const totalOrders = orders.length
-  const pendingOrders = orders.filter(o => o.status === "Pending" || o.status === "Confirmed").length
-  const totalRevenue = orders
+  const filteredOrders = useMemo(() => {
+    const now = new Date()
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    
+    return orders.filter(order => {
+      const orderDate = new Date(order.createdAt)
+      
+      switch(dateRange) {
+        case 'today':
+          return orderDate >= today
+        case '7d':
+          const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+          return orderDate >= sevenDaysAgo
+        case '30d':
+          const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+          return orderDate >= thirtyDaysAgo
+        default:
+          return true
+      }
+    })
+  }, [orders, dateRange])
+
+  const totalOrders = filteredOrders.length
+  const pendingOrders = filteredOrders.filter(o => o.status === "Pending" || o.status === "Confirmed").length
+  const totalRevenue = filteredOrders
     .filter(o => o.status !== "Cancelled")
     .reduce((sum, o) => sum + o.total, 0)
   const lowStockCount = getLowStockProducts().length
 
-  const recentOrders = orders
+  const revenueChartData = useMemo(() => {
+    const dataMap = new Map<string, number>()
+    
+    filteredOrders.forEach(order => {
+      if (order.status === 'Cancelled') return
+      const date = new Date(order.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
+      dataMap.set(date, (dataMap.get(date) || 0) + order.total)
+    })
+    
+    return Array.from(dataMap.entries())
+      .map(([date, revenue]) => ({ date, revenue }))
+      .slice(-10)
+  }, [filteredOrders])
+
+  const ordersChartData = useMemo(() => {
+    const dataMap = new Map<string, number>()
+    
+    filteredOrders.forEach(order => {
+      const date = new Date(order.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
+      dataMap.set(date, (dataMap.get(date) || 0) + 1)
+    })
+    
+    return Array.from(dataMap.entries())
+      .map(([date, count]) => ({ date, count }))
+      .slice(-10)
+  }, [filteredOrders])
+
+  const recentOrders = filteredOrders
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, 5)
 
@@ -69,13 +120,19 @@ export default function AdminDashboardPage() {
     <AdminRoute>
       <AdminLayout>
         <div className="space-y-8">
-          {/* Header */}
-          <div>
-            <h1 className="text-3xl font-serif font-bold text-primary">Dashboard</h1>
-            <p className="text-muted-foreground mt-1">Welcome back! Here&apos;s your business overview.</p>
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-serif font-bold text-primary">Dashboard</h1>
+              <p className="text-muted-foreground mt-1">Welcome back! Here&apos;s your business overview.</p>
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" variant={dateRange === 'today' ? 'default' : 'outline'} onClick={() => setDateRange('today')}>Today</Button>
+              <Button size="sm" variant={dateRange === '7d' ? 'default' : 'outline'} onClick={() => setDateRange('7d')}>7 Days</Button>
+              <Button size="sm" variant={dateRange === '30d' ? 'default' : 'outline'} onClick={() => setDateRange('30d')}>30 Days</Button>
+              <Button size="sm" variant={dateRange === 'all' ? 'default' : 'outline'} onClick={() => setDateRange('all')}>All Time</Button>
+            </div>
           </div>
 
-          {/* Stats Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {stats.map((stat) => (
               <Card key={stat.title}>
@@ -94,7 +151,42 @@ export default function AdminDashboardPage() {
             ))}
           </div>
 
-          {/* Recent Orders */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Revenue Trend</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={250}>
+                  <LineChart data={revenueChartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis />
+                    <Tooltip formatter={(value) => formatPrice(value as number)} />
+                    <Line type="monotone" dataKey="revenue" stroke="#8b5cf6" strokeWidth={2} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Orders Over Time</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={250}>
+                  <BarChart data={ordersChartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="count" fill="#8b5cf6" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </div>
+
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Recent Orders</CardTitle>
@@ -150,17 +242,16 @@ export default function AdminDashboardPage() {
             </CardContent>
           </Card>
 
-          {/* Quick Actions */}
           <div className="flex gap-4">
-            <Button asChild className="hover:text-white">
+            <Button asChild>
               <Link href="/admin/orders/list">
                 <ShoppingBag className="w-4 h-4 mr-2" />
                 View All Orders
               </Link>
             </Button>
-            <Button asChild variant="outline" className="hover:text-slate-900">
+            <Button asChild variant="outline">
               <Link href="/admin/products/list">
-                <Plus className="w-4 h-4 mr-2 text-slate-900" />
+                <Plus className="w-4 h-4 mr-2" />
                 Manage Products
               </Link>
             </Button>

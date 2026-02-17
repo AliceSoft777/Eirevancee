@@ -199,6 +199,29 @@ export function useProducts() {
     fetchProducts()
   }, [])
 
+  // Auto-refetch on window focus to prevent stale data after navigating back
+  useEffect(() => {
+    let lastFetchTime = Date.now()
+
+    const handleFocus = () => {
+      // Only refetch if more than 5 seconds since last fetch (avoid rapid refetches)
+      if (Date.now() - lastFetchTime > 5000) {
+        lastFetchTime = Date.now()
+        fetchProducts()
+      }
+    }
+
+    window.addEventListener('focus', handleFocus)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') handleFocus()
+    })
+
+    return () => {
+      window.removeEventListener('focus', handleFocus)
+      document.removeEventListener('visibilitychange', handleFocus)
+    }
+  }, [])
+
   async function addProduct(product: Partial<Product>): Promise<DbProduct | null> {
     // Generate slug from name if not provided
     const slug = product.slug || product.name?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || `product-${Date.now()}`

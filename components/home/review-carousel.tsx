@@ -66,6 +66,78 @@ const reviews: Review[] = [
     content: "Beyond thrilled with the tiling and laminate flooring in my new home. Highly recommend.",
     author: "Aditi Upadhyay",
     date: "Dec 3, 2024"
+  },
+  {
+    id: "7",
+    rating: 5,
+    title: "Excellent Job",
+    content: "The team did an excellent job. Tilers and staff were very helpful and professional.",
+    author: "Ganapathy Manian",
+    date: "Nov 3, 2024"
+  },
+  {
+    id: "8",
+    rating: 5,
+    title: "Three Bathrooms Done",
+    content: "Three bathrooms done with porcelain tiles. Thanks to Chaitanya and Praveen for the help.",
+    author: "Avishek Singh",
+    date: "Nov 3, 2024"
+  },
+  {
+    id: "9",
+    rating: 5,
+    title: "Great After-Sales Support",
+    content: "Srini was always available to resolve issues even after the job was finished. Great service.",
+    author: "Sourabh Chauhan",
+    date: "Nov 3, 2024"
+  },
+  {
+    id: "10",
+    rating: 5,
+    title: "Perfect Flooring Choice",
+    content: "Fantastic experience. Friendly team helped us pick the perfect flooring and tiles.",
+    author: "Nandini Vihaan",
+    date: "Dec 3, 2024"
+  },
+  {
+    id: "11",
+    rating: 5,
+    title: "New Home Transformation",
+    content: "Beyond thrilled with the tiling and laminate flooring in my new home. Highly recommend.",
+    author: "Aditi Upadhyay",
+    date: "Dec 3, 2024"
+  },
+  {
+    id: "12",
+    rating: 5,
+    title: "Expert Guidance",
+    content: "More than happy with two renovated bathrooms. Kerusha gave great guidance on tiles.",
+    author: "Gurunath Kale",
+    date: "Dec 3, 2024"
+  },
+  {
+    id: "13",
+    rating: 5,
+    title: "Unique Selection",
+    content: "Excellent service from Pavan. Gorgeous and unusual tiles that you don't see elsewhere.",
+    author: "Grace H.",
+    date: "Dec 3, 2024"
+  },
+  {
+    id: "14",
+    rating: 5,
+    title: "Same-Day Delivery",
+    content: "Great selection of tiles and very convenient same-day delivery. Very professional.",
+    author: "Deirdre Hogan",
+    date: "Jan 3, 2025"
+  },
+  {
+    id: "15",
+    rating: 5,
+    title: "Family Business Excellence",
+    content: "So happy I chose this family business. They really look after you from start to finish.",
+    author: "Magda Maj",
+    date: "Jan 30, 2025"
   }
 ];
 

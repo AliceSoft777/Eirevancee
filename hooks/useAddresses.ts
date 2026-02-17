@@ -27,16 +27,61 @@ export function useAddresses(userId: string | null) {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (userId) {
-      fetchAddresses()
-    } else {
+    if (!userId) {
+      setAddresses([])
       setIsLoading(false)
+      return
     }
+
+    let cancelled = false
+
+    const doFetch = async () => {
+      try {
+        setIsLoading(true)
+        setError(null)
+
+        const { data, error: fetchError } = await (supabase
+          .from('customer_addresses') as any)
+          .select('*')
+          .eq('user_id', userId as string)
+          .order('is_default', { ascending: false })
+          .order('created_at', { ascending: false })
+
+        if (cancelled) return
+
+        if (fetchError) {
+          console.error('[useAddresses] Fetch error:', fetchError.message)
+          throw fetchError
+        }
+
+        const typedData = (data ?? []) as UserAddress[]
+
+        // Deduplicate by street+city+pincode (keep the newest)
+        const seen = new Set<string>()
+        const unique = typedData.filter(addr => {
+          const key = `${addr.street.toLowerCase().trim()}|${addr.city.toLowerCase().trim()}|${addr.pincode.toLowerCase().trim()}`
+          if (seen.has(key)) return false
+          seen.add(key)
+          return true
+        })
+
+        setAddresses(unique)
+      } catch (err: any) {
+        if (cancelled) return
+        console.error('[useAddresses] Error:', err.message)
+        setError(err.message || 'Failed to fetch addresses')
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
+
+    doFetch()
+
+    return () => { cancelled = true }
   }, [userId])
 
   const fetchAddresses = async () => {
     if (!userId) {
-      console.log('[useAddresses] ❌ No userId provided - skipping fetch')
       setIsLoading(false)
       return
     }
@@ -44,39 +89,34 @@ export function useAddresses(userId: string | null) {
     try {
       setIsLoading(true)
       setError(null)
-      
-      console.log('[useAddresses] 🔍 Fetching addresses for userId:', userId)
-      console.log('[useAddresses] userId type:', typeof userId)
-      
-      const { data, error: fetchError } = await supabase
-        .from('customer_addresses')
+
+      const { data, error: fetchError } = await (supabase
+        .from('customer_addresses') as any)
         .select('*')
         .eq('user_id', userId as string)
         .order('is_default', { ascending: false })
         .order('created_at', { ascending: false })
 
       if (fetchError) {
-        console.error('[useAddresses] ❌ Fetch error:', fetchError)
-        console.error('[useAddresses] Error details:', { message: fetchError.message, code: fetchError.code, hint: fetchError.hint })
+        console.error('[useAddresses] Fetch error:', fetchError.message)
         throw fetchError
       }
 
-      console.log('[useAddresses] ✅ Addresses found:', data?.length || 0)
-      if (data && data.length > 0) {
-        console.log('[useAddresses] First address user_id:', data[0].user_id)
-        console.log('[useAddresses] Comparing: fetched user_id === param userId?', data[0].user_id === userId)
-      }
+      const typedData = (data ?? []) as UserAddress[]
 
-      setAddresses(data)
-    } catch (err: any) {
-      console.error('Error fetching addresses details:', {
-        message: err.message,
-        details: err.details,
-        hint: err.hint,
-        code: err.code,
-        userId: userId
+      // Deduplicate by street+city+pincode (keep the newest)
+      const seen = new Set<string>()
+      const unique = typedData.filter(addr => {
+        const key = `${addr.street.toLowerCase().trim()}|${addr.city.toLowerCase().trim()}|${addr.pincode.toLowerCase().trim()}`
+        if (seen.has(key)) return false
+        seen.add(key)
+        return true
       })
-      setError(err.message || 'An unknown error occurred while fetching addresses')
+
+      setAddresses(unique)
+    } catch (err: any) {
+      console.error('[useAddresses] Error:', err.message)
+      setError(err.message || 'Failed to fetch addresses')
     } finally {
       setIsLoading(false)
     }
@@ -86,14 +126,7 @@ export function useAddresses(userId: string | null) {
     try {
       if (!userId) throw new Error("User not authenticated")
       
-      console.log('[useAddresses.addAddress] 🔍 Adding address for userId:', userId)
-      console.log('[useAddresses.addAddress] Address data:', {
-        full_name: address.full_name,
-        street: address.street,
-        city: address.city,
-        pincode: address.pincode,
-        phone: address.phone
-      })
+      console.log('[useAddresses] Adding address for userId:', userId)
 
       const newAddress = {
         ...address,
@@ -115,20 +148,12 @@ export function useAddresses(userId: string | null) {
         throw addError
       }
       
-      console.log('[useAddresses.addAddress] ✅ Address inserted', {
-        id: data?.id,
-        user_id: data?.user_id,
-        full_name: data?.full_name
-      })
+
 
       await fetchAddresses()
       return data
     } catch (err: any) {
-      console.error('[useAddresses.addAddress] ❌ Error:', {
-        message: err.message,
-        code: err.code,
-        details: err.details
-      })
+      console.error('[useAddresses] Add address error:', err.message)
       throw err
     }
   }

@@ -14,6 +14,7 @@ import {
   MessageSquare,
   Star,
   Tag,
+  Mail,
   BarChart3,
   Settings,
   LogOut,
@@ -43,10 +44,11 @@ const allNavigation: NavItem[] = [
   { name: "Products", href: "/admin/products/list", icon: Package },
   { name: "Reviews", href: "/admin/reviews/pending", icon: Star },
   { name: "Customers", href: "/admin/customers/list", icon: Users },
-  { name: "Support", href: "/admin/feedback/list", icon: MessageSquare },
+  //{ name: "Support", href: "/admin/feedback/list", icon: MessageSquare },
   // Admin-only items
   { name: "Team", href: "/admin/team/list", icon: UserRoundCog, adminOnly: true },
   { name: "Marketing", href: "/admin/marketing/coupons", icon: Tag, adminOnly: true },
+  { name: "Newsletter", href: "/admin/newsletter", icon: Mail, adminOnly: true },
   { name: "Reports", href: "/admin/reports/sales", icon: BarChart3, adminOnly: true },
   { name: "Settings", href: "/admin/settings/general", icon: Settings, adminOnly: true },
 ]
@@ -126,9 +128,9 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="h-screen flex flex-col overflow-hidden bg-background">
       {/* Mobile Header */}
-      <header className="lg:hidden sticky top-0 z-40 bg-card border-b border-border px-4 py-3 flex items-center justify-between" suppressHydrationWarning>
+      <header className="lg:hidden shrink-0 z-40 bg-card border-b border-border px-4 py-3 flex items-center justify-between" suppressHydrationWarning>
         <h1 className="text-lg font-serif font-bold text-primary">
           Celtic Tiles <span className="text-xs font-sans text-muted-foreground">{isAdmin() ? "Admin" : "Staff"}</span>
         </h1>
@@ -137,16 +139,16 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           size="sm"
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
           suppressHydrationWarning
-          className="hover:text-slate-900"
+          className="hover:text-foreground"
         >
-          {isSidebarOpen ? <X className="h-5 w-5 text-slate-900" /> : <Menu className="h-5 w-5 text-slate-900" />}
+          {isSidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </Button>
       </header>
 
-      <div className="flex">
+      <div className="flex flex-1 overflow-hidden">
         {/* Sidebar Overlay (mobile) */}
         {isSidebarOpen && (
-          <div 
+          <div
             className="fixed inset-0 bg-black/50 z-40 lg:hidden"
             onClick={() => setIsSidebarOpen(false)}
           />
@@ -154,14 +156,14 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
         {/* Sidebar */}
         <aside className={cn(
-          "fixed lg:sticky top-0 left-0 h-screen bg-card border-r border-border flex flex-col transition-all duration-300 ease-in-out",
+          "fixed lg:relative top-0 left-0 h-full bg-card border-r border-border flex flex-col transition-all duration-300 ease-in-out shrink-0",
           "w-60 sm:w-64",
           "z-50 lg:z-auto",
           isSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}>
           {/* Logo - Desktop only */}
-          <div className="hidden lg:block p-6 border-b border-border">
-            <h1 className="text-xl font-serif font-bold text-primary">
+          <div className="hidden lg:block px-5 py-4 border-b border-border">
+            <h1 className="text-lg font-serif font-bold text-primary">
               Celtic Tiles <span className="text-sm font-sans text-muted-foreground">{isAdmin() ? "Admin" : "Staff"}</span>
             </h1>
           </div>
@@ -169,13 +171,13 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           {/* Mobile close button */}
           <div className="lg:hidden p-4 border-b border-border flex items-center justify-between">
             <span className="font-medium">Menu</span>
-            <Button variant="ghost" size="sm" onClick={() => setIsSidebarOpen(false)} suppressHydrationWarning className="hover:text-slate-900">
-              <X className="h-5 w-5 text-slate-900" />
+            <Button variant="ghost" size="sm" onClick={() => setIsSidebarOpen(false)} suppressHydrationWarning>
+              <X className="h-5 w-5" />
             </Button>
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+          <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto">
             {navigation.map((item) => {
               const isActive = pathname?.startsWith(item.href)
               return (
@@ -183,13 +185,13 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                   key={item.name}
                   href={item.href}
                   className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
+                    "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200",
                     isActive
                       ? "bg-primary/20 text-primary border border-primary/30 shadow-sm"
                       : "text-foreground hover:bg-primary/10 hover:text-primary hover:translate-x-1"
                   )}
                 >
-                  <item.icon className="w-5 h-5 flex-shrink-0" />
+                  <item.icon className="w-4 h-4 flex-shrink-0" />
                   <span className="truncate">{item.name}</span>
                 </Link>
               )
@@ -197,9 +199,9 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           </nav>
 
           {/* User Info */}
-          <div className="p-4 border-t border-border">
-            <div className="mb-3 flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
+          <div className="px-3 py-3 border-t border-border">
+            <div className="mb-2 flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                 <span className="text-primary font-semibold text-sm">
                   {user?.name?.charAt(0).toUpperCase()}
                 </span>
@@ -211,27 +213,27 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             </div>
             <Link
               href="/"
-              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-2 transition-colors"
+              className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground mb-1.5 transition-colors px-1"
             >
-              <Home className="w-4 h-4" />
+              <Home className="w-3.5 h-3.5" />
               Back to Store
             </Link>
             <Button
               variant="outline"
               size="sm"
-              className="w-full hover:text-slate-900"
+              className="w-full text-xs h-8"
               onClick={handleLogout}
               suppressHydrationWarning
             >
-              <LogOut className="w-4 h-4 mr-2 text-slate-900" />
+              <LogOut className="w-3.5 h-3.5 mr-2" />
               Logout
             </Button>
           </div>
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 w-full min-h-screen overflow-auto">
-          <div className="p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto">
+        <main className="flex-1 overflow-y-auto">
+          <div className="p-4 sm:p-5 lg:p-6 max-w-[1600px] mx-auto">
             {children}
           </div>
         </main>

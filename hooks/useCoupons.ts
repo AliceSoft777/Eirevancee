@@ -10,6 +10,7 @@ export interface Coupon {
   description: string | null
   discount_type: 'percentage' | 'fixed'
   discount_value: number
+  min_order_value: number | null
   usage_limit: number | null
   used_count: number
   status: 'active' | 'expired'
@@ -45,7 +46,7 @@ export function useCoupons() {
   }
 
   async function addCoupon(coupon: CouponFormData) {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('coupons')
       .insert([{ ...coupon, used_count: 0, status: 'active' }])
       .select()
@@ -57,7 +58,7 @@ export function useCoupons() {
   }
 
   async function updateCoupon(id: string, updates: Partial<CouponFormData>) {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('coupons')
       .update(updates)
       .eq('id', id)

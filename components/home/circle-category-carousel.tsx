@@ -50,8 +50,8 @@ export function CircleCategoryCarousel({ title, categories }: CircleCategoryCaro
 
                     <Swiper
                         modules={[Navigation]}
-                        spaceBetween={20}
-                        slidesPerView={2.5}
+                        spaceBetween={10}
+                        slidesPerView={5}
                         centeredSlides={categories.length <= 6}
                         centeredSlidesBounds={true}
                         navigation={{
@@ -68,26 +68,26 @@ export function CircleCategoryCarousel({ title, categories }: CircleCategoryCaro
                             }
                         }}
                         breakpoints={{
-                            480: { slidesPerView: 3.5, spaceBetween: 20 },
-                            768: { slidesPerView: 5, spaceBetween: 30 },
-                            1024: { slidesPerView: 6, spaceBetween: 40 },
+                            480: { slidesPerView: 4, spaceBetween: 16 },
+                            768: { slidesPerView: 5, spaceBetween: 20 },
+                            1024: { slidesPerView: 7, spaceBetween: 24 },
                         }}
                     >
                         {categories.map((category) => (
                             <SwiperSlide key={category.name}>
                                 <Link href={category.href} className="group block text-center">
-                                    <div className="relative w-24 h-24 md:w-32 md:h-32 mb-4 mx-auto p-1.5 rounded-full neu-raised bg-[#E5E9F0] transition-all group-hover:neu-inset">
+                                    <div className="relative w-20 h-20 md:w-28 md:h-28 mb-3 mx-auto p-1.5 rounded-full neu-raised bg-[#E5E9F0] transition-all group-hover:neu-inset">
                                         <div className="relative w-full h-full rounded-full overflow-hidden">
                                             <Image
                                                 src={category.image}
                                                 alt={category.name}
                                                 fill
                                                 className="object-cover transition-transform duration-500 group-hover:scale-110"
-                                                sizes="(max-width: 768px) 96px, 128px"
+                                                sizes="(max-width: 768px) 80px, 112px"
                                             />
                                         </div>
                                     </div>
-                                    <h3 className="text-sm md:text-base font-semibold text-tm-text group-hover:text-tm-red transition-colors capitalize">
+                                    <h3 className="text-xs md:text-sm font-semibold text-tm-text group-hover:text-tm-red transition-colors capitalize">
                                         {category.name}
                                     </h3>
                                 </Link>

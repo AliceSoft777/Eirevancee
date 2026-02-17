@@ -12,6 +12,24 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
 
+  // Turbopack configuration
+  turbopack: {
+    // Fix workspace root warning
+    root: process.cwd(),
+  },
+
+  // Experimental optimizations
+  experimental: {
+    // Enable optimized package imports
+    optimizePackageImports: ['lucide-react', 'recharts', 'framer-motion'],
+  },
+
+  // Allow cross-origin requests in development
+  allowedDevOrigins: [
+    'http://192.168.0.6',
+    'http://localhost'
+  ],
+
   // Image optimization
   images: {
     remotePatterns: [
@@ -28,3 +46,4 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
+

@@ -22,10 +22,27 @@ export function useCart() {
   // Get user from Zustand store
   const storeUser = useStore((state) => state.user)
   const setCartCountInStore = useStore((state) => state.setCartCount)
+  const setCartItemsInStore = useStore((state) => state.setCartItems)
   const hasHydrated = useStore((state) => state._hasHydrated)
   
   // Track previous user ID to detect login/logout changes
   const prevUserIdRef = useRef<string | null | undefined>(undefined)
+
+  // Helper: build per-product cart map and sync to store
+  function syncCartToStore(items: CartItem[]) {
+    setCartItems(items)
+    const count = items.reduce((sum, item) => sum + item.quantity, 0)
+    setCartCountInStore(count)
+    const map: Record<string, { cartItemId: string; quantity: number }> = {}
+    for (const item of items) {
+      if (map[item.product_id]) {
+        map[item.product_id].quantity += item.quantity
+      } else {
+        map[item.product_id] = { cartItemId: item.id, quantity: item.quantity }
+      }
+    }
+    setCartItemsInStore(map)
+  }
 
   // Fetch cart when hydrated and when user changes
   useEffect(() => {
@@ -46,8 +63,7 @@ export function useCart() {
         
         // No user = empty cart
         if (!currentUserId) {
-          setCartItems([])
-          setCartCountInStore(0)
+          syncCartToStore([])
           setIsLoading(false)
           return
         }
@@ -57,18 +73,14 @@ export function useCart() {
         if (fetchError || !data) {
           console.error('[useCart] Error fetching cart:', fetchError)
           setError(fetchError || 'Failed to load cart')
-          setCartItems([])
-          setCartCountInStore(0)
+          syncCartToStore([])
         } else {
-          setCartItems(data)
-          const count = data.reduce((sum, item) => sum + item.quantity, 0)
-          setCartCountInStore(count)
+          syncCartToStore(data)
         }
       } catch (err: any) {
         console.error('[useCart] Exception fetching cart:', err)
         setError(err.message || 'Failed to load cart')
-        setCartItems([])
-        setCartCountInStore(0)
+        syncCartToStore([])
       } finally {
         setIsLoading(false)
       }
@@ -93,9 +105,7 @@ export function useCart() {
       // Refresh cart to get updated state
       const { data: refreshedCart } = await fetchCartAction()
       if (refreshedCart) {
-        setCartItems(refreshedCart)
-        const count = refreshedCart.reduce((sum, cartItem) => sum + cartItem.quantity, 0)
-        setCartCountInStore(count)
+        syncCartToStore(refreshedCart)
       }
 
       return data
@@ -117,9 +127,7 @@ export function useCart() {
       // Refresh cart to get updated state
       const { data: refreshedCart } = await fetchCartAction()
       if (refreshedCart) {
-        setCartItems(refreshedCart)
-        const count = refreshedCart.reduce((sum, item) => sum + item.quantity, 0)
-        setCartCountInStore(count)
+        syncCartToStore(refreshedCart)
       }
 
       return data || undefined
@@ -141,9 +149,7 @@ export function useCart() {
       // Refresh cart to get updated state
       const { data: refreshedCart } = await fetchCartAction()
       if (refreshedCart) {
-        setCartItems(refreshedCart)
-        const count = refreshedCart.reduce((sum, item) => sum + item.quantity, 0)
-        setCartCountInStore(count)
+        syncCartToStore(refreshedCart)
       }
     } catch (err: any) {
       console.error('[useCart] Exception in removeFromCart:', err)
@@ -162,8 +168,7 @@ export function useCart() {
         throw new Error(clearError || 'Failed to clear cart')
       }
 
-      setCartItems([])
-      setCartCountInStore(0)
+      syncCartToStore([])
     } catch (err: any) {
       console.error('[useCart] Exception in clearCart:', err)
       throw err

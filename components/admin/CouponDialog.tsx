@@ -17,6 +17,7 @@ export interface CouponFormData {
   description: string
   discount_type: "percentage" | "fixed"
   discount_value: number
+  min_order_value: number
   usage_limit: number
   expires_at: string
 }
@@ -43,6 +44,7 @@ export function CouponDialog({
     description: coupon?.description || "",
     discount_type: coupon?.discount_type || "percentage",
     discount_value: coupon?.discount_value || 0,
+    min_order_value: coupon?.min_order_value || 0,
     usage_limit: coupon?.usage_limit || 100,
     expires_at: coupon?.expires_at || ""
   })
@@ -127,6 +129,17 @@ export function CouponDialog({
                 required
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Min Order Value (€)</label>
+            <Input
+              type="number"
+              value={formData.min_order_value}
+              onChange={(e) => setFormData({ ...formData, min_order_value: parseFloat(e.target.value) })}
+              placeholder="0"
+            />
+            <p className="text-xs text-muted-foreground mt-1">Minimum order amount required to use this coupon</p>
           </div>
 
           <DialogFooter>

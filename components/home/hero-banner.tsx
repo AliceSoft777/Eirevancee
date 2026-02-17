@@ -99,13 +99,16 @@ export function HeroBanner({
                             </Link>
                         </Button>
                         
-                        <Button
-                            variant="outline"
-                            size="xl"
-                            className="bg-white/50 hover:bg-white text-slate-700 font-bold px-10 h-14 rounded-full neu-raised border-none transition-all hover:scale-105 active:scale-95 text-lg"
-                        >
-                            Book Consultation
-                        </Button>
+
+<Button
+    variant="outline"
+    size="xl"
+    className="bg-white/50 hover:bg-white text-slate-900 hover:text-slate-900 font-bold px-10 h-14 rounded-full neu-raised border-none transition-all hover:scale-105 active:scale-95 text-lg"
+    asChild
+>
+    <Link href="/contact">Book Consultation</Link>
+</Button>
+                        
                     </div>
                 </motion.div>
             </div>

@@ -2,14 +2,14 @@
 
 import Link from "next/link"
 import Image from "next/image"
-import { memo, useState } from "react"
+import { memo, useState, useCallback } from "react"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { formatPrice } from "@/lib/utils"
-import { Heart, ShoppingCart, Loader2 } from "lucide-react"
+import { Heart, ShoppingCart, Loader2, Plus, Minus, Trash2 } from "lucide-react"
 
 import { useStore } from "@/hooks/useStore"
-import { useCart } from "@/hooks/useCart"
 import { useWishlist } from "@/hooks/useWishlist"
+import { addToCartAction, updateCartQuantityAction, removeFromCartAction, fetchCartAction } from "@/app/actions/cart"
 import { Button } from "@/components/ui/button"
 import type { Product } from "@/lib/supabase-types"
 import { toast } from "sonner"
@@ -21,12 +21,34 @@ interface ProductCardProps {
 export const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
 
     const { isInWishlist, user } = useStore()
-    const { addToCart } = useCart()
+    const setCartCount = useStore((state) => state.setCartCount)
+    const setCartItems = useStore((state) => state.setCartItems)
+    const cartQuantity = useStore((state) => state.getCartQuantity(product.id))
+    const cartItemId = useStore((state) => state.getCartItemId(product.id))
     const { addToWishlist, removeFromWishlist } = useWishlist()
     const isWishlisted = isInWishlist(product.id)
     const isLoggedIn = !!user
     const [isAddingToCart, setIsAddingToCart] = useState(false)
+    const [isUpdatingCart, setIsUpdatingCart] = useState(false)
     const [isTogglingWishlist, setIsTogglingWishlist] = useState(false)
+
+    // Sync refreshed cart to Zustand store
+    const syncCart = useCallback(async () => {
+        const { data: refreshedCart } = await fetchCartAction()
+        if (refreshedCart) {
+            const count = refreshedCart.reduce((sum, item) => sum + item.quantity, 0)
+            setCartCount(count)
+            const map: Record<string, { cartItemId: string; quantity: number }> = {}
+            for (const item of refreshedCart) {
+                if (map[item.product_id]) {
+                    map[item.product_id].quantity += item.quantity
+                } else {
+                    map[item.product_id] = { cartItemId: item.id, quantity: item.quantity }
+                }
+            }
+            setCartItems(map)
+        }
+    }, [setCartCount, setCartItems])
 
     const handleWishlist = async (e: React.MouseEvent) => {
         e.preventDefault()
@@ -71,13 +93,17 @@ export const ProductCard = memo(function ProductCard({ product }: ProductCardPro
         
         setIsAddingToCart(true)
         try {
-            await addToCart({
+            const { error: addError } = await addToCartAction({
                 product_id: product.id,
                 product_name: product.name,
                 product_price: product.price || 0,
                 product_image: product.image,
                 quantity: 1
             })
+            
+            if (addError) throw new Error(addError)
+            
+            await syncCart()
             toast.success("Added to cart!")
         } catch (err) {
             toast.error(err instanceof Error ? err.message : "Failed to add to cart")
@@ -86,9 +112,58 @@ export const ProductCard = memo(function ProductCard({ product }: ProductCardPro
         }
     }
 
+    const handleIncrement = async (e: React.MouseEvent) => {
+        e.preventDefault()
+        e.stopPropagation()
+        
+        if (!cartItemId || isUpdatingCart) return
+        if (cartQuantity >= product.stock) {
+            toast.error(`Only ${product.stock} in stock`)
+            return
+        }
+
+        setIsUpdatingCart(true)
+        try {
+            const { error } = await updateCartQuantityAction(cartItemId, cartQuantity + 1)
+            if (error) throw new Error(error)
+            await syncCart()
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Failed to update quantity")
+        } finally {
+            setIsUpdatingCart(false)
+        }
+    }
+
+    const handleDecrement = async (e: React.MouseEvent) => {
+        e.preventDefault()
+        e.stopPropagation()
+        
+        if (!cartItemId || isUpdatingCart) return
+
+        setIsUpdatingCart(true)
+        try {
+            if (cartQuantity <= 1) {
+                // Remove from cart
+                const { error } = await removeFromCartAction(cartItemId)
+                if (error) throw new Error(error)
+                toast.success("Removed from cart")
+            } else {
+                const { error } = await updateCartQuantityAction(cartItemId, cartQuantity - 1)
+                if (error) throw new Error(error)
+            }
+            await syncCart()
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Failed to update quantity")
+        } finally {
+            setIsUpdatingCart(false)
+        }
+    }
+
+    const isInCart = cartQuantity > 0
+
     return (
         <Card className="group overflow-hidden bg-[#E5E9F0] border-none neu-raised transition-all duration-300 hover:scale-[1.02] rounded-[2rem] h-full flex flex-col">
-            <Link href={`/product/${product.slug}`} className="block relative aspect-square overflow-hidden p-2">
+            <Link href={`/product/${product.slug}`} prefetch={false} className="block relative aspect-square overflow-hidden p-2">
                 <div className="relative w-full h-full overflow-hidden rounded-[1.5rem]">
                     <Image
                         src={product.image || '/images/placeholder.jpg'}
@@ -109,7 +184,7 @@ export const ProductCard = memo(function ProductCard({ product }: ProductCardPro
                             {isTogglingWishlist ? (
                                 <Loader2 className="h-4 w-4 animate-spin" />
                             ) : (
-                                <Heart className={`h-4 w-4 ${isWishlisted ? 'fill-current' : ''}`} />
+                                <Heart className={`h-4 w-4 ${isWishlisted ? 'fill-current' : ''}`} suppressHydrationWarning />
                             )}
                         </Button>
                     </div>
@@ -118,7 +193,7 @@ export const ProductCard = memo(function ProductCard({ product }: ProductCardPro
             <CardContent className="pt-2 flex-grow">
                 {product.material && <div className="text-[10px] text-tm-text-muted mb-1 uppercase tracking-wider font-bold">{product.material}</div>}
                 <h3 className="font-bold text-tm-text mb-2 line-clamp-1 group-hover:text-tm-red transition-colors font-serif">
-                    <Link href={`/product/${product.slug}`}>{product.name}</Link>
+                    <Link href={`/product/${product.slug}`} prefetch={false}>{product.name}</Link>
                 </h3>
                 <div className="flex items-center gap-2 mb-2">
                     <span className="font-bold text-lg text-tm-text">{formatPrice(product.price)}</span>
@@ -142,25 +217,62 @@ export const ProductCard = memo(function ProductCard({ product }: ProductCardPro
                 </div>
             </CardContent>
             <CardFooter className="pb-6 px-4">
-                <Button 
-                    className="w-full bg-tm-red hover:bg-tm-red/90 text-white rounded-full shadow-lg transition-transform hover:scale-105 active:scale-95 h-10 font-bold disabled:bg-gray-400 disabled:hover:bg-gray-400 disabled:hover:scale-100 disabled:cursor-not-allowed"
-                    onClick={handleAddToCart}
-                    disabled={isAddingToCart || product.stock === 0}
-                >
-                    {product.stock === 0 ? (
-                        <>❌ Out of Stock</>
-                    ) : isAddingToCart ? (
-                        <>
-                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                            Adding...
-                        </>
-                    ) : (
-                        <>
-                            <ShoppingCart className="h-4 w-4 mr-2" />
-                            Add to Cart
-                        </>
-                    )}
-                </Button>
+                {isInCart ? (
+                    /* ====== QUANTITY STEPPER (Amazon/Flipkart style) ====== */
+                    <div className="w-full flex items-center justify-between rounded-full bg-primary/10 border-2 border-primary/20 h-10 px-1">
+                        {/* Minus / Trash */}
+                        <button
+                            className="h-8 w-8 rounded-full bg-primary text-white flex items-center justify-center hover:bg-primary/80 transition-all active:scale-90 disabled:opacity-50"
+                            onClick={handleDecrement}
+                            disabled={isUpdatingCart}
+                            title={cartQuantity === 1 ? "Remove from cart" : "Decrease quantity"}
+                        >
+                            {isUpdatingCart ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : cartQuantity === 1 ? (
+                                <Trash2 className="h-3.5 w-3.5" />
+                            ) : (
+                                <Minus className="h-3.5 w-3.5" />
+                            )}
+                        </button>
+
+                        {/* Count */}
+                        <span className="font-bold text-primary text-sm tabular-nums select-none min-w-[2rem] text-center">
+                            {cartQuantity}
+                        </span>
+
+                        {/* Plus */}
+                        <button
+                            className="h-8 w-8 rounded-full bg-primary text-white flex items-center justify-center hover:bg-primary/80 transition-all active:scale-90 disabled:opacity-50"
+                            onClick={handleIncrement}
+                            disabled={isUpdatingCart || cartQuantity >= product.stock}
+                            title="Increase quantity"
+                        >
+                            <Plus className="h-3.5 w-3.5" />
+                        </button>
+                    </div>
+                ) : (
+                    /* ====== ADD TO CART BUTTON ====== */
+                    <Button 
+                        className="w-full bg-tm-red hover:bg-tm-red/90 text-white rounded-full shadow-lg transition-transform hover:scale-105 active:scale-95 h-10 font-bold disabled:bg-gray-400 disabled:hover:bg-gray-400 disabled:hover:scale-100 disabled:cursor-not-allowed"
+                        onClick={handleAddToCart}
+                        disabled={isAddingToCart || product.stock === 0}
+                    >
+                        {product.stock === 0 ? (
+                            <>❌ Out of Stock</>
+                        ) : isAddingToCart ? (
+                            <>
+                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                Adding...
+                            </>
+                        ) : (
+                            <>
+                                <ShoppingCart className="h-4 w-4 mr-2" />
+                                Add to Cart
+                            </>
+                        )}
+                    </Button>
+                )}
             </CardFooter>
         </Card>
     )

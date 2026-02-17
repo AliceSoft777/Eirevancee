@@ -39,6 +39,10 @@ interface StoreState {
     // Cart
     cartCount: number
     setCartCount: (count: number) => void
+    cartItems: Record<string, { cartItemId: string; quantity: number }>
+    setCartItems: (items: Record<string, { cartItemId: string; quantity: number }>) => void
+    getCartQuantity: (productId: string) => number
+    getCartItemId: (productId: string) => string | null
 }
 
 export const useStore = create<StoreState>()(
@@ -89,6 +93,10 @@ export const useStore = create<StoreState>()(
                 console.log('[useStore] Setting cart count to:', count)
                 set({ cartCount: count })
             },
+            cartItems: {},
+            setCartItems: (items) => set({ cartItems: items }),
+            getCartQuantity: (productId) => get().cartItems[productId]?.quantity || 0,
+            getCartItemId: (productId) => get().cartItems[productId]?.cartItemId || null,
         }),
         {
             name: 'celtic-tiles-storage',

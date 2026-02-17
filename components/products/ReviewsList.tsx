@@ -1,19 +1,19 @@
 'use client'
 
-import { useState } from 'react'
 import { Star, MessageCircle } from 'lucide-react'
-import { useProductReviews } from '@/hooks/useProductReviews'
+import type { Review } from '@/hooks/useProductReviews'
 import { formatDistanceToNow } from 'date-fns'
 
 interface ReviewsListProps {
-    productId: string
+    initialReviews: Review[]
 }
 
-export function ReviewsList({ productId }: ReviewsListProps) {
-    // ✅ USE HOOK: Automatically shares request with ProductReviews component
-    const { reviews, loading: isLoading, error, averageRating } = useProductReviews(productId)
-    // Local state for UI interactions only
-    const [expandedReviewId, setExpandedReviewId] = useState<string | null>(null)
+export function ReviewsList({ initialReviews }: ReviewsListProps) {
+    const reviews = initialReviews
+    const averageRating =
+        reviews.length > 0
+            ? reviews.reduce((sum, r) => sum + Number(r.rating), 0) / reviews.length
+            : 0
 
     const renderStars = (rating: number) => {
         return (
@@ -32,14 +32,6 @@ export function ReviewsList({ productId }: ReviewsListProps) {
         )
     }
 
-    if (isLoading) {
-        return (
-            <div className="py-8 text-center">
-                <p className="text-gray-500">Loading reviews...</p>
-            </div>
-        )
-    }
-
     if (reviews.length === 0) {
         return (
             <div className="bg-gray-50 rounded-lg p-8 text-center border border-gray-200">
@@ -49,15 +41,6 @@ export function ReviewsList({ productId }: ReviewsListProps) {
         )
     }
 
-    // ✅ Error display from hook
-    if (error) {
-        return (
-            <div className="p-4 bg-red-50 text-red-700 rounded-lg border border-red-200">
-                <p className="font-semibold">Error loading reviews</p>
-                <p className="text-sm mt-1">{error}</p>
-            </div>
-        )
-    }
 
     return (
         <div className="space-y-6">
@@ -79,7 +62,7 @@ export function ReviewsList({ productId }: ReviewsListProps) {
                     {/* Rating Distribution */}
                     <div className="flex-1 space-y-1">
                         {[5, 4, 3, 2, 1].map((star) => {
-                            const count = reviews.filter((r) => r.rating === star).length
+                            const count = reviews.filter((r) => Number(r.rating) === star).length
                             const percentage =
                                 reviews.length > 0
                                     ? Math.round((count / reviews.length) * 100)
@@ -116,7 +99,7 @@ export function ReviewsList({ productId }: ReviewsListProps) {
                         <div className="flex items-start justify-between mb-2">
                             <div>
                                 <div className="font-semibold text-gray-900">
-                                    {review.customer_name || 'Anonymous'}
+                                    {(review.profiles as any)?.full_name || review.customer_name || 'Anonymous'}
                                 </div>
                                 <div className="flex items-center gap-2 mt-1">
                                     {renderStars(review.rating)}

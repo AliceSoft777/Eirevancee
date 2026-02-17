@@ -40,26 +40,33 @@ export function MainNav({ categories, products }: MainNavProps) {
   }, []);
 
   // Clearance products exist?
-  const hasClearanceProducts = products.some(
-    (p) => p.is_clearance === true && p.status === "active"
-  );
+  const hasClearanceProducts = products.some((p) => p.is_clearance === true);
+
+  console.log("Nav Debug - Clearance:", { 
+    hasClearanceProducts, 
+    totalProducts: products.length,
+    clearanceCount: products.filter(p => p.is_clearance === true).length 
+  });
 
   const navItems = categories.map((cat) => {
     const hasSubcategories = cat.children && cat.children.length > 0;
 
     // Collect this category + all child IDs
-const categoryIds = [
-  cat.id,
-  ...(cat.children?.map(child => child.id) || [])
-];
+    const categoryIds = [
+      cat.id,
+      ...(cat.children?.map(child => child.id) || [])
+    ];
 
-// Check if ANY product belongs to this category tree
-const hasProducts = products.some(
-  p =>
-    categoryIds.includes(p.category_id as string) &&
-    p.status === "active" &&
-    p.is_clearance !== true
-);
+    // Check if ANY product belongs to this category tree
+    const hasProducts = products.some(
+      p =>
+        categoryIds.includes(p.category_id as string) &&
+        !p.is_clearance
+    );
+
+    if (hasProducts && !hasSubcategories) {
+       console.log(`Nav Debug - ProductsOnly for ${cat.name}:`, { hasProducts });
+    }
 
     return {
       name: cat.name,
@@ -85,6 +92,7 @@ const hasProducts = products.some(
             <li onMouseEnter={() => setActiveMenu("clearance")}>
               <Link
                 href="/clearance"
+                prefetch={false}
                 className={cn(
                   "block px-6 py-4 text-sm font-bold uppercase tracking-wide",
                   pathname.startsWith("/clearance")
@@ -109,6 +117,7 @@ const hasProducts = products.some(
               >
                 <Link
                   href={item.href}
+                  prefetch={false}
                   className={cn(
                     "block px-6 py-4 text-sm font-bold uppercase tracking-wide",
                     isActive ? "text-primary" : "hover:text-primary"

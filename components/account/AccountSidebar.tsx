@@ -11,6 +11,7 @@ export function AccountSidebar() {
     const pathname = usePathname()
     const router = useRouter()
     const { logout } = useStore()
+    const supabase = getSupabaseBrowserClient()
 
     const handleLogout = async () => {
         await supabase.auth.signOut()

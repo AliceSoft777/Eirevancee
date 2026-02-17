@@ -10,8 +10,9 @@ export interface Database {
           email: string
           full_name: string | null
           phone: string | null
-          role_id: string          // ✅ FIXED
+          role_id: string
           permissions: string[] | null
+          is_active: boolean
           created_at: string
           updated_at: string
         }
@@ -20,14 +21,16 @@ export interface Database {
           email: string
           full_name?: string | null
           phone?: string | null
-          role_id: string          // ✅ FIXED
+          role_id: string
           permissions?: string[] | null
+          is_active?: boolean
         }
         Update: {
           full_name?: string | null
           phone?: string | null
-          role_id?: string         // ✅ FIXED
+          role_id?: string
           permissions?: string[] | null
+          is_active?: boolean
         }
       }
 
@@ -401,6 +404,74 @@ export interface Database {
           admin_response?: string | null
         }
       }
+
+      site_settings: {
+        Row: {
+          id: number
+          store_name: string
+          store_email: string
+          store_phone: string
+          store_address: string
+          currency_symbol: string
+          tax_rate: number
+          free_shipping_threshold: number
+          email_on_new_orders: boolean
+          low_stock_alerts: boolean
+          customer_reviews_notifications: boolean
+          updated_at: string
+        }
+        Insert: {
+          id?: number
+          store_name?: string
+          store_email?: string
+          store_phone?: string
+          store_address?: string
+          currency_symbol?: string
+          tax_rate?: number
+          free_shipping_threshold?: number
+          email_on_new_orders?: boolean
+          low_stock_alerts?: boolean
+          customer_reviews_notifications?: boolean
+          updated_at?: string
+        }
+        Update: {
+          store_name?: string
+          store_email?: string
+          store_phone?: string
+          store_address?: string
+          currency_symbol?: string
+          tax_rate?: number
+          free_shipping_threshold?: number
+          email_on_new_orders?: boolean
+          low_stock_alerts?: boolean
+          customer_reviews_notifications?: boolean
+          updated_at?: string
+        }
+      }
+
+      newsletter_subscriptions: {
+        Row: {
+          id: string
+          email: string
+          name: string | null
+          status: string
+          subscribed_at: string
+          unsubscribed_at: string | null
+        }
+        Insert: {
+          id?: string
+          email: string
+          name?: string | null
+          status?: string
+          subscribed_at?: string
+          unsubscribed_at?: string | null
+        }
+        Update: {
+          name?: string | null
+          status?: string
+          unsubscribed_at?: string | null
+        }
+      }
     }
   }
 }
@@ -414,3 +485,4 @@ export type Order = Database['public']['Tables']['orders']['Row']
 export type Coupon = Database['public']['Tables']['coupons']['Row']
 export type Profile = Database['public']['Tables']['profiles']['Row']
 export type Review = Database['public']['Tables']['reviews']['Row']
+export type NewsletterSubscription = Database['public']['Tables']['newsletter_subscriptions']['Row']

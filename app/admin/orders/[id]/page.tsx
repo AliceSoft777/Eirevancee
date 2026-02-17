@@ -129,7 +129,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                       key={status}
                       onClick={() => handleStatusChange(status)}
                       variant="outline"
-                      className="hover:text-slate-900"
+                      className=""
                     >
                       Mark as {status}
                       <ChevronDown className="w-4 h-4 ml-2 text-slate-900" />

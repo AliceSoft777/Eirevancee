@@ -1,6 +1,7 @@
 // lib/supabase/client.ts
+// ✅ Patch navigator.locks BEFORE Supabase initializes
+import "@/lib/suppress-abort-errors"
 // ✅ SINGLETON PATTERN: Create ONE instance for entire app lifecycle
-// This prevents AbortError from locks.ts when multiple components initialize simultaneously
 import { createBrowserClient } from "@supabase/ssr"
 import type { Database } from "@/lib/supabase-types"
 import type { SupportedStorage } from "@supabase/supabase-js"
@@ -62,7 +63,7 @@ export const supabaseBrowserClient = createBrowserClient<Database>(
     auth: {
       storage: new ConditionalStorage(),
       persistSession: true,
-      autoRefreshToken: false, // ✅ Disable auto-refresh to prevent lock conflicts
+      autoRefreshToken: false,
       detectSessionInUrl: true,
       flowType: 'pkce',
     },

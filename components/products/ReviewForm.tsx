@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Star } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -22,15 +22,67 @@ export function ReviewForm({ productId, productName, onReviewSubmitted }: Review
     const [hoveredRating, setHoveredRating] = useState(0)
     const [comment, setComment] = useState('')
     const [isSubmitting, setIsSubmitting] = useState(false)
+    // null = still checking, true = purchased, false = not purchased
+    const [hasPurchased, setHasPurchased] = useState<boolean | null>(null)
 
+    useEffect(() => {
+        if (!user) {
+            setHasPurchased(null)
+            return
+        }
+
+        const checkPurchase = async () => {
+            try {
+                // Query orders where:
+                // 1. user_id matches the logged-in user
+                // 2. payment was completed (Paid)
+                // 3. items JSONB array contains an entry with this product_id
+                const { data, error } = await supabase
+                    .from('orders')
+                    .select('id')
+                    .eq('user_id', user.id)
+                    .eq('payment_status', 'Paid')
+                    .contains('items', [{ product_id: productId }])
+                    .limit(1)
+
+                if (error) {
+                    setHasPurchased(false)
+                    return
+                }
+
+                setHasPurchased(!!data && data.length > 0)
+            } catch {
+                setHasPurchased(false)
+            }
+        }
+
+        checkPurchase()
+    }, [user, productId])
+
+    // Not logged in
     if (!user) {
         return (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-8">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <p className="text-sm text-blue-800">
                     <strong>Please log in</strong> to write a review for this product.
                 </p>
             </div>
         )
+    }
+
+    // Still verifying purchase
+    if (hasPurchased === null) {
+        return (
+            <div className="bg-gray-50 rounded-lg p-6 border border-gray-200 animate-pulse">
+                <div className="h-4 bg-gray-200 rounded w-1/3 mb-3"></div>
+                <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+            </div>
+        )
+    }
+
+    // Logged in but has not purchased — render nothing
+    if (!hasPurchased) {
+        return null
     }
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -48,22 +100,31 @@ export function ReviewForm({ productId, productName, onReviewSubmitted }: Review
 
         setIsSubmitting(true)
         try {
+            // Fetch full_name from profiles to ensure customer_name is always set
+            let customerName = user.name || null
+            if (!customerName) {
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('full_name')
+                    .eq('id', user.id)
+                    .single()
+                customerName = (profile as any)?.full_name || null
+            }
+
             const { error } = await supabase
                 .from('reviews')
                 .insert([{
                     product_id: productId,
                     customer_id: user.id,
+                    customer_name: customerName,
+                    customer_email: user.email,
                     rating,
                     comment: comment.trim(),
                     status: 'pending',
                 }] as any)
 
             if (error) {
-                if (error.message.includes('violates row-level security')) {
-                    toast.error('You must have purchased this product to review it')
-                } else {
-                    toast.error(error.message || 'Failed to submit review')
-                }
+                toast.error(error.message || 'Failed to submit review')
                 return
             }
 
@@ -136,7 +197,7 @@ export function ReviewForm({ productId, productName, onReviewSubmitted }: Review
                     </p>
                 </div>
 
-                {/* Submit Button */}
+                {/* Submit */}
                 <div className="flex gap-2">
                     <Button
                         type="submit"

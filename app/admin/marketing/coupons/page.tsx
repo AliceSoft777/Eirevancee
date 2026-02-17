@@ -112,6 +112,7 @@ export default function CouponsPage() {
                               code: coupon.code,
                               discount_type: coupon.discount_type,
                               discount_value: coupon.discount_value,
+                              min_order_value: coupon.min_order_value ?? 0,
                               usage_limit: coupon.usage_limit ?? 100,
                               expires_at: coupon.expires_at ?? "",
                               description: coupon.description ?? "",
@@ -135,13 +136,20 @@ export default function CouponsPage() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-4 gap-4 text-sm">
+                    <div className="grid grid-cols-5 gap-4 text-sm">
                       <div>
                         <p className="text-muted-foreground">Discount</p>
                         <p className="font-semibold">
                           {coupon.discount_type === "percentage"
                             ? `${coupon.discount_value}%`
                             : formatPrice(coupon.discount_value)}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-muted-foreground">Min Order</p>
+                        <p className="font-semibold">
+                          {coupon.min_order_value ? formatPrice(coupon.min_order_value) : 'None'}
                         </p>
                       </div>
 
