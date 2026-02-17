@@ -19,7 +19,7 @@ class ConditionalStorage implements SupportedStorage {
         removeItem: () => {},
         length: 0,
         clear: () => {},
-        key: () => null,
+        key: () => null as any,
       } as Storage
     }
     // Check if "remember me" preference exists and is false

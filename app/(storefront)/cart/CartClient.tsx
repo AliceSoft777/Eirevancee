@@ -22,9 +22,16 @@ interface CartItem {
     quantity: number
 }
 
+interface SiteSettings {
+    tax_rate: number
+    free_shipping_threshold: number
+    shipping_fee: number
+}
+
 interface CartClientProps {
     initialCart: CartItem[]
     isLoggedIn: boolean
+    siteSettings: SiteSettings
 }
 
 interface AppliedCoupon {
@@ -33,7 +40,7 @@ interface AppliedCoupon {
     discount_value: number
 }
 
-export default function CartClient({ initialCart, isLoggedIn }: CartClientProps) {
+export default function CartClient({ initialCart, isLoggedIn, siteSettings }: CartClientProps) {
     const [items, setItems] = useState<CartItem[]>(initialCart)
     const [updatingId, setUpdatingId] = useState<string | null>(null)
     const setCartCount = useStore((state) => state.setCartCount)
@@ -62,21 +69,29 @@ export default function CartClient({ initialCart, isLoggedIn }: CartClientProps)
         return Math.min(appliedCoupon.discount_value, total)
     }, [appliedCoupon, total])
 
-    const shipping = total >= 100 ? 0 : 10
+    const shipping = total >= siteSettings.free_shipping_threshold ? 0 : siteSettings.shipping_fee
     const finalTotal = total - discount + shipping
 
-    // Coupon validation
+    // Coupon validation with timeout to prevent infinite loading
     const handleApplyCoupon = async () => {
         if (!couponCode.trim()) return
         setCouponLoading(true)
         try {
             const supabase = getSupabaseBrowserClient()
-            const { data, error } = await (supabase
+
+            // Wrap Supabase query in a timeout to prevent hanging
+            const couponQuery = (supabase
                 .from('coupons') as any)
                 .select('*')
                 .eq('code', couponCode.trim().toUpperCase())
                 .eq('status', 'active')
                 .single()
+
+            const timeoutPromise = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Request timed out. Please try again.')), 10000)
+            )
+
+            const { data, error } = await Promise.race([couponQuery, timeoutPromise]) as any
 
             if (error || !data) {
                 toast.error('Invalid or expired coupon code')
@@ -109,8 +124,8 @@ export default function CartClient({ initialCart, isLoggedIn }: CartClientProps)
             setAppliedCoupon(coupon)
             sessionStorage.setItem('appliedCoupon', JSON.stringify(coupon))
             toast.success(`Coupon "${data.code}" applied!`)
-        } catch {
-            toast.error('Failed to validate coupon')
+        } catch (err: any) {
+            toast.error(err?.message || 'Failed to validate coupon')
         } finally {
             setCouponLoading(false)
         }
@@ -323,10 +338,10 @@ export default function CartClient({ initialCart, isLoggedIn }: CartClientProps)
                             <div className="flex items-center justify-between text-sm">
                                 <span className="text-slate-500">Shipping</span>
                                 <span className="font-semibold text-slate-700">
-                                    {total >= 100 ? (
+                                    {total >= siteSettings.free_shipping_threshold ? (
                                         <span className="text-green-600">Free</span>
                                     ) : (
-                                        formatPrice(10)
+                                        formatPrice(siteSettings.shipping_fee)
                                     )}
                                 </span>
                             </div>

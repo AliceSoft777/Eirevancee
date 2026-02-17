@@ -20,15 +20,22 @@ interface AppliedCoupon {
     discount_value: number
 }
 
+interface SiteSettings {
+    tax_rate: number
+    free_shipping_threshold: number
+    shipping_fee: number
+}
+
 interface CheckoutClientProps {
     isLoggedIn: boolean
     userRole: 'customer' | 'sales' | 'admin'
     initialAddresses: UserAddress[]
     initialProfile: { full_name: string | null; phone: string | null } | null
     userId: string | null
+    siteSettings: SiteSettings
 }
 
-export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses, initialProfile, userId }: CheckoutClientProps) {
+export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses, initialProfile, userId, siteSettings }: CheckoutClientProps) {
     const supabase = getSupabaseBrowserClient()
     const { cartItems, isLoading: cartLoading, clearCart, getCartTotal } = useCart()
     const router = useRouter()
@@ -58,9 +65,7 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
     const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(null)
 
     const subtotal = getCartTotal()
-    const TAX_RATE = 0.23 // 23% VAT for Ireland
-    const SHIPPING_THRESHOLD = 100
-    const SHIPPING_FEE = 10
+    const taxRate = (siteSettings.tax_rate ?? 0) / 100 // from DB (0 = inclusive/no extra tax)
 
     const couponDiscount = appliedCoupon
         ? appliedCoupon.discount_type === 'percentage'
@@ -68,8 +73,8 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
             : Math.min(appliedCoupon.discount_value, subtotal)
         : 0
     const discountedSubtotal = subtotal - couponDiscount
-    const tax = discountedSubtotal * TAX_RATE
-    const shippingFee = discountedSubtotal > SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE
+    const tax = discountedSubtotal * taxRate
+    const shippingFee = discountedSubtotal > siteSettings.free_shipping_threshold ? 0 : siteSettings.shipping_fee
     const total = discountedSubtotal + tax + shippingFee
 
     // Load applied coupon from sessionStorage (set in cart page)
@@ -714,10 +719,12 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
                                             <span className="font-semibold text-green-600">-{formatPrice(couponDiscount)}</span>
                                         </div>
                                     )}
-                                    <div className="flex justify-between text-sm">
-                                        <span className="text-muted-foreground">VAT (23%)</span>
-                                        <span className="font-medium">{formatPrice(tax)}</span>
-                                    </div>
+                                    {siteSettings.tax_rate > 0 && (
+                                        <div className="flex justify-between text-sm">
+                                            <span className="text-muted-foreground">VAT ({siteSettings.tax_rate}%)</span>
+                                            <span className="font-medium">{formatPrice(tax)}</span>
+                                        </div>
+                                    )}
                                     <div className="flex justify-between text-sm">
                                         <span className="text-muted-foreground">Shipping</span>
                                         <span className="font-medium">

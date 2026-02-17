@@ -11,10 +11,28 @@ export default async function CheckoutPage() {
 
     let initialAddresses: UserAddress[] = []
     let initialProfile: { full_name: string | null; phone: string | null } | null = null
+    let siteSettings = { tax_rate: 0, free_shipping_threshold: 500, shipping_fee: 10 }
+
+    const supabase = await createServerSupabase()
+
+    // Fetch site settings for dynamic tax & shipping
+    try {
+        const { data: settingsData } = await (supabase as any)
+            .from('site_settings')
+            .select('tax_rate, free_shipping_threshold')
+            .single()
+        if (settingsData) {
+            siteSettings = {
+                tax_rate: settingsData.tax_rate ?? 0,
+                free_shipping_threshold: settingsData.free_shipping_threshold ?? 500,
+                shipping_fee: 10,
+            }
+        }
+    } catch (err) {
+        console.warn('[Checkout] Failed to fetch site_settings, using defaults:', err)
+    }
 
     if (session.userId) {
-        const supabase = await createServerSupabase()
-
         // Fetch saved addresses server-side (bypasses browser auth timing + RLS)
         const { data: addressData } = await supabase
             .from('customer_addresses' as any)
@@ -58,6 +76,7 @@ export default async function CheckoutPage() {
                     initialAddresses={initialAddresses}
                     initialProfile={initialProfile}
                     userId={session.userId ?? null}
+                    siteSettings={siteSettings}
                 />
             </div>
         </main>
