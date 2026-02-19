@@ -16,7 +16,7 @@ export default function GeneralSettingsPage() {
   
   // Store Info
   const [storeName, setStoreName] = useState("Celtic Tiles")
-  const [storeEmail, setStoreEmail] = useState("contact@celtictiles.ie")
+  const [storeEmail, setStoreEmail] = useState("admin@celtictiles.ie")
   const [storePhone, setStorePhone] = useState("+353 14090558")
   const [storeAddress, setStoreAddress] = useState("Besides AXA insurance, Finches Industrial Park, Long Mile Rd, Walkinstown, Dublin, D12 FP74")
   
@@ -45,7 +45,7 @@ export default function GeneralSettingsPage() {
       
       if (data) {
         setStoreName(data.store_name || "Celtic Tiles")
-        setStoreEmail(data.store_email || "contact@celtictiles.ie")
+        setStoreEmail(data.store_email || "admin@celtictiles.ie")
         setStorePhone(data.store_phone || "+353 14090558")
         setStoreAddress(data.store_address || "")
         setCurrencySymbol(data.currency_symbol || "€")

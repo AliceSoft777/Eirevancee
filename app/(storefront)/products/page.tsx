@@ -1,5 +1,5 @@
 import { createServerSupabase } from "@/lib/supabase/server"
-import { getNavData } from "@/lib/loaders"
+import { getNavData, type CategoryWithChildren } from "@/lib/loaders"
 import { ProductCard } from "@/components/products/product-card"
 import { CategoryFilters, type FilterGroup } from "@/components/products/category-filters"
 import { Product } from "@/lib/supabase-types"
@@ -7,6 +7,25 @@ import { Button } from "@/components/ui/button"
 import Link from "next/link"
 
 export const revalidate = 60
+
+// Helper to collect all category IDs (parent + all descendants)
+function getAllCategoryIds(category: CategoryWithChildren): string[] {
+  const ids = [category.id]
+  for (const child of category.children) {
+    ids.push(...getAllCategoryIds(child))
+  }
+  return ids
+}
+
+// Find a category by ID in the tree structure
+function findCategoryById(categories: CategoryWithChildren[], id: string): CategoryWithChildren | null {
+  for (const cat of categories) {
+    if (cat.id === id) return cat
+    const found = findCategoryById(cat.children, id)
+    if (found) return found
+  }
+  return null
+}
 
 const PRODUCTS_PER_PAGE = 24
 
@@ -34,13 +53,26 @@ export default async function AllProductsPage(props: Props) {
   const currentPage = parseInt(params.page || '1', 10)
   const offset = (currentPage - 1) * PRODUCTS_PER_PAGE
 
+  // Get categories for hierarchical filtering
+  const { categories } = await getNavData()
+
   // Build query with filters
   let query = supabase
     .from('products')
     .select('*', { count: 'exact' })
     .eq('status', 'active')
 
-  if (params.category) query = query.eq('category_id', params.category)
+  // Category filter: include parent category AND all its subcategories
+  if (params.category) {
+    const selectedCategory = findCategoryById(categories, params.category)
+    if (selectedCategory) {
+      const categoryIds = getAllCategoryIds(selectedCategory)
+      query = query.in('category_id', categoryIds)
+    } else {
+      // Fallback to exact match if category not found in tree
+      query = query.eq('category_id', params.category)
+    }
+  }
   if (params.material) query = query.eq('material', params.material)
   if (params.finish) query = query.eq('finish', params.finish)
   if (params.application_area) query = query.eq('application_area', params.application_area)
@@ -84,9 +116,6 @@ export default async function AllProductsPage(props: Props) {
       .filter((v): v is string => typeof v === "string" && v.trim() !== "")
     return [...new Set(vals)].sort()
   }
-
-  // Get categories for the category filter
-  const { categories } = await getNavData()
 
   const filterGroups: FilterGroup[] = []
 

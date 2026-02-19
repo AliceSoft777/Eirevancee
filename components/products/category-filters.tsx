@@ -1,7 +1,8 @@
 "use client"
 
 import Link from "next/link"
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { usePathname, useSearchParams } from "next/navigation"
 import { Check, ChevronDown, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -70,6 +71,13 @@ export function CategoryFilters({
   totalProducts,
 }: CategoryFiltersProps) {
   const [openDropdown, setOpenDropdown] = useState<string | null>(null)
+  const currentPathname = usePathname()
+  const searchParams = useSearchParams()
+
+  // Close dropdown when URL changes (after navigation)
+  useEffect(() => {
+    setOpenDropdown(null)
+  }, [currentPathname, searchParams])
 
   const activeFilterCount = filterGroups.filter(
     (g) => currentParams[g.id]
@@ -155,7 +163,6 @@ export function CategoryFilters({
                             key={option.value}
                             href={href}
                             prefetch={false}
-                            onClick={() => setOpenDropdown(null)}
                             className={cn(
                               "flex items-center justify-between px-3 py-2 mx-1 rounded-xl text-sm transition-colors",
                               isSelected
@@ -183,7 +190,6 @@ export function CategoryFilters({
                               selectedValue // toggle off
                             )}
                             prefetch={false}
-                            onClick={() => setOpenDropdown(null)}
                             className="flex items-center justify-center gap-1 px-3 py-1.5 mx-1 rounded-xl text-xs text-red-500 hover:bg-red-50/50 transition-colors"
                           >
                             <X className="h-3 w-3" />
@@ -257,7 +263,6 @@ export function CategoryFilters({
                       key={option.value}
                       href={href}
                       prefetch={false}
-                      onClick={() => setOpenDropdown(null)}
                       className={cn(
                         "flex items-center justify-between px-3 py-2 mx-1 rounded-xl text-sm transition-colors",
                         isSelected

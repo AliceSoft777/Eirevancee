@@ -1,4 +1,4 @@
-    import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import Stripe from 'https://esm.sh/stripe@14.21.0?target=deno'
 
@@ -33,16 +33,17 @@ serve(async (req) => {
         orderId = session.metadata?.orderId
 
         if (orderId) {
-          // Update order status
+          // ✅ FIX: Use order_number (not id) — orderId from metadata is "ORD-xxx" string
           const { data: orderData, error: orderError } = await supabaseClient
             .from('orders')
             .update({
               payment_status: 'Paid',
               status: 'Processing',
               stripe_session_id: session.id,
+              stripe_payment_intent_id: session.payment_intent as string || null,
               updated_at: new Date().toISOString(),
             })
-            .eq('id', orderId)
+            .eq('order_number', orderId)
             .select('items, user_id')
             .single()
 
@@ -85,42 +86,36 @@ serve(async (req) => {
                 console.log('✅ Cart cleared for user:', userId)
               }
             }
+          } else {
+            console.error('❌ Order update failed for order_number:', orderId, orderError)
           }
         }
         break
       }
 
-      case 'payment_intent.succeeded': {
-        const paymentIntent = event.data.object as Stripe.PaymentIntent
-        orderId = paymentIntent.metadata?.orderId
-
-        if (orderId) {
-          await supabaseClient
-            .from('orders')
-            .update({
-              payment_status: 'Paid',
-              status: 'Processing',
-              stripe_payment_intent_id: paymentIntent.id,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', orderId)
-        }
-        break
-      }
+      // ✅ REMOVED: payment_intent.succeeded handler
+      // Reason: Stripe fires BOTH checkout.session.completed AND payment_intent.succeeded
+      // on a successful Checkout payment. The PaymentIntent does NOT inherit metadata from
+      // the Checkout Session unless payment_intent_data.metadata is explicitly set.
+      // checkout.session.completed already handles the success case fully.
 
       case 'payment_intent.payment_failed': {
         const paymentIntent = event.data.object as Stripe.PaymentIntent
         orderId = paymentIntent.metadata?.orderId
 
         if (orderId) {
+          // ✅ FIX: Use order_number + store the payment_intent_id for tracking
           await supabaseClient
             .from('orders')
             .update({
               payment_status: 'Failed',
               status: 'Cancelled',
+              stripe_payment_intent_id: paymentIntent.id,
               updated_at: new Date().toISOString(),
             })
-            .eq('id', orderId)
+            .eq('order_number', orderId)
+          
+          console.log('❌ Payment failed for order:', orderId, 'PI:', paymentIntent.id)
         }
         break
       }
@@ -131,14 +126,16 @@ serve(async (req) => {
         orderId = session.metadata?.orderId
 
         if (orderId) {
+          // ✅ FIX: Use order_number (not id)
           await supabaseClient
             .from('orders')
             .update({
               payment_status: 'Cancelled',
               status: 'Cancelled',
+              stripe_session_id: session.id,
               updated_at: new Date().toISOString(),
             })
-            .eq('id', orderId)
+            .eq('order_number', orderId)
           
           console.log('✅ Abandoned order marked cancelled:', orderId)
         }

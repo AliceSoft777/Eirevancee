@@ -100,8 +100,8 @@ export default async function PrivacyPage() {
                                 <p className="text-slate-600 mb-6">
                                     For privacy-related questions or to exercise your rights, contact our Data Protection Officer.
                                 </p>
-                                <a href="mailto:contact@celtictiles.ie" className="inline-block px-8 py-3 bg-white neu-raised text-primary font-bold rounded-full hover:scale-105 transition-transform">
-                                    contact@celtictiles.ie
+                                <a href="mailto:admin@celtictiles.ie" className="inline-block px-8 py-3 bg-white neu-raised text-primary font-bold rounded-full hover:scale-105 transition-transform">
+                                    admin@celtictiles.ie
                                 </a>
                             </section>
                         </div>

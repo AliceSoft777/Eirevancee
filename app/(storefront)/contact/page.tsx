@@ -43,7 +43,7 @@ export default async function ContactPage() {
                                     </div>
                                     <div className="mt-1">
                                         <h3 className="font-bold text-slate-800 mb-1">Email</h3>
-                                        <p className="text-slate-600 font-medium">contact@celtictiles.ie</p>
+                                        <p className="text-slate-600 font-medium">admin@celtictiles.ie</p>
                                         <p className="text-sm text-slate-500 mt-1">We&apos;ll respond within 24 hours</p>
                                     </div>
                                 </div>

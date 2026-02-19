@@ -7,7 +7,7 @@ const faqs = [
     {
         question: "What are your delivery charges?",
 
-        answer: "We offer free delivery on all orders over €500. For orders under €500, a standard delivery charge of €9.99 applies. Delivery times typically range from 2-5 business days depending on your location."
+        answer: "We offer free delivery on all orders over €1000. For orders under €1000, a standard delivery charge of €9.99 applies. Delivery times typically range from 2-5 business days depending on your location."
     },
     {
         question: "Do you offer trade accounts?",

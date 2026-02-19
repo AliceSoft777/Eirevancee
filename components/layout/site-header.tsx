@@ -167,7 +167,7 @@ export function SiteHeader({
         <div className="container mx-auto max-w-[1400px] flex items-center justify-center gap-6 text-[10px] md:text-xs font-bold uppercase tracking-widest whitespace-nowrap overflow-hidden">
           <span className="flex items-center gap-2">
             <Package className="h-3 w-3" />
-            Free Delivery on orders over €500
+            Free Delivery on orders over €1000
           </span>
           <span className="hidden md:inline-block h-3 w-px bg-white/30" />
           <button 

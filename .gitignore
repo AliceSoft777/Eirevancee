@@ -111,3 +111,44 @@ Thumbs.db
 .env.test.local
 .env.production.local
 ~$Products List_V2.xlsx
+
+# Additional test/debug scripts
+test-stripe-webhook.js
+
+# SQL seed/migration files (managed via Supabase dashboard)
+sql/
+
+# Data dumps
+products_json.md
+
+# Dev proxy
+proxy.ts
+
+# Watchman
+.watchmanconfig
+
+# Generated type declarations
+globals.d.ts
+
+# Documentation & audit files (not needed in repo)
+ADMIN_PORTAL_IMPLEMENTATION_SUMMARY.md
+FEATURE_IMPLEMENTATION_ROADMAP.md
+IMPLEMENTATION_SUMMARY.md
+NEWSLETTER_IMPLEMENTATION_COMPLETE.md
+PAYMENT_FLOW_DIAGRAM.md
+PRODUCTION_HARDENING_AUDIT.md
+QUICK_DEPLOY.md
+REDEPLOY_EDGE_FUNCTION.md
+SALES_ROLE_IMPLEMENTATION.md
+SETUP_CHECKLIST.md
+STATIC_CODE_AUDIT.md
+STRIPE_CURRENCY_FIX_VALIDATION.md
+STRIPE_IMPLEMENTATION_COMPLETE.md
+STRIPE_INTEGRATION_COMPLETE.md
+STRIPE_QUICK_REFERENCE.md
+STRIPE_WEBHOOK_SETUP.md
+TROUBLESHOOTING.md
+deploy-edge-function.md
+
+# Supabase CLI temp files
+supabase/.temp/

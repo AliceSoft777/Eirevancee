@@ -129,10 +129,10 @@ export function Footer({ categories = [] }: FooterProps) {
                     Email Us
                   </p>
                   <a
-                    href="mailto:contact@celtictiles.ie"
+                    href="mailto:admin@celtictiles.ie"
                     className="text-sm font-bold text-foreground hover:text-primary transition-colors block mt-0.5"
                   >
-                    contact@celtictiles.ie
+                    admin@celtictiles.ie
                   </a>
                 </div>
               </li>

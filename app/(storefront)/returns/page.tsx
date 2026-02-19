@@ -92,7 +92,7 @@ export default async function ReturnsPage() {
                                     </p>
                                     <div className="flex flex-col gap-3">
                                         <a href="tel:+35312345678" className="text-primary font-bold hover:underline">📞 +353 14090558</a>
-                                        <a href="mailto:contact@celtictiles.ie" className="text-primary font-bold hover:underline">✉️ contact@celtictiles.ie</a>
+                                        <a href="mailto:admin@celtictiles.ie" className="text-primary font-bold hover:underline">✉️ admin@celtictiles.ie</a>
                                     </div>
                                 </section>
                             </div>

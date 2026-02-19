@@ -490,7 +490,7 @@ export default function ProductClient({
                 <div className="space-y-2 mt-4">
                   <div className="flex items-center gap-2 text-[11px] text-slate-600">
                     <span className="text-emerald-600 font-bold">✓</span>
-                    <span>Free delivery on orders over €500</span>
+                    <span>Free delivery on orders over €1000</span>
                   </div>
                   <div className="flex items-center gap-2 text-[11px] text-slate-600">
                     <span className="text-emerald-600 font-bold">✓</span>

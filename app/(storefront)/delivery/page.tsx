@@ -24,11 +24,11 @@ export default async function DeliveryPage() {
                                     <ul className="space-y-4 text-slate-600">
                                         <li className="flex items-center gap-3">
                                             <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                                            <span><strong>FREE delivery</strong> on all orders over €500</span>
+                                            <span><strong>FREE delivery</strong> on all orders over €1000</span>
                                         </li>
                                         <li className="flex items-center gap-3">
                                             <span className="w-2 h-2 rounded-full bg-primary/60"></span>
-                                            <span><strong>€60.00 delivery</strong> for orders under €500</span>
+                                            <span><strong>€60.00 delivery</strong> for orders under €1000</span>
                                         </li>
                                         <li className="flex items-center gap-3">
                                             <span className="w-2 h-2 rounded-full bg-slate-400"></span>
@@ -135,8 +135,8 @@ export default async function DeliveryPage() {
                                      <a href="tel:+35314090558" className="inline-flex items-center justify-center px-6 py-3 rounded-xl bg-white neu-raised text-primary font-bold hover:text-primary-dark transition-colors">
                                         📞 +353 14090558
                                      </a>
-                                     <a href="mailto:contact@celtictiles.ie" className="inline-flex items-center justify-center px-6 py-3 rounded-xl bg-white neu-raised text-primary font-bold hover:text-primary-dark transition-colors">
-                                        ✉️ contact@celtictiles.ie
+                                     <a href="mailto:admin@celtictiles.ie" className="inline-flex items-center justify-center px-6 py-3 rounded-xl bg-white neu-raised text-primary font-bold hover:text-primary-dark transition-colors">
+                                        ✉️ admin@celtictiles.ie
                                      </a>
                                 </div>
                             </section>

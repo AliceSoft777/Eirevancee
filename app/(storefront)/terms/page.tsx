@@ -121,8 +121,8 @@ export default async function TermsPage() {
                                 <p className="text-slate-600 mb-6">
                                     For questions about these terms, please contact our legal team.
                                 </p>
-                                <a href="mailto:contact@celtictiles.ie" className="inline-block px-8 py-3 bg-white border border-slate-200 rounded-full font-bold text-primary hover:bg-primary hover:text-white transition-colors">
-                                    contact@celtictiles.ie
+                                <a href="mailto:admin@celtictiles.ie" className="inline-block px-8 py-3 bg-white border border-slate-200 rounded-full font-bold text-primary hover:bg-primary hover:text-white transition-colors">
+                                    admin@celtictiles.ie
                                 </a>
                             </section>
                         </div>

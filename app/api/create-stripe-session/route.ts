@@ -45,6 +45,13 @@ export async function POST(req: NextRequest) {
       metadata: {
         orderId: orderId,
       },
+      // ✅ Pass orderId to PaymentIntent too — needed for payment_intent.payment_failed events
+      // Stripe does NOT auto-copy session metadata to the PaymentIntent
+      payment_intent_data: {
+        metadata: {
+          orderId: orderId,
+        },
+      },
     })
 
     console.log('[Stripe] Session created:', {
