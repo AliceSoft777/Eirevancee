@@ -1,9 +1,9 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useCallback } from "react"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
-import { X, Upload, Image as ImageIcon, Loader2 } from "lucide-react"
+import { X, Upload, Image as ImageIcon, Loader2, GripVertical } from "lucide-react"
 import { toast } from "sonner"
 import Image from "next/image"
 
@@ -22,6 +22,7 @@ interface ProductImageUploadProps {
   onImagesChange: (images: ProductImage[]) => void
 }
 
+// ─── Component ───────────────────────────────────────────────────────────────
 export function ProductImageUpload({ 
   productId, 
   images, 
@@ -30,212 +31,259 @@ export function ProductImageUpload({
   const supabase = getSupabaseBrowserClient()
   const [isUploading, setIsUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState<number>(0)
+  const [statusText, setStatusText] = useState("")
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
+  const [isDragOver, setIsDragOver] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (!files || files.length === 0) return
+  // ─── Shared file processing (used by both click & drag-and-drop) ──────────
+  const processFiles = useCallback(async (files: FileList | File[]) => {
+    const fileArray = Array.from(files).filter(f => f.type.startsWith("image/"))
+    if (fileArray.length === 0) {
+      toast.error("No valid image files found")
+      return
+    }
 
     setIsUploading(true)
     setUploadProgress(0)
 
     try {
       const newImages: ProductImage[] = []
-      
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i]
-        
-        // Validate file type
-        if (!file.type.startsWith('image/')) {
-          toast.error(`${file.name} is not an image`)
+
+      for (let i = 0; i < fileArray.length; i++) {
+        const file = fileArray[i]
+
+        // Validate raw size (max 25MB)
+        if (file.size > 25 * 1024 * 1024) {
+          toast.error(`${file.name} is too large (max 25MB)`)
           continue
         }
 
-        // Validate file size (max 5MB)
-        if (file.size > 5 * 1024 * 1024) {
-          toast.error(`${file.name} is too large (max 5MB)`)
-          continue
-        }
+        // ── Upload directly (no compression) ──
+        setStatusText(`Uploading ${file.name}...`)
+        const ext = file.name.split('.').pop() || 'jpg'
+        const fileName = `${productId}/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`
 
-        // Generate unique filename
-        const fileExt = file.name.split('.').pop()
-        const fileName = `${productId}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
-
-        // Upload to Supabase Storage
         const { data: uploadData, error: uploadError } = await supabase
           .storage
-          .from('uploads')
+          .from("uploads")
           .upload(fileName, file, {
-            cacheControl: '3600',
-            upsert: false
+            cacheControl: "3600",
+            upsert: false,
+            contentType: file.type,
           })
 
         if (uploadError) {
-          console.error('Upload error:', uploadError)
+          console.error("Upload error:", uploadError)
           toast.error(`Failed to upload ${file.name}`)
           continue
         }
 
-        // Get public URL
+        // ── Step 3: Get URL & save to DB ──
         const { data: urlData } = supabase
           .storage
-          .from('uploads')
+          .from("uploads")
           .getPublicUrl(uploadData.path)
 
-        // Insert into product_images table
         const { data: imageData, error: insertError } = await supabase
-          .from('product_images')
+          .from("product_images")
           .insert({
             product_id: productId,
             image_url: urlData.publicUrl,
             display_order: images.length + newImages.length,
-            is_primary: images.length === 0 && newImages.length === 0
+            is_primary: images.length === 0 && newImages.length === 0,
           } as any)
           .select()
           .single()
 
         if (insertError) {
-          console.error('Insert error:', insertError)
+          console.error("Insert error:", insertError)
           toast.error(`Failed to save ${file.name}`)
-          // Clean up uploaded file
-          await supabase.storage.from('uploads').remove([uploadData.path])
+          await supabase.storage.from("uploads").remove([uploadData.path])
           continue
         }
 
         newImages.push(imageData)
-        setUploadProgress(((i + 1) / files.length) * 100)
+        setUploadProgress(((i + 1) / fileArray.length) * 100)
       }
 
       if (newImages.length > 0) {
         onImagesChange([...images, ...newImages])
-        toast.success(`${newImages.length} image(s) uploaded`)
+        toast.success(`${newImages.length} image(s) uploaded successfully`)
       }
     } catch (error) {
-      console.error('Upload error:', error)
-      toast.error('Failed to upload images')
+      console.error("Upload error:", error)
+      toast.error("Failed to upload images")
     } finally {
       setIsUploading(false)
       setUploadProgress(0)
+      setStatusText("")
       if (fileInputRef.current) {
-        fileInputRef.current.value = ''
+        fileInputRef.current.value = ""
       }
+    }
+  }, [supabase, productId, images, onImagesChange])
+
+  // ─── Click handler ────────────────────────────────────────────────────────
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      processFiles(e.target.files)
     }
   }
 
+  // ─── Drag-and-drop for uploading new files ────────────────────────────────
+  const handleFileDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragOver(false)
+
+    // Only handle file drops (not image reorder drops)
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      processFiles(e.dataTransfer.files)
+    }
+  }, [processFiles])
+
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (e.dataTransfer.types.includes("Files")) {
+      setIsDragOver(true)
+    }
+  }, [])
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    // Only set false if we're leaving the container, not entering a child
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    const { clientX, clientY } = e
+    if (
+      clientX <= rect.left ||
+      clientX >= rect.right ||
+      clientY <= rect.top ||
+      clientY >= rect.bottom
+    ) {
+      setIsDragOver(false)
+    }
+  }, [])
+
+  const handleDragOverZone = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    e.dataTransfer.dropEffect = "copy"
+  }, [])
+
+  // ─── Drag-to-reorder existing images ──────────────────────────────────────
+  const handleReorderDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedIndex(index)
+    e.dataTransfer.effectAllowed = "move"
+    e.dataTransfer.setData("text/plain", String(index)) // mark as reorder, not file
+  }
+
+  const handleReorderDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = "move"
+  }
+
+  const handleReorderDrop = async (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (draggedIndex === null || draggedIndex === targetIndex) return
+
+    const reordered = [...images]
+    const [draggedItem] = reordered.splice(draggedIndex, 1)
+    reordered.splice(targetIndex, 0, draggedItem)
+
+    const updatePromises = reordered.map((img, idx) =>
+      (supabase
+        .from("product_images") as any)
+        .update({ display_order: idx })
+        .eq("id", img.id)
+    )
+
+    try {
+      await Promise.all(updatePromises)
+      onImagesChange(reordered)
+      toast.success("Image order updated")
+    } catch (error) {
+      console.error("Reorder error:", error)
+      toast.error("Failed to reorder images")
+    } finally {
+      setDraggedIndex(null)
+    }
+  }
+
+  // ─── Remove & Set Primary ─────────────────────────────────────────────────
   const handleRemoveImage = async (imageId: string, imageUrl: string | null) => {
     try {
-      // Delete from database
       const { error: deleteError } = await supabase
-        .from('product_images')
+        .from("product_images")
         .delete()
-        .eq('id', imageId)
+        .eq("id", imageId)
 
       if (deleteError) throw deleteError
 
-      // Try to delete from storage (extract path from URL)
       if (imageUrl) {
-        const urlParts = imageUrl.split('/uploads/')
+        const urlParts = imageUrl.split("/uploads/")
         if (urlParts.length > 1) {
-          const filePath = urlParts[1]
-          await supabase.storage.from('uploads').remove([filePath])
+          await supabase.storage.from("uploads").remove([urlParts[1]])
         }
       }
 
       const updatedImages = images.filter(img => img.id !== imageId)
-      
-      // If we removed the primary image, set the first remaining as primary
+
       if (updatedImages.length > 0 && !updatedImages.some(img => img.is_primary)) {
         const { error } = await (supabase
-          .from('product_images') as any)
+          .from("product_images") as any)
           .update({ is_primary: true })
-          .eq('id', updatedImages[0].id)
-        
+          .eq("id", updatedImages[0].id)
+
         if (!error) {
           updatedImages[0].is_primary = true
         }
       }
 
       onImagesChange(updatedImages)
-      toast.success('Image removed')
+      toast.success("Image removed")
     } catch (error) {
-      console.error('Delete error:', error)
-      toast.error('Failed to remove image')
+      console.error("Delete error:", error)
+      toast.error("Failed to remove image")
     }
   }
 
   const handleSetPrimary = async (imageId: string) => {
     try {
-      // Unset all as primary first
       await (supabase
-        .from('product_images') as any)
+        .from("product_images") as any)
         .update({ is_primary: false })
-        .eq('product_id', productId)
+        .eq("product_id", productId)
 
-      // Set selected as primary
       const { error } = await (supabase
-        .from('product_images') as any)
+        .from("product_images") as any)
         .update({ is_primary: true })
-        .eq('id', imageId)
+        .eq("id", imageId)
 
       if (error) throw error
 
-      const updatedImages = images.map(img => ({
+      onImagesChange(images.map(img => ({
         ...img,
-        is_primary: img.id === imageId
-      }))
-
-      onImagesChange(updatedImages)
-      toast.success('Primary image updated')
+        is_primary: img.id === imageId,
+      })))
+      toast.success("Primary image updated")
     } catch (error) {
-      console.error('Set primary error:', error)
-      toast.error('Failed to set primary image')
+      console.error("Set primary error:", error)
+      toast.error("Failed to set primary image")
     }
   }
 
-  // ✅ NEW: Handle drag-to-reorder
-  const handleDragStart = (e: React.DragEvent, index: number) => {
-    setDraggedIndex(index)
-    e.dataTransfer.effectAllowed = 'move'
-  }
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault()
-    e.dataTransfer.dropEffect = 'move'
-  }
-
-  const handleDrop = async (e: React.DragEvent, targetIndex: number) => {
-    e.preventDefault()
-    if (draggedIndex === null || draggedIndex === targetIndex) return
-
-    // Reorder locally
-    const reordered = [...images]
-    const [draggedItem] = reordered.splice(draggedIndex, 1)
-    reordered.splice(targetIndex, 0, draggedItem)
-
-    // Update display_order for all images
-    const updatePromises = reordered.map((img, idx) =>
-      supabase
-        .from('product_images')
-        .update({ display_order: idx })
-        .eq('id', img.id)
-    )
-
-    try {
-      await Promise.all(updatePromises)
-      onImagesChange(reordered)
-      toast.success('Image order updated')
-      setDraggedIndex(null)
-    } catch (error) {
-      console.error('Reorder error:', error)
-      toast.error('Failed to reorder images')
-    }
-  }
-
+  // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <div className="space-y-4">
+      {/* Header with upload button */}
       <div className="flex items-center justify-between">
-        <label className="text-sm font-medium">Product Images ({images.length})</label>
+        <label className="text-sm font-medium">
+          Product Images ({images.length})
+        </label>
         <input
           ref={fileInputRef}
           type="file"
@@ -255,7 +303,7 @@ export function ProductImageUpload({
           {isUploading ? (
             <>
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Uploading {Math.round(uploadProgress)}%
+              {statusText || `Uploading ${Math.round(uploadProgress)}%`}
             </>
           ) : (
             <>
@@ -266,27 +314,19 @@ export function ProductImageUpload({
         </Button>
       </div>
 
-      {images.length === 0 ? (
-        <div 
-          className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-gray-400 transition-colors"
-          onClick={() => fileInputRef.current?.click()}
-        >
-          <ImageIcon className="w-12 h-12 mx-auto text-gray-400 mb-2" />
-          <p className="text-sm text-gray-500">Click to upload product images</p>
-          <p className="text-xs text-gray-400 mt-1">PNG, JPG, GIF up to 5MB</p>
-        </div>
-      ) : (
+      {/* Existing images grid with drag-to-reorder */}
+      {images.length > 0 && (
         <div className="grid grid-cols-2 gap-4">
           {images.map((image, index) => (
-            <div 
-              key={image.id} 
+            <div
+              key={image.id}
               draggable
-              onDragStart={(e) => handleDragStart(e, index)}
-              onDragOver={handleDragOver}
-              onDrop={(e) => handleDrop(e, index)}
+              onDragStart={(e) => handleReorderDragStart(e, index)}
+              onDragOver={handleReorderDragOver}
+              onDrop={(e) => handleReorderDrop(e, index)}
               className={`relative group rounded-lg overflow-hidden border-2 cursor-move transition-all ${
-                image.is_primary ? 'border-primary' : 'border-gray-200'
-              } ${draggedIndex === index ? 'opacity-50' : ''}`}
+                image.is_primary ? "border-primary" : "border-gray-200"
+              } ${draggedIndex === index ? "opacity-50 scale-95" : ""}`}
             >
               <div className="aspect-square relative bg-gray-100">
                 {image.image_url ? (
@@ -304,9 +344,10 @@ export function ProductImageUpload({
                   </div>
                 )}
               </div>
-              
-              {/* Overlay controls */}
+
+              {/* Hover overlay with controls */}
               <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                <GripVertical className="absolute top-2 left-2 w-5 h-5 text-white/70" />
                 {!image.is_primary && (
                   <Button
                     type="button"
@@ -333,8 +374,8 @@ export function ProductImageUpload({
                   Primary
                 </div>
               )}
-              
-              {/* Order indicator ✅ */}
+
+              {/* Order indicator */}
               <div className="absolute bottom-2 right-2 bg-gray-700 text-white text-xs px-2 py-1 rounded">
                 #{index + 1}
               </div>
@@ -342,6 +383,51 @@ export function ProductImageUpload({
           ))}
         </div>
       )}
+
+      {/* Drag-and-drop upload zone */}
+      <div
+        onClick={() => !isUploading && fileInputRef.current?.click()}
+        onDrop={handleFileDrop}
+        onDragOver={handleDragOverZone}
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+        className={`
+          relative border-2 border-dashed rounded-lg transition-all duration-200 cursor-pointer
+          ${images.length === 0 ? "p-12" : "p-6"}
+          ${isDragOver
+            ? "border-primary bg-primary/10 scale-[1.01]"
+            : "border-gray-300 hover:border-gray-400 hover:bg-gray-50"
+          }
+          ${isUploading ? "pointer-events-none opacity-60" : ""}
+        `}
+      >
+        {isUploading ? (
+          <div className="flex flex-col items-center gap-3">
+            <Loader2 className="w-10 h-10 text-primary animate-spin" />
+            <p className="text-sm font-medium text-gray-600">{statusText}</p>
+            <div className="w-48 h-2 bg-gray-200 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-primary rounded-full transition-all duration-300"
+                style={{ width: `${uploadProgress}%` }}
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-2">
+            <div className={`p-3 rounded-full transition-colors ${
+              isDragOver ? "bg-primary/20" : "bg-gray-100"
+            }`}>
+              <Upload className={`w-8 h-8 ${isDragOver ? "text-primary" : "text-gray-400"}`} />
+            </div>
+            <p className="text-sm font-medium text-gray-600">
+              {isDragOver ? "Drop images here" : "Drag & drop images here"}
+            </p>
+            <p className="text-xs text-gray-400">
+              or click to browse • PNG, JPG, WebP up to 25MB
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

@@ -63,15 +63,10 @@ export function useOrders(userId?: string | null | 'ALL') {
       // Admin mode: fetch ALL orders when userId is 'ALL' or undefined
       const isAdminMode = userId === 'ALL' || userId === undefined
       
-      if (isAdminMode) {
-        console.log('[useOrders] 🔍 Fetching ALL orders (admin mode)')
-      } else if (!userId) {
-        console.log('[useOrders] ❌ No userId provided - skipping fetch')
+      if (!isAdminMode && !userId) {
         setOrders([])
         setIsLoading(false)
         return
-      } else {
-        console.log('[useOrders] 🔍 Fetching orders for userId:', userId)
       }
       
       // Build query - conditionally filter by user_id
@@ -92,11 +87,7 @@ export function useOrders(userId?: string | null | 'ALL') {
         throw orderError
       }
       
-      console.log('[useOrders] ✅ DB Orders found:', dbOrders?.length || 0)
-      if (dbOrders && dbOrders.length > 0) {
-        console.log('[useOrders] First order user_id:', dbOrders[0].user_id)
-        console.log('[useOrders] Comparing: fetched user_id === param userId?', dbOrders[0].user_id === userId)
-      }
+
       if (!dbOrders || dbOrders.length === 0) {
         setOrders([])
         return
@@ -124,7 +115,7 @@ export function useOrders(userId?: string | null | 'ALL') {
           timestamp: entry.timestamp || entry.created_at || new Date().toISOString()
         }))
 
-        console.log(`[useOrders] Order ${dbOrder.order_number}: ${orderItems.length} items, ${history.length} status updates`)
+
         return transformOrder(dbOrder, orderItems, history)
       })
 
@@ -221,7 +212,7 @@ export function useOrders(userId?: string | null | 'ALL') {
         timestamp: entry.timestamp || entry.created_at || new Date().toISOString()
     }))
 
-    console.log(`[useOrders.getOrderById] Order ${dbOrder.order_number}: ${orderItems.length} items, ${history.length} status updates`)
+
     return transformOrder(dbOrder, orderItems, history)
   }
 
@@ -232,7 +223,7 @@ export function useOrders(userId?: string | null | 'ALL') {
     updatedBy: string
   ) {
     try {
-      console.log('[updateOrderStatus] Starting update:', { orderId, status, note, updatedBy })
+
       const supabase = getSupabaseBrowserClient()
       
       // 1. Get current order to access existing status_history
@@ -247,7 +238,7 @@ export function useOrders(userId?: string | null | 'ALL') {
         throw fetchError
       }
 
-      console.log('[updateOrderStatus] Current order data:', orderData)
+
 
       // 2. Parse existing history (it's a JSONB array)
       const existingHistory = (orderData?.status_history || []) as any[]
@@ -262,7 +253,7 @@ export function useOrders(userId?: string | null | 'ALL') {
       
       const updatedHistory = [...existingHistory, newHistoryEntry]
 
-      console.log('[updateOrderStatus] Updating with:', { status, historyCount: updatedHistory.length })
+
 
       // 4. Update order with new status AND updated history
       const { error: updateError } = await (supabase as any)
@@ -279,7 +270,7 @@ export function useOrders(userId?: string | null | 'ALL') {
         throw updateError
       }
 
-      console.log('[updateOrderStatus] Update successful')
+
 
       // 5. Only refresh if we have a userId (user-specific orders)
       if (userId) {

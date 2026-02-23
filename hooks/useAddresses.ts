@@ -125,8 +125,6 @@ export function useAddresses(userId: string | null) {
   const addAddress = async (address: Omit<UserAddress, "id" | "user_id" | "created_at" | "updated_at">) => {
     try {
       if (!userId) throw new Error("User not authenticated")
-      
-      console.log('[useAddresses] Adding address for userId:', userId)
 
       const newAddress = {
         ...address,

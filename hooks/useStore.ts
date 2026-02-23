@@ -89,10 +89,7 @@ export const useStore = create<StoreState>()(
 
             // Cart
             cartCount: 0,
-            setCartCount: (count) => {
-                console.log('[useStore] Setting cart count to:', count)
-                set({ cartCount: count })
-            },
+            setCartCount: (count) => set({ cartCount: count }),
             cartItems: {},
             setCartItems: (items) => set({ cartItems: items }),
             getCartQuantity: (productId) => get().cartItems[productId]?.quantity || 0,

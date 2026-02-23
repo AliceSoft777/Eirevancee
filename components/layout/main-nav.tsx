@@ -21,6 +21,11 @@ export function MainNav({ categories, products }: MainNavProps) {
   const navRef = useRef<HTMLElement | null>(null);
   const pathname = usePathname();
 
+  // Close mega-menu on route change
+  useEffect(() => {
+    setActiveMenu(null);
+  }, [pathname]);
+
   // 🔥 Calculate nav bottom position for fixed mega-menu
   useEffect(() => {
     const updatePosition = () => {
@@ -39,14 +44,7 @@ export function MainNav({ categories, products }: MainNavProps) {
     };
   }, []);
 
-  // Clearance products exist?
   const hasClearanceProducts = products.some((p) => p.is_clearance === true);
-
-  console.log("Nav Debug - Clearance:", { 
-    hasClearanceProducts, 
-    totalProducts: products.length,
-    clearanceCount: products.filter(p => p.is_clearance === true).length 
-  });
 
   const navItems = categories.map((cat) => {
     const hasSubcategories = cat.children && cat.children.length > 0;
@@ -64,9 +62,6 @@ export function MainNav({ categories, products }: MainNavProps) {
         !p.is_clearance
     );
 
-    if (hasProducts && !hasSubcategories) {
-       console.log(`Nav Debug - ProductsOnly for ${cat.name}:`, { hasProducts });
-    }
 
     return {
       name: cat.name,

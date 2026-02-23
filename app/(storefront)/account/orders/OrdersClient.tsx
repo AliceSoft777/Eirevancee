@@ -21,14 +21,6 @@ export default function OrdersClient({ session }: OrdersClientProps) {
     const { orders, isLoading } = useOrders(session.userId)
     const { openOrderDetails } = useOrderDetails()
 
-    // ✅ DIAGNOSTIC: Log session info
-    React.useEffect(() => {
-        console.log('[OrdersClient] 🔍 Session Info:')
-        console.log('  • userId:', session.userId)
-        console.log('  • userName:', session.userName)
-        console.log('  • userEmail:', session.userEmail)
-        console.log('[OrdersClient] 📊 Orders state:', { ordersCount: orders.length, isLoading })
-    }, [session, orders.length, isLoading])
 
     const userOrders = useMemo(() => {
         return [...orders].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())

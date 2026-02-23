@@ -62,6 +62,13 @@ export default async function AllProductsPage(props: Props) {
     .select('*', { count: 'exact' })
     .eq('status', 'active')
 
+  // Status filter: clearance vs regular
+  if (params.status === 'clearance') {
+    query = query.eq('is_clearance', true)
+  } else if (params.status === 'regular') {
+    query = query.eq('is_clearance', false)
+  }
+
   // Category filter: include parent category AND all its subcategories
   if (params.category) {
     const selectedCategory = findCategoryById(categories, params.category)
@@ -77,6 +84,7 @@ export default async function AllProductsPage(props: Props) {
   if (params.finish) query = query.eq('finish', params.finish)
   if (params.application_area) query = query.eq('application_area', params.application_area)
   if (params.size) query = query.eq('size', params.size)
+  if (params.thickness) query = query.eq('thickness', params.thickness)
   if (params.brand) query = query.eq('brand', params.brand)
 
   if (params.price) {
@@ -106,7 +114,7 @@ export default async function AllProductsPage(props: Props) {
   // Build filter groups from ALL products (unfiltered)
   const { data: allProductsRaw } = await supabase
     .from('products')
-    .select('material, finish, size, application_area, brand, category_id')
+    .select('material, finish, size, thickness, application_area, brand, category_id, is_clearance')
     .eq('status', 'active')
 
   const allProds = allProductsRaw ?? []
@@ -118,6 +126,19 @@ export default async function AllProductsPage(props: Props) {
   }
 
   const filterGroups: FilterGroup[] = []
+
+  // Status filter (Regular vs Clearance)
+  const hasClearance = allProds.some((p: Record<string, unknown>) => p.is_clearance === true)
+  if (hasClearance) {
+    filterGroups.push({
+      id: "status",
+      label: "Status",
+      options: [
+        { label: "Regular", value: "regular" },
+        { label: "Clearance", value: "clearance" },
+      ],
+    })
+  }
 
   // Category filter (top-level categories)
   if (categories.length > 0) {
@@ -146,12 +167,39 @@ export default async function AllProductsPage(props: Props) {
     })
   }
 
+  const sizes = uniqueValues("size")
+  if (sizes.length > 1) {
+    filterGroups.push({
+      id: "size",
+      label: "Size",
+      options: sizes.map((s) => ({ label: s, value: s })),
+    })
+  }
+
+  const thicknesses = uniqueValues("thickness")
+  if (thicknesses.length > 1) {
+    filterGroups.push({
+      id: "thickness",
+      label: "Thickness",
+      options: thicknesses.map((t) => ({ label: t, value: t })),
+    })
+  }
+
   const areas = uniqueValues("application_area")
   if (areas.length > 1) {
     filterGroups.push({
       id: "application_area",
       label: "Usage",
       options: areas.map((a) => ({ label: a, value: a })),
+    })
+  }
+
+  const brands = uniqueValues("brand")
+  if (brands.length > 1) {
+    filterGroups.push({
+      id: "brand",
+      label: "Brand",
+      options: brands.map((b) => ({ label: b, value: b })),
     })
   }
 

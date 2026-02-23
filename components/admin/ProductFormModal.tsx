@@ -1,11 +1,13 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
+import { useRouter } from "next/navigation"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Skeleton } from "@/components/ui/skeleton"
 import { useProducts, Product } from "@/hooks/useProducts"
 import { useCategories } from "@/hooks/useCategories"
 import { Loader2 } from "lucide-react"
@@ -22,9 +24,11 @@ interface ProductFormModalProps {
 
 export function ProductFormModal({ isOpen, onClose, onSave, product }: ProductFormModalProps) {
   const supabase = getSupabaseBrowserClient()
+  const router = useRouter()
   const { addProduct, updateProduct, refetch } = useProducts()
   const { categories } = useCategories()
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isLoadingProduct, setIsLoadingProduct] = useState(false)
   const [productImages, setProductImages] = useState<ProductImage[]>([])
   const [createdProductId, setCreatedProductId] = useState<string | null>(null)
 
@@ -68,6 +72,7 @@ export function ProductFormModal({ isOpen, onClose, onSave, product }: ProductFo
   useEffect(() => {
     async function fetchProductImages() {
       if (product?.id) {
+        setIsLoadingProduct(true)
         const { data, error } = await supabase
           .from('product_images')
           .select('*')
@@ -77,8 +82,10 @@ export function ProductFormModal({ isOpen, onClose, onSave, product }: ProductFo
         if (!error && data) {
           setProductImages(data)
         }
+        setIsLoadingProduct(false)
       } else {
         setProductImages([])
+        setIsLoadingProduct(false)
       }
     }
     
@@ -197,8 +204,9 @@ export function ProductFormModal({ isOpen, onClose, onSave, product }: ProductFo
             }
             toast.success("Product created successfully")
         }
-        // Trigger refetch and close
+        // Trigger refetch, refresh SSR data, and close
         await refetch()
+        router.refresh()
         onSave?.()
         onClose()
     } catch (error: unknown) {
@@ -219,6 +227,70 @@ export function ProductFormModal({ isOpen, onClose, onSave, product }: ProductFo
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6 py-4">
+          {isLoadingProduct ? (
+            /* ── Skeleton Loading State ── */
+            <div className="space-y-6 animate-in fade-in duration-200">
+              {/* Identity skeleton */}
+              <div className="grid grid-cols-2 gap-4">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="space-y-2">
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-10 w-full" />
+                  </div>
+                ))}
+              </div>
+              {/* Category / SKU skeleton */}
+              <div className="grid grid-cols-2 gap-4">
+                {[1, 2].map(i => (
+                  <div key={i} className="space-y-2">
+                    <Skeleton className="h-4 w-20" />
+                    <Skeleton className="h-10 w-full" />
+                  </div>
+                ))}
+              </div>
+              {/* Price / Stock / Status skeleton */}
+              <div className="grid grid-cols-3 gap-4">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="space-y-2">
+                    <Skeleton className="h-4 w-16" />
+                    <Skeleton className="h-10 w-full" />
+                  </div>
+                ))}
+              </div>
+              {/* Specifications skeleton */}
+              <div className="space-y-4 border-t pt-4">
+                <Skeleton className="h-5 w-28" />
+                <div className="grid grid-cols-3 gap-4">
+                  {[1, 2, 3, 4, 5, 6].map(i => (
+                    <div key={i} className="space-y-2">
+                      <Skeleton className="h-4 w-20" />
+                      <Skeleton className="h-10 w-full" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {/* Description skeleton */}
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+              {/* Images skeleton */}
+              <div className="border-t pt-4">
+                <Skeleton className="h-4 w-32 mb-3" />
+                <div className="grid grid-cols-2 gap-4">
+                  {[1, 2].map(i => (
+                    <Skeleton key={i} className="aspect-square w-full rounded-lg" />
+                  ))}
+                </div>
+              </div>
+              {/* Footer skeleton */}
+              <div className="flex justify-end gap-3 pt-4">
+                <Skeleton className="h-10 w-20" />
+                <Skeleton className="h-10 w-28" />
+              </div>
+            </div>
+          ) : (
+          <>
           
           {/* Section 1: Identity */}
           <div className="grid grid-cols-2 gap-4">
@@ -501,6 +573,8 @@ export function ProductFormModal({ isOpen, onClose, onSave, product }: ProductFo
             </Button>
           )}
         </DialogFooter>
+        </>
+        )}
         </form>
       </DialogContent>
     </Dialog>

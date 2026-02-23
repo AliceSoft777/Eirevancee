@@ -70,7 +70,7 @@ export default function WishlistClient({ initialProducts, userId }: WishlistClie
     const handleAddToCart = async (item: WishlistProduct) => {
         setAddingItemId(item.id)
         try {
-            console.log('[Wishlist] Moving item to cart:', { id: item.id, name: item.name, price: item.price });
+
             await addToCart({
                 product_id: item.id,
                 product_name: item.name,
@@ -79,7 +79,6 @@ export default function WishlistClient({ initialProducts, userId }: WishlistClie
                 quantity: 1
             })
             
-            console.log('[Wishlist] Item added to cart, removing from wishlist...');
             // Remove from wishlist after adding to cart (Move logic)
             await handleRemove(item.id)
             

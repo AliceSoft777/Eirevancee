@@ -405,7 +405,6 @@ export default function ProductClient({
                       });
                       
                       if (result) {
-                        console.log('[ProductClient] addToCart SUCCESS:', result);
                         toast.success(`Added ${requestedQty} ${requestedQty === 1 ? 'item' : 'items'} to cart!`);
                       } else {
                         console.warn('[ProductClient] addToCart returned undefined, but no error thrown');
@@ -419,7 +418,7 @@ export default function ProductClient({
                       if (err?.name !== 'AbortError' && !err?.message?.includes('AbortError')) {
                         toast.error(err instanceof Error ? err.message : "Failed to add to cart");
                       } else {
-                        console.log('[ProductClient] Suppressed AbortError toast');
+
                       }
                     } finally {
                       setIsAddingToCart(false);

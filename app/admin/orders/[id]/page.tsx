@@ -60,21 +60,17 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
   const handleConfirmStatusChange = async (note: string) => {
     if (selectedStatus && user && order) {
-      console.log('[Order Detail] Starting status update:', { orderId: order.id, from: order.status, to: selectedStatus, user: user.name })
+
       setIsUpdating(true)
       try {
-        console.log('[Order Detail] Calling updateOrderStatus...')
         await updateOrderStatus(order.id, selectedStatus, note, user.name)
-        console.log('[Order Detail] Status update successful')
         toast.success(`Order status updated to ${selectedStatus}`)
         setShowDialog(false)
         setSelectedStatus(null)
         // Reload the order to show updated status
         try {
-          console.log('[Order Detail] Reloading order...')
           const updatedOrder = await getOrderById(order.id)
           if (updatedOrder) {
-            console.log('[Order Detail] Order reloaded successfully, new status:', updatedOrder.status)
             setOrder(updatedOrder)
           }
         } catch (reloadError) {

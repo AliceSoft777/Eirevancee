@@ -20,14 +20,6 @@ export default function AddressesClient({ session }: AddressesClientProps) {
     const [showAddForm, setShowAddForm] = useState(false)
     const [isSaving, setIsSaving] = useState(false)
     
-    // ✅ DIAGNOSTIC: Log session info
-    React.useEffect(() => {
-        console.log('[AddressesClient] 🔍 Session Info:')
-        console.log('  • userId:', session.userId)
-        console.log('  • userName:', session.userName)
-        console.log('  • userEmail:', session.userEmail)
-        console.log('[AddressesClient] 📊 Addresses state:', { addressesCount: addresses.length, isLoading })
-    }, [session, addresses.length, isLoading])
 
     const [newAddress, setNewAddress] = useState<Omit<UserAddress, "id" | "user_id" | "is_default" | "created_at" | "updated_at">>({
         full_name: "",

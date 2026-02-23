@@ -7,6 +7,7 @@ export interface CartItem {
     product_name: string
     product_price: number
     product_image: string | null
+    product_slug: string
     quantity: number
 }
 
@@ -39,8 +40,34 @@ export async function getCartForUser(): Promise<{ cart: CartItem[]; isLoggedIn: 
             return { cart: [], isLoggedIn: true }
         }
 
+        // Batch-lookup slugs from products table
+        const productIds = [...new Set((data || []).map((item: any) => item.product_id))]
+        let slugMap: Record<string, string> = {}
+        if (productIds.length > 0) {
+            const { data: products } = await supabase
+                .from('products')
+                .select('id, slug')
+                .in('id', productIds)
+            if (products) {
+                slugMap = Object.fromEntries(
+                    (products as any[]).map((p) => [p.id, p.slug])
+                )
+            }
+        }
+
+        const cart: CartItem[] = (data || []).map((item: any) => ({
+            id: item.id,
+            product_id: item.product_id,
+            variant_id: item.variant_id,
+            product_name: item.product_name,
+            product_price: item.product_price,
+            product_image: item.product_image,
+            product_slug: slugMap[item.product_id] || item.product_id,
+            quantity: item.quantity,
+        }))
+
         return { 
-            cart: (data || []) as CartItem[], 
+            cart, 
             isLoggedIn: true 
         }
     } catch (error) {

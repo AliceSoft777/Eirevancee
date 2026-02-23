@@ -85,9 +85,6 @@ export async function POST(request: NextRequest) {
             reason: updateError.message
           })
         } else {
-          console.log(
-            `✅ Stock reduced: ${item.product_name} from ${(product as any).stock} to ${newStock}`
-          )
           deductResults.push({
             product_id: item.product_id,
             success: true,

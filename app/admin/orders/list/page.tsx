@@ -56,7 +56,7 @@ export default async function OrdersListPage() {
     .order("created_at", { ascending: false })
     .returns<OrderRow[]>()
 
-  console.log('[Admin Orders] Query result:', { ordersCount: orders?.length, error })
+
 
   if (error) {
     console.error('[Admin Orders] ❌ Database error:', error)

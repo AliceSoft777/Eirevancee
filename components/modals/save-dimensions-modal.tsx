@@ -25,14 +25,6 @@ export function SaveDimensionsModal({ isOpen, onClose }: SaveDimensionsModalProp
             ? (parseFloat(width) || 0) * (parseFloat(length) || 0)
             : parseFloat(area) || 0
         
-        console.log({ 
-            roomName, 
-            measurement, 
-            area: measurement === "total-space" ? area : calculatedArea,
-            width: measurement === "width-length" ? width : undefined,
-            length: measurement === "width-length" ? length : undefined,
-            unit 
-        })
         onClose()
     }
 

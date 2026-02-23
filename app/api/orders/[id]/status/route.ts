@@ -42,7 +42,6 @@ export async function POST(
       )
     }
 
-    console.log(`[API] ✅ Order ${id} status updated to: ${status}`)
     return NextResponse.json({ success: true, status })
   } catch (error) {
     console.error("[API] Error:", error)

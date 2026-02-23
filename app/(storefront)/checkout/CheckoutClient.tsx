@@ -104,12 +104,10 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
 
     // ✅ BULLETPROOF: Auto-fill form via State Update (Using exact DB fields)
     const handleAddressSelection = (addressId: string) => {
-        console.log('[Checkout] 📍 Address selected:', addressId)
         setSelectedAddressId(addressId)
         const address = addresses.find(a => a.id === addressId)
         
         if (address) {
-            console.log('[Checkout] ✅ Found address:', address)
             setFormData(prev => ({
                 ...prev,
                 full_name: address.full_name,
@@ -131,7 +129,7 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
         e.preventDefault()
         setIsProcessing(true)
 
-        console.log('[Checkout] 🚀 Submit started, userId:', userId)
+
 
         // Set timeout to prevent infinite loading (30 seconds)
         const timeoutId = setTimeout(() => {
@@ -155,7 +153,7 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
             // Validate required fields
             if (!full_name || !email || !phone || !street || !city || !state || !pincode) {
                 clearTimeout(timeoutId)
-                console.log('[Checkout] ❌ Validation failed - missing fields')
+
                 toast.error("Please fill in all required fields")
                 setIsProcessing(false)
                 return
@@ -164,14 +162,14 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
             // Use cached userId from state (fetched on mount) - avoids AbortError
             if (!userId) {
                 clearTimeout(timeoutId)
-                console.log('[Checkout] ❌ No userId - user not logged in')
+
                 toast.error("You must be logged in to place an order")
                 router.push("/login")
                 setIsProcessing(false)
                 return
             }
 
-            console.log('[Checkout] ✅ Validation passed, creating order...')
+
 
             // Create delivery address as JSONB object
             const deliveryAddressObj = {
@@ -335,9 +333,6 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
                         })
                         if (!stockResponse.ok) {
                             console.warn('[Checkout] Stock deduction failed for card order:', stockResponse.status)
-                        } else {
-                            const stockResult = await stockResponse.json()
-                            console.log('[Checkout] Stock deduction results:', stockResult)
                         }
                     } catch (stockErr) {
                         console.warn('[Checkout] Stock deduction request failed:', stockErr)
@@ -413,11 +408,8 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
                     console.warn('⚠️ Stock reduction API failed:', stockResponse.status)
                 } else {
                     const stockResult = await stockResponse.json()
-                    console.log('✅ Stock deduction results:', stockResult)
                     
-                    if (stockResult.success) {
-                        console.log('✅ All stock deductions successful')
-                    } else {
+                    if (!stockResult.success) {
                         console.warn('⚠️ Some stock deductions failed:', stockResult.results)
                     }
                 }
@@ -428,7 +420,6 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
             // 3. Clear cart
             try {
                 await clearCart()
-                console.log('✅ Cart cleared')
             } catch (cartError) {
                 console.warn('⚠️ Cart clear failed but order was created:', cartError)
             }
@@ -449,7 +440,7 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
             clearTimeout(timeoutId)
             toast.success("Order placed successfully! 🎉")
             
-            console.log('✅ Redirecting to success page...')
+
             // Small delay before redirect to allow success message to display
             setTimeout(() => {
                 router.push(`/order/success?orderId=${(orderData as any).order_number}`)

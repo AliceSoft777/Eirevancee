@@ -19,6 +19,7 @@ interface CartItem {
     product_name: string
     product_price: number
     product_image: string | null
+    product_slug: string
     quantity: number
 }
 
@@ -244,7 +245,7 @@ export default function CartClient({ initialCart, isLoggedIn, siteSettings }: Ca
                                     className={`neu-raised rounded-[1.5rem] bg-[#E5E9F0] p-5 flex items-center gap-5 transition-all duration-200 ${isUpdating ? 'opacity-60' : ''}`}
                                 >
                                     {/* Product Image */}
-                                    <Link href={`/product/${item.product_id}`} className="relative h-24 w-24 flex-shrink-0 overflow-hidden rounded-xl bg-white">
+                                    <Link href={`/product/${item.product_slug}`} className="relative h-24 w-24 flex-shrink-0 overflow-hidden rounded-xl bg-white">
                                         {item.product_image ? (
                                             <Image
                                                 src={item.product_image}

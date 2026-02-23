@@ -63,7 +63,7 @@ export const supabaseBrowserClient = createBrowserClient<Database>(
     auth: {
       storage: new ConditionalStorage(),
       persistSession: true,
-      autoRefreshToken: false,
+      autoRefreshToken: true,
       detectSessionInUrl: true,
       flowType: 'pkce',
     },

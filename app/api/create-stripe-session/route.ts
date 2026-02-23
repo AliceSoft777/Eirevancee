@@ -54,12 +54,6 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    console.log('[Stripe] Session created:', {
-      sessionId: session.id,
-      amount_total: session.amount_total,
-      currency: session.currency,
-      locale: session.locale
-    })
 
     return NextResponse.json({ sessionId: session.id, url: session.url })
   } catch (error: any) {
