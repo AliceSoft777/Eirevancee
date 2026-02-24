@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
 import { getSupabaseBrowserClient } from '@/lib/supabase'
 import { formatDistanceToNow } from 'date-fns'
+import { ReviewsSkeleton } from '@/components/admin/AdminSkeletons'
 
 interface PendingReview {
     id: string
@@ -39,8 +40,8 @@ export function ReviewsModeration() {
     const loadPendingReviews = async () => {
         setIsLoading(true)
         try {
-            const { data, error } = await supabase
-                .from('reviews')
+            const result = await (supabase
+                .from('reviews') as any)
                 .select(
                     `
                     id,
@@ -60,10 +61,11 @@ export function ReviewsModeration() {
                 )
                 .eq('status', 'pending')
                 .order('created_at', { ascending: true })
-                .returns<PendingReview[]>()
 
-            if (error) throw error
-            setReviews((data || []) as PendingReview[])
+            if (!result || result.error) {
+                throw result?.error || new Error('Failed to fetch reviews')
+            }
+            setReviews((result.data || []) as PendingReview[])
         } catch (err) {
             console.error('Error loading reviews:', err)
             toast.error('Failed to load pending reviews')
@@ -145,11 +147,7 @@ export function ReviewsModeration() {
     }
 
     if (isLoading) {
-        return (
-            <div className="flex items-center justify-center py-12">
-                <p className="text-gray-500">Loading reviews...</p>
-            </div>
-        )
+        return <ReviewsSkeleton />
     }
 
     if (reviews.length === 0) {

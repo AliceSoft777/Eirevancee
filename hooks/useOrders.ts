@@ -137,8 +137,8 @@ export function useOrders(userId?: string | null | 'ALL') {
     let lastFetchTime = Date.now()
 
     const handleFocus = () => {
-      // Only refetch if more than 5 seconds since last fetch (avoid rapid refetches)
-      if (Date.now() - lastFetchTime > 5000) {
+      // Only refetch if more than 60 seconds since last fetch (avoid redundant refetches)
+      if (Date.now() - lastFetchTime > 60000) {
         lastFetchTime = Date.now()
         fetchOrders()
       }

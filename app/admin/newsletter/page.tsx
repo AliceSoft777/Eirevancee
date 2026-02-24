@@ -11,8 +11,9 @@ import { EmptyState } from "@/components/admin/EmptyState"
 import { Pagination } from "@/components/admin/Pagination"
 import { usePagination } from "@/hooks/usePagination"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
-import { Mail, Download, Search, Loader2 } from "lucide-react"
+import { Mail, Download, Search } from "lucide-react"
 import { toast } from "sonner"
+import { NewsletterSkeleton } from "@/components/admin/AdminSkeletons"
 
 interface Subscriber {
   id: string
@@ -33,21 +34,23 @@ export default function NewsletterPage() {
     async function fetchSubscribers() {
       setIsLoading(true)
       try {
-        const { data, error } = await (supabase
+        const result = await (supabase
           .from("newsletter_subscriptions") as any)
           .select("*")
           .order("subscribed_at", { ascending: false })
 
-        if (error) throw error
-        setSubscribers((data as Subscriber[]) || [])
+        if (!result || result.error) {
+          throw result?.error || new Error('Failed to fetch subscribers')
+        }
+        setSubscribers((result.data as Subscriber[]) || [])
       } catch (err: any) {
-        toast.error("Failed to load subscribers: " + err.message)
+        toast.error("Failed to load subscribers: " + (err?.message || 'Unknown error'))
       } finally {
         setIsLoading(false)
       }
     }
     fetchSubscribers()
-  }, [supabase])
+  }, [])
 
   const filtered = subscribers.filter(
     (s) =>
@@ -142,9 +145,7 @@ export default function NewsletterPage() {
             </CardHeader>
             <CardContent>
               {isLoading ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                </div>
+                <NewsletterSkeleton />
               ) : filtered.length === 0 ? (
                 <EmptyState
                   icon={Mail}

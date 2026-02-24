@@ -105,9 +105,63 @@ export function OrderDetailModal({
                   <p className="text-sm font-medium text-muted-foreground">Email</p>
                   <p className="text-sm">{order.customerEmail}</p>
                 </div>
+                {order.customerPhone && (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Phone</p>
+                    <p className="text-sm">{order.customerPhone}</p>
+                  </div>
+                )}
+                {order.deliveryAddress && (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Delivery Address</p>
+                    <div className="text-sm">
+                      {order.deliveryAddress.street && <p>{order.deliveryAddress.street}</p>}
+                      <p>
+                        {[order.deliveryAddress.city, order.deliveryAddress.state].filter(Boolean).join(', ')}
+                      </p>
+                      {order.deliveryAddress.pincode && <p>{order.deliveryAddress.pincode}</p>}
+                      {order.deliveryAddress.country && <p>{order.deliveryAddress.country}</p>}
+                    </div>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
+
+          {/* Order Items */}
+          {order.items && order.items.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Order Items ({order.items.length})</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left py-2 font-medium text-muted-foreground">Product</th>
+                        <th className="text-center py-2 font-medium text-muted-foreground">Qty</th>
+                        <th className="text-right py-2 font-medium text-muted-foreground">Price</th>
+                        <th className="text-right py-2 font-medium text-muted-foreground">Subtotal</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {order.items.map((item, idx) => (
+                        <tr key={idx} className="border-b last:border-0">
+                          <td className="py-2.5 pr-4">
+                            <p className="font-medium">{item.product_name}</p>
+                          </td>
+                          <td className="py-2.5 text-center text-muted-foreground">{item.quantity}</td>
+                          <td className="py-2.5 text-right text-muted-foreground">{formatPrice(item.unit_price)}</td>
+                          <td className="py-2.5 text-right font-medium">{formatPrice(item.subtotal)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Order Summary */}
           <Card>

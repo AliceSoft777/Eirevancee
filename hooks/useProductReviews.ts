@@ -60,16 +60,16 @@ export const useProductReviews = (productId: string | null): UseProductReviewsRe
           fetchPromise = (async (): Promise<Review[]> => {
             try {
               const supabase = getSupabaseBrowserClient()
-              const { data, error: err } = await supabase
-                .from('reviews')
+              const result = await (supabase
+                .from('reviews') as any)
                 .select('*')
                 .eq('product_id', productId)
                 .eq('status', 'published')
                 .order('created_at', { ascending: false })
                 .limit(20)
 
-              if (err) return []
-              return (data as Review[]) || []
+              if (!result || result.error) return []
+              return (result.data as Review[]) || []
             } catch {
               return []
             }

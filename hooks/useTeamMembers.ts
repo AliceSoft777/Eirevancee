@@ -24,8 +24,8 @@ export function useTeamMembers() {
       setIsLoading(true)
       setError(null)
       
-      const { data, error: fetchError } = await supabase
-        .from('profiles')
+      const result = await (supabase
+        .from('profiles') as any)
         .select(`
           id,
           email,
@@ -37,6 +37,7 @@ export function useTeamMembers() {
         `)
         .not('role_id', 'is', null)
         .order('created_at', { ascending: false })
+      const { data, error: fetchError } = result || {}
 
       if (fetchError) throw fetchError
       
@@ -83,17 +84,18 @@ export function useTeamMembers() {
     if (!authData.user) throw new Error('Failed to create user')
 
     // Get role_id from role name
-    const { data: roleData } = await supabase
-      .from('roles')
+    const roleResult = await (supabase
+      .from('roles') as any)
       .select('id')
       .eq('name', member.role)
       .single()
+    const { data: roleData } = roleResult || {}
 
     if (!roleData) throw new Error(`Role ${member.role} not found`)
 
     // Create profile with auth user id
-    const { data, error } = await supabase
-      .from('profiles')
+    const insertResult = await (supabase
+      .from('profiles') as any)
       .insert([{
         id: authData.user.id,
         email: member.email,
@@ -110,6 +112,7 @@ export function useTeamMembers() {
         role:roles(name)
       `)
       .single()
+    const { data, error } = insertResult || {}
 
     if (error) throw error
     
@@ -135,17 +138,18 @@ export function useTeamMembers() {
     
     // If role is being updated, get role_id
     if (updates.role) {
-      const { data: roleData } = await supabase
-        .from('roles')
+      const updateRoleResult = await (supabase
+        .from('roles') as any)
         .select('id')
         .eq('name', updates.role)
         .single()
+      const { data: roleData } = updateRoleResult || {}
       
       if (roleData) updateData.role_id = roleData.id
     }
 
-    const { data, error } = await supabase
-      .from('profiles')
+    const updateResult = await (supabase
+      .from('profiles') as any)
       .update(updateData)
       .eq('id', id)
       .select(`
@@ -157,6 +161,7 @@ export function useTeamMembers() {
         role:roles(name)
       `)
       .single()
+    const { data, error } = updateResult || {}
 
     if (error) throw error
     
@@ -180,10 +185,11 @@ export function useTeamMembers() {
     if (authError) console.error('Auth delete error:', authError)
 
     // Delete profile
-    const { error } = await supabase
-      .from('profiles')
+    const deleteResult = await (supabase
+      .from('profiles') as any)
       .delete()
       .eq('id', id)
+    const { error } = deleteResult || {}
 
     if (error) throw error
     setTeamMembers(prev => prev.filter(m => m.id !== id))

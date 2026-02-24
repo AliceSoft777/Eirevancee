@@ -26,31 +26,31 @@ export function useCustomers() {
       setError(null)
       
       // 1. Get Customer Role ID
-      const { data: roleData, error: roleError } = await supabase
-        .from('roles')
+      const roleResult = await (supabase
+        .from('roles') as any)
         .select('id')
         .eq('name', 'customer')
         .single()
       
-      if (roleError) throw roleError
-      const customerRoleId = roleData.id
+      if (!roleResult || roleResult.error) throw roleResult?.error || new Error('Failed to fetch roles')
+      const customerRoleId = roleResult.data.id
 
       // 2. Fetch Profiles and Orders in parallel for better performance
       const [profilesResult, ordersResult] = await Promise.all([
-        supabase
-          .from('profiles')
+        (supabase
+          .from('profiles') as any)
           .select('id, email, full_name, phone, created_at')
           .eq('role_id', customerRoleId)
           .order('created_at', { ascending: false }),
-        supabase
-          .from('orders')
+        (supabase
+          .from('orders') as any)
           .select('user_id, total, created_at, customer_phone')
       ])
 
-      if (profilesResult.error) throw profilesResult.error
+      if (!profilesResult || profilesResult.error) throw profilesResult?.error || new Error('Failed to fetch profiles')
       
       const profiles = profilesResult.data
-      const orders = ordersResult.data || []
+      const orders = ordersResult?.data || []
 
       if (!profiles || profiles.length === 0) {
         setCustomers([])

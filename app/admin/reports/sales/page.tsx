@@ -11,6 +11,7 @@ import { TrendingUp, Package, Users, Download, FileText } from "lucide-react"
 import { useState, useMemo } from "react"
 import { LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import { toast } from "sonner"
+import { ReportsSkeleton } from "@/components/admin/AdminSkeletons"
 
 type DateRange = 'today' | '7d' | '30d' | 'all'
 
@@ -24,7 +25,7 @@ const STATUS_COLORS = {
 }
 
 export default function SalesReportPage() {
-  const { orders } = useOrders('ALL')
+  const { orders, isLoading: ordersLoading } = useOrders('ALL')
   const { } = useProducts()
   const [dateRange, setDateRange] = useState<DateRange>('30d')
 
@@ -121,6 +122,16 @@ export default function SalesReportPage() {
 
   const exportToPDF = () => {
     toast.info('PDF export requires jsPDF library - install with: npm install jspdf jspdf-autotable')
+  }
+
+  if (ordersLoading) {
+    return (
+      <AdminRoute>
+        <AdminLayout>
+          <ReportsSkeleton />
+        </AdminLayout>
+      </AdminRoute>
+    )
   }
 
   return (

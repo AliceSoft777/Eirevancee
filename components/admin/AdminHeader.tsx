@@ -65,40 +65,25 @@ export function AdminHeader({ session }: AdminHeaderProps) {
   }, [])
 
   const handleLogout = async () => {
+    setIsProfileOpen(false)
+    
     try {
       const supabase = getSupabaseBrowserClient()
-      
-      // ✅ Sign out from Supabase (invalidates session server-side)
       await supabase.auth.signOut()
-      
-      // ✅ Clear Zustand state & localStorage
-      await logout()
-      
-      // ✅ Clear any remaining auth cookies/session data
-      if (typeof window !== 'undefined') {
-        // Force clear all storage
-        localStorage.clear()
-        sessionStorage.clear()
-      }
-      
-      // ✅ Hard redirect - forces page reload to clear all memory cache
-      window.location.href = '/login'
     } catch (err) {
-      console.error("Error signing out", err)
-      // Force logout even if error
-      logout()
-      
-      // Clear storage anyway
-      if (typeof window !== 'undefined') {
-        localStorage.clear()
-        sessionStorage.clear()
-      }
-      
-      // Force redirect anyway
-      window.location.href = '/login'
-    } finally {
-      setIsProfileOpen(false)
+      console.error("Supabase sign out error:", err)
     }
+    
+    // Always clear state + storage regardless of Supabase result
+    try { await logout() } catch (_) {}
+    
+    if (typeof window !== 'undefined') {
+      localStorage.clear()
+      sessionStorage.clear()
+    }
+    
+    // Hard redirect to force full page reload
+    window.location.href = '/login'
   }
 
   return (
@@ -158,43 +143,36 @@ export function AdminHeader({ session }: AdminHeaderProps) {
 
                 {/* Profile Dropdown */}
                 {isProfileOpen && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
+                  <div className="absolute right-0 mt-3 w-56 bg-white rounded-xl shadow-xl border border-gray-200/60 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
                     {/* User Info */}
-                    <div className="px-4 py-2 border-b border-gray-100">
-                      <p className="font-medium text-sm text-foreground">{user.name}</p>
-                      <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                    <div className="px-4 py-3 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100">
+                      <p className="font-semibold text-sm text-foreground">{user.name}</p>
+                      <p className="text-xs text-muted-foreground truncate mt-0.5">{user.email}</p>
                     </div>
 
-                    {/* Links */}
-                    <div className="py-1">
+                    {/* View Store - mobile only (hidden on sm+) */}
+                    <div className="sm:hidden">
                       <Link
                         href="/"
-                        className="flex items-center gap-3 px-4 py-2 text-sm hover:bg-gray-50 transition-colors sm:hidden"
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-gray-50 transition-colors"
                         onClick={() => setIsProfileOpen(false)}
                       >
                         <Home className="h-4 w-4 text-muted-foreground" />
                         View Store
                       </Link>
-                      <Link
-                        href="/account"
-                        className="flex items-center gap-3 px-4 py-2 text-sm hover:bg-gray-50 transition-colors"
-                        onClick={() => setIsProfileOpen(false)}
-                      >
-                        <User className="h-4 w-4 text-muted-foreground" />
-                        My Account
-                      </Link>
                     </div>
 
                     {/* Logout */}
-                    <div className="border-t border-gray-100 my-1" />
-                    <button
-                      onClick={handleLogout}
-                      className="flex items-center gap-3 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                      suppressHydrationWarning
-                    >
-                      <LogOut className="h-4 w-4" />
-                      Logout
-                    </button>
+                    <div className="p-2">
+                      <button
+                        onClick={handleLogout}
+                        className="flex items-center gap-3 w-full px-3 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-all duration-150 cursor-pointer"
+                        suppressHydrationWarning
+                      >
+                        <LogOut className="h-4 w-4" />
+                        Sign Out
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>

@@ -25,9 +25,12 @@ export type OrderListItem = {
   orderNumber: string
   customerName: string
   customerEmail: string
+  customerPhone: string | null
   status: string
   total: string
   createdAt: string
+  deliveryAddress: Record<string, string> | null
+  items: Array<{ product_id: string; product_name: string; quantity: number; unit_price: number; subtotal: number }>
 }
 
 export default function OrdersListClient({
@@ -90,9 +93,9 @@ export default function OrdersListClient({
               </p>
             </div>
 
-            <div className="flex gap-3">
-              <div className="relative w-64">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <div className="flex gap-3 items-center">
+              <div className="relative w-64 flex items-center">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none z-10" />
                 <Input
                   placeholder="Order # or Customer..."
                   value={searchTerm}

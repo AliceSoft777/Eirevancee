@@ -275,13 +275,12 @@ export async function getWishlistData(userId: string | null): Promise<{ wishlist
  * Optimized to fetch only necessary data for initial page load
  */
 export async function getHomePageData() {
-  const [session, { categories }, { products }] = await Promise.all([
-    getServerSession(),
-    getNavData(),
-    getProducts(12)  // ✅ Fetch only 12 products for homepage (was: ALL products)
-  ])
+  // Session first (fast ~50ms auth check), then everything else in ONE parallel batch
+  const session = await getServerSession()
 
-  const [{ cart, cartCount }, { wishlist, wishlistCount }] = await Promise.all([
+  const [{ categories }, { products }, { cart, cartCount }, { wishlist, wishlistCount }] = await Promise.all([
+    getNavData(),
+    getProducts(12),  // ✅ Fetch only 12 products for homepage
     getCartData(session.userId),
     getWishlistData(session.userId)
   ])

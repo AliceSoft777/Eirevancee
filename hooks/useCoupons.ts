@@ -31,10 +31,11 @@ export function useCoupons() {
   async function fetchCoupons() {
     try {
       setIsLoading(true)
-      const { data, error } = await supabase
-        .from('coupons')
+      const result = await (supabase
+        .from('coupons') as any)
         .select('*')
         .order('created_at', { ascending: false })
+      const { data, error } = result || {}
 
       if (error) throw error
       setCoupons(data || [])
@@ -71,10 +72,11 @@ export function useCoupons() {
   }
 
   async function deleteCoupon(id: string) {
-    const { error } = await supabase
-      .from('coupons')
+    const result = await (supabase
+      .from('coupons') as any)
       .delete()
       .eq('id', id)
+    const { error } = result || {}
 
     if (error) throw error
     setCoupons(prev => prev.filter(c => c.id !== id))

@@ -74,7 +74,8 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
         : 0
     const discountedSubtotal = subtotal - couponDiscount
     const tax = discountedSubtotal * taxRate
-    const shippingFee = discountedSubtotal > siteSettings.free_shipping_threshold ? 0 : siteSettings.shipping_fee
+    const isFreeShipping = discountedSubtotal > siteSettings.free_shipping_threshold
+    const shippingFee = isFreeShipping ? 0 : 0 // Below threshold: no flat fee, quote needed
     const total = discountedSubtotal + tax + shippingFee
 
     // Load applied coupon from sessionStorage (set in cart page)
@@ -717,11 +718,16 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
                                         </div>
                                     )}
                                     <div className="flex justify-between text-sm">
-                                        <span className="text-muted-foreground">Shipping</span>
+                                        <span className="text-muted-foreground">Delivery</span>
                                         <span className="font-medium">
-                                            {shippingFee === 0 ? <span className="text-green-600">Free</span> : formatPrice(shippingFee)}
+                                            {isFreeShipping ? <span className="text-green-600">Free</span> : <span className="text-red-600 text-xs">Quote required</span>}
                                         </span>
                                     </div>
+                                    {!isFreeShipping && (
+                                        <p className="text-xs text-red-600 leading-snug">
+                                            Delivery charge applies — please contact us for a quote.
+                                        </p>
+                                    )}
                                     <div className="flex justify-between font-bold border-t border-border pt-2 mt-2">
                                         <span>Total</span>
                                         <span className="text-primary">{formatPrice(total)}</span>

@@ -61,10 +61,11 @@ export function useReviews() {
   async function fetchReviews() {
     try {
       setIsLoading(true)
-      const { data, error } = await supabase
-        .from('reviews')
+      const result = await (supabase
+        .from('reviews') as any)
         .select('*')
         .order('created_at', { ascending: false })
+      const { data, error } = result || {}
 
       if (error) throw error
       setReviews(data || [])
@@ -86,10 +87,11 @@ export function useReviews() {
       updates.responded_at = new Date().toISOString()
     }
 
-    const { error } = await supabase
-      .from('reviews')
+    const result = await (supabase
+      .from('reviews') as any)
       .update(updates)
       .eq('id', reviewId)
+    const { error } = result || {}
 
     if (error) throw error
     await fetchReviews()
@@ -118,10 +120,11 @@ export function useFeedbacks() {
       setIsLoading(true)
       
       // 1. Fetch Feedbacks
-      const { data: dbFeedbacks, error: feedbacksError } = await supabase
-        .from('feedbacks')
+      const feedbackResult = await (supabase
+        .from('feedbacks') as any)
         .select('*')
         .order('created_at', { ascending: false })
+      const { data: dbFeedbacks, error: feedbacksError } = feedbackResult || {}
 
       if (feedbacksError) throw feedbacksError
       
@@ -133,11 +136,12 @@ export function useFeedbacks() {
 
       // 2. Fetch Responses
       const feedbackIds = dbFeedbacks.map(f => f.id)
-      const { data: dbResponses, error: responsesError } = await supabase
-        .from('feedback_responses')
+      const responsesResult = await (supabase
+        .from('feedback_responses') as any)
         .select('*')
         .in('feedback_id', feedbackIds)
         .order('created_at', { ascending: true })
+      const { data: dbResponses, error: responsesError } = responsesResult || {}
       
       if (responsesError) {
         console.error("Error fetching responses:", responsesError)
@@ -170,10 +174,11 @@ export function useFeedbacks() {
   }
 
   async function updateFeedbackStatus(feedbackId: string, status: Feedback['status']) {
-    const { error } = await supabase
-      .from('feedbacks')
+    const result = await (supabase
+      .from('feedbacks') as any)
       .update({ status })
       .eq('id', feedbackId)
+    const { error } = result || {}
 
     if (error) throw error
     await fetchFeedbacks()
@@ -184,13 +189,14 @@ export function useFeedbacks() {
     message: string,
     respondedBy: string
   ) {
-    const { error } = await supabase
-      .from('feedback_responses')
+    const result = await (supabase
+      .from('feedback_responses') as any)
       .insert([{
         feedback_id: feedbackId,
         message,
         responded_by: respondedBy
       }])
+    const { error } = result || {}
 
     if (error) throw error
     await fetchFeedbacks()

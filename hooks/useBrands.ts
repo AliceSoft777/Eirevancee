@@ -25,10 +25,11 @@ export function useBrands() {
   async function fetchBrands() {
     try {
       setIsLoading(true)
-      const { data, error } = await supabase
-        .from('brands')
+      const result = await (supabase
+        .from('brands') as any)
         .select('*')
         .order('name', { ascending: true })
+      const { data, error } = result || {}
 
       if (error) throw error
       setBrands(data || [])
@@ -40,11 +41,12 @@ export function useBrands() {
   }
 
   async function addBrand(brand: Omit<Brand, 'id' | 'created_at'>) {
-    const { data, error } = await supabase
-      .from('brands')
+    const result = await (supabase
+      .from('brands') as any)
       .insert([brand])
       .select()
       .single()
+    const { data, error } = result || {}
 
     if (error) throw error
     setBrands(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)))
@@ -52,12 +54,13 @@ export function useBrands() {
   }
 
   async function updateBrand(id: string, updates: Partial<Brand>) {
-    const { data, error } = await supabase
-      .from('brands')
+    const result = await (supabase
+      .from('brands') as any)
       .update(updates)
       .eq('id', id)
       .select()
       .single()
+    const { data, error } = result || {}
 
     if (error) throw error
     setBrands(prev => prev.map(b => b.id === id ? data : b))
@@ -65,10 +68,11 @@ export function useBrands() {
   }
 
   async function deleteBrand(id: string) {
-    const { error } = await supabase
-      .from('brands')
+    const result = await (supabase
+      .from('brands') as any)
       .delete()
       .eq('id', id)
+    const { error } = result || {}
 
     if (error) throw error
     setBrands(prev => prev.filter(b => b.id !== id))

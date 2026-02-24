@@ -9,10 +9,12 @@ import { Save } from "lucide-react"
 import { useState, useEffect } from "react"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { toast } from "sonner"
+import { SettingsSkeleton } from "@/components/admin/AdminSkeletons"
 
 export default function GeneralSettingsPage() {
   const supabase = getSupabaseBrowserClient()
   const [loading, setLoading] = useState(false)
+  const [isLoadingSettings, setIsLoadingSettings] = useState(true)
   
   // Store Info
   const [storeName, setStoreName] = useState("Celtic Tiles")
@@ -35,6 +37,7 @@ export default function GeneralSettingsPage() {
   }, [])
 
   const fetchSettings = async () => {
+    setIsLoadingSettings(true)
     try {
       const { data, error } = await (supabase as any)
         .from('site_settings')
@@ -57,6 +60,8 @@ export default function GeneralSettingsPage() {
       }
     } catch (err: any) {
       console.error('Error fetching settings:', err)
+    } finally {
+      setIsLoadingSettings(false)
     }
   }
 
@@ -130,7 +135,10 @@ export default function GeneralSettingsPage() {
   return (
     <AdminRoute>
       <AdminLayout>
-        <div className="space-y-6">
+          {isLoadingSettings ? (
+            <SettingsSkeleton />
+          ) : (
+          <>
           <div>
             <h1 className="text-3xl font-serif font-bold text-primary">General Settings</h1>
             <p className="text-muted-foreground mt-1">Configure store settings and preferences</p>
@@ -298,7 +306,8 @@ export default function GeneralSettingsPage() {
               </Button>
             </CardContent>
           </Card>
-        </div>
+          </>
+          )}
       </AdminLayout>
     </AdminRoute>
   )

@@ -130,7 +130,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-background">
       {/* Mobile Header */}
-      <header className="lg:hidden shrink-0 z-40 bg-card border-b border-border px-4 py-3 flex items-center justify-between" suppressHydrationWarning>
+      <header className="lg:hidden shrink-0 z-30 bg-card border-b border-border px-4 py-3 flex items-center justify-between" suppressHydrationWarning>
         <h1 className="text-lg font-serif font-bold text-primary">
           Celtic Tiles <span className="text-xs font-sans text-muted-foreground">{isAdmin() ? "Admin" : "Staff"}</span>
         </h1>
@@ -145,50 +145,61 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         </Button>
       </header>
 
-      <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar Overlay (mobile) */}
-        {isSidebarOpen && (
-          <div
-            className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-            onClick={() => setIsSidebarOpen(false)}
-          />
-        )}
+      {/* Sidebar Overlay — outside flex container so it covers the ENTIRE viewport */}
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
 
-        {/* Sidebar */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Sidebar — Neumorphic Design */}
         <aside className={cn(
-          "fixed lg:relative top-0 left-0 h-full bg-card border-r border-border flex flex-col transition-all duration-300 ease-in-out shrink-0",
+          "fixed lg:relative left-0 top-0 h-full flex flex-col transition-transform duration-300 ease-in-out shrink-0",
           "w-60 sm:w-64",
           "z-50 lg:z-auto",
           isSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
-        )}>
+        )}
+        style={{
+          background: 'hsl(var(--neu-bg))',
+          borderRight: '1px solid hsl(var(--border) / 0.3)'
+        }}>
           {/* Logo - Desktop only */}
-          <div className="hidden lg:block px-5 py-4 border-b border-border">
+          <div className="hidden lg:block px-5 py-4" style={{
+            borderBottom: '1px solid hsl(var(--border) / 0.3)'
+          }}>
             <h1 className="text-lg font-serif font-bold text-primary">
               Celtic Tiles <span className="text-sm font-sans text-muted-foreground">{isAdmin() ? "Admin" : "Staff"}</span>
             </h1>
           </div>
 
           {/* Mobile close button */}
-          <div className="lg:hidden p-4 border-b border-border flex items-center justify-between">
-            <span className="font-medium">Menu</span>
-            <Button variant="ghost" size="sm" onClick={() => setIsSidebarOpen(false)} suppressHydrationWarning>
-              <X className="h-5 w-5" />
+          <div className="lg:hidden p-4 flex items-center justify-between" style={{
+            borderBottom: '1px solid hsl(var(--border) / 0.3)'
+          }}>
+            <span className="font-medium text-foreground">Menu</span>
+            <Button variant="ghost" size="sm" onClick={() => setIsSidebarOpen(false)} suppressHydrationWarning
+              className="hover:bg-transparent rounded-xl neu-raised"
+            >
+              <X className="h-5 w-5 text-muted-foreground" />
             </Button>
           </div>
 
-          {/* Navigation */}
-          <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto">
+          {/* Navigation — flat by default, inset when active, raised on hover */}
+          <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
             {navigation.map((item) => {
               const isActive = pathname?.startsWith(item.href)
               return (
                 <Link
                   key={item.name}
                   href={item.href}
+                  onClick={() => setIsSidebarOpen(false)}
                   className={cn(
-                    "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200",
+                    "neu-nav-item flex items-center gap-3 px-3 py-2.5 text-sm font-medium transition-all duration-200 rounded-xl",
                     isActive
-                      ? "bg-primary/20 text-primary border border-primary/30 shadow-sm"
-                      : "text-foreground hover:bg-primary/10 hover:text-primary hover:translate-x-1"
+                      ? "neu-inset text-primary font-semibold"
+                      : "text-muted-foreground hover:text-primary"
                   )}
                 >
                   <item.icon className="w-4 h-4 flex-shrink-0" />
@@ -196,39 +207,24 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                 </Link>
               )
             })}
-          </nav>
-
-          {/* User Info */}
-          <div className="px-3 py-3 border-t border-border">
-            <div className="mb-2 flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                <span className="text-primary font-semibold text-sm">
-                  {user?.name?.charAt(0).toUpperCase()}
-                </span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-foreground truncate">{user?.name}</p>
-                <p className="text-xs text-muted-foreground capitalize">{user?.role}</p>
-              </div>
+            {/* Divider + bottom actions */}
+            <div className="mt-3 pt-3" style={{ borderTop: '1px solid hsl(var(--border) / 0.3)' }}>
+              <Link
+                href="/"
+                className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-all duration-200 rounded-xl"
+              >
+                <Home className="w-4 h-4 flex-shrink-0" />
+                <span className="truncate">Back to Store</span>
+              </Link>
+              <button
+                className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-muted-foreground hover:text-red-600 transition-all duration-200 rounded-xl cursor-pointer bg-transparent border-none text-left"
+                onClick={handleLogout}
+              >
+                <LogOut className="w-4 h-4 flex-shrink-0" />
+                <span className="truncate">Logout</span>
+              </button>
             </div>
-            <Link
-              href="/"
-              className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground mb-1.5 transition-colors px-1"
-            >
-              <Home className="w-3.5 h-3.5" />
-              Back to Store
-            </Link>
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full text-xs h-8"
-              onClick={handleLogout}
-              suppressHydrationWarning
-            >
-              <LogOut className="w-3.5 h-3.5 mr-2" />
-              Logout
-            </Button>
-          </div>
+          </nav>
         </aside>
 
         {/* Main Content */}

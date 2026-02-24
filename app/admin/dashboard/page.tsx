@@ -19,14 +19,15 @@ import {
   Plus
 } from "lucide-react"
 import { useState, useMemo } from "react"
+import { DashboardSkeleton } from "@/components/admin/AdminSkeletons"
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
 type DateRange = 'today' | '7d' | '30d' | 'all'
 
 export default function AdminDashboardPage() {
   const { user } = useStore()
-  const { orders } = useOrders('ALL')
-  const { getLowStockProducts } = useProducts()
+  const { orders, isLoading: ordersLoading } = useOrders('ALL')
+  const { getLowStockProducts, isLoading: productsLoading } = useProducts()
   const [dateRange, setDateRange] = useState<DateRange>('30d')
 
   const filteredOrders = useMemo(() => {
@@ -115,6 +116,16 @@ export default function AdminDashboardPage() {
       color: "text-red-600"
     }
   ]
+
+  if (ordersLoading || productsLoading) {
+    return (
+      <AdminRoute>
+        <AdminLayout>
+          <DashboardSkeleton />
+        </AdminLayout>
+      </AdminRoute>
+    )
+  }
 
   return (
     <AdminRoute>

@@ -88,6 +88,14 @@
     border: none !important;
   }
 
+  /* Neumorphic nav item — flat by default, raised on hover */
+  .neu-nav-item:not([style*="inset"]):hover {
+    box-shadow:
+      3px 3px 6px hsl(var(--neu-dark)),
+      -3px -3px 6px hsl(var(--neu-light));
+    background: hsl(var(--neu-bg));
+  }
+
   input,
   textarea,
   select {

@@ -73,11 +73,12 @@ export function ProductFormModal({ isOpen, onClose, onSave, product }: ProductFo
     async function fetchProductImages() {
       if (product?.id) {
         setIsLoadingProduct(true)
-        const { data, error } = await supabase
-          .from('product_images')
+        const result = await (supabase
+          .from('product_images') as any)
           .select('*')
           .eq('product_id', product.id)
           .order('display_order', { ascending: true })
+        const { data, error } = result || {}
         
         if (!error && data) {
           setProductImages(data)

@@ -26,10 +26,11 @@ export function useCategories() {
   async function fetchCategories() {
     try {
       setIsLoading(true)
-      const { data, error } = await supabase
-        .from('categories')
+      const result = await (supabase
+        .from('categories') as any)
         .select('*')
         .order('name', { ascending: true })
+      const { data, error } = result || {}
 
       if (error) throw error
       setCategories(data || [])
@@ -41,11 +42,12 @@ export function useCategories() {
   }
 
   async function addCategory(category: Omit<Category, 'id' | 'created_at'>) {
-    const { data, error } = await supabase
-      .from('categories')
+    const result = await (supabase
+      .from('categories') as any)
       .insert([category])
       .select()
       .single()
+    const { data, error } = result || {}
 
     if (error) throw error
     setCategories(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)))
@@ -53,12 +55,13 @@ export function useCategories() {
   }
 
   async function updateCategory(id: string, updates: Partial<Category>) {
-    const { data, error } = await supabase
-      .from('categories')
+    const result = await (supabase
+      .from('categories') as any)
       .update(updates)
       .eq('id', id)
       .select()
       .single()
+    const { data, error } = result || {}
 
     if (error) throw error
     setCategories(prev => prev.map(c => c.id === id ? data : c))
@@ -66,10 +69,11 @@ export function useCategories() {
   }
 
   async function deleteCategory(id: string) {
-    const { error } = await supabase
-      .from('categories')
+    const result = await (supabase
+      .from('categories') as any)
       .delete()
       .eq('id', id)
+    const { error } = result || {}
 
     if (error) throw error
     setCategories(prev => prev.filter(c => c.id !== id))

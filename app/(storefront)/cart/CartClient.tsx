@@ -70,7 +70,8 @@ export default function CartClient({ initialCart, isLoggedIn, siteSettings }: Ca
         return Math.min(appliedCoupon.discount_value, total)
     }, [appliedCoupon, total])
 
-    const shipping = total >= siteSettings.free_shipping_threshold ? 0 : siteSettings.shipping_fee
+    const isFreeShipping = total >= siteSettings.free_shipping_threshold
+    const shipping = isFreeShipping ? 0 : 0 // Below threshold: no flat fee, quote needed
     const finalTotal = total - discount + shipping
 
     // Coupon validation with timeout to prevent infinite loading
@@ -337,15 +338,20 @@ export default function CartClient({ initialCart, isLoggedIn, siteSettings }: Ca
                                 <span className="font-semibold text-slate-700">{formatPrice(total)}</span>
                             </div>
                             <div className="flex items-center justify-between text-sm">
-                                <span className="text-slate-500">Shipping</span>
-                                <span className="font-semibold text-slate-700">
-                                    {total >= siteSettings.free_shipping_threshold ? (
+                                <span className="text-slate-500">Delivery</span>
+                                <span className="font-semibold">
+                                    {isFreeShipping ? (
                                         <span className="text-green-600">Free</span>
                                     ) : (
-                                        formatPrice(siteSettings.shipping_fee)
+                                        <span className="text-red-600 text-xs">Quote required</span>
                                     )}
                                 </span>
                             </div>
+                            {!isFreeShipping && (
+                                <p className="text-xs text-red-600 leading-snug">
+                                    Delivery charge applies — please contact us for a quote.
+                                </p>
+                            )}
                             {appliedCoupon && (
                                 <div className="flex items-center justify-between text-sm">
                                     <span className="text-green-600 flex items-center gap-1">

@@ -163,10 +163,12 @@ export function useProducts() {
       setError(null)
 
       // Fetch products with category info and images
-      const { data, error: fetchError } = await supabase
-        .from('products')
+      const result = await (supabase
+        .from('products') as any)
         .select('*, categories!category_id(name, parent_id, categories!parent_id(name)), product_images!left(id, image_url, is_primary, display_order)')
         .order('created_at', { ascending: false })
+        .limit(100)
+      const { data, error: fetchError } = result || {}
 
       if (fetchError) {
         // Silently ignore AbortErrors (expected during React Strict Mode remounts)
@@ -204,8 +206,8 @@ export function useProducts() {
     let lastFetchTime = Date.now()
 
     const handleFocus = () => {
-      // Only refetch if more than 5 seconds since last fetch (avoid rapid refetches)
-      if (Date.now() - lastFetchTime > 5000) {
+      // Only refetch if more than 60 seconds since last fetch (avoid redundant refetches)
+      if (Date.now() - lastFetchTime > 60000) {
         lastFetchTime = Date.now()
         fetchProducts()
       }
@@ -314,10 +316,11 @@ export function useProducts() {
   }
 
   async function deleteProduct(id: string) {
-    const { error } = await supabase
-      .from('products')
+    const result = await (supabase
+      .from('products') as any)
       .delete()
       .eq('id', id)
+    const { error } = result || {}
 
     if (error) throw error
     setProducts(prev => prev.filter(p => p.id !== id))

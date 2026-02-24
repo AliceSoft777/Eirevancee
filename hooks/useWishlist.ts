@@ -42,11 +42,12 @@ export function useWishlist() {
       }
 
       // Filter by current user's ID only
-      const { data, error: fetchError } = await supabase
-        .from('wishlist_items')
+      const result = await (supabase
+        .from('wishlist_items') as any)
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
+      const { data, error: fetchError } = result || {}
 
       if (fetchError) throw fetchError
       setWishlistItems(data || [])
@@ -133,11 +134,12 @@ export function useWishlist() {
     setWishlistItems(prev => prev.filter(item => item.product_id !== productId))
 
     try {
-        const { error } = await supabase
-          .from('wishlist_items')
+        const deleteResult = await (supabase
+          .from('wishlist_items') as any)
           .delete()
           .eq('user_id', user.id)
           .eq('product_id', productId)
+        const { error } = deleteResult || {}
 
         if (error) throw error
     } catch (err) {

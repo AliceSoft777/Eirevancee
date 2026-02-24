@@ -8,9 +8,12 @@ type OrderRow = {
   order_number: string
   customer_name: string
   customer_email: string
+  customer_phone: string | null
   status: string
   total: string
   created_at: string
+  delivery_address: Record<string, string> | null
+  items: Array<{ product_id: string; product_name: string; quantity: number; unit_price: number; subtotal: number }> | null
 }
 
 export const dynamic = 'force-dynamic'
@@ -41,10 +44,13 @@ export default async function OrdersListPage() {
       order_number,
       customer_name,
       customer_email,
+      customer_phone,
       status,
       total,
       created_at,
-      source
+      source,
+      delivery_address,
+      items
     `)
 
   // FOR FUTURE: Filter orders created by this sales person
@@ -72,9 +78,12 @@ export default async function OrdersListPage() {
     orderNumber: o.order_number,
     customerName: o.customer_name,
     customerEmail: o.customer_email,
+    customerPhone: o.customer_phone ?? null,
     status: o.status,
     total: o.total,
     createdAt: o.created_at,
+    deliveryAddress: o.delivery_address ?? null,
+    items: o.items ?? [],
   }))
 
   return <OrdersListClient orders={mappedOrders} />

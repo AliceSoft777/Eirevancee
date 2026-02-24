@@ -64,20 +64,29 @@ export function ProductImageUpload({
         const ext = file.name.split('.').pop() || 'jpg'
         const fileName = `${productId}/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`
 
-        const { data: uploadData, error: uploadError } = await supabase
-          .storage
-          .from("uploads")
-          .upload(fileName, file, {
-            cacheControl: "3600",
-            upsert: false,
-            contentType: file.type,
-          })
-
-        if (uploadError) {
-          console.error("Upload error:", uploadError)
+        let uploadResult: any
+        try {
+          uploadResult = await supabase
+            .storage
+            .from("uploads")
+            .upload(fileName, file, {
+              cacheControl: "3600",
+              upsert: false,
+              contentType: file.type,
+            })
+        } catch (uploadErr) {
+          console.error("Upload exception:", uploadErr)
           toast.error(`Failed to upload ${file.name}`)
           continue
         }
+
+        if (!uploadResult || uploadResult.error || !uploadResult.data) {
+          console.error("Upload error:", uploadResult?.error || "No response from storage API")
+          toast.error(`Failed to upload ${file.name}`)
+          continue
+        }
+
+        const uploadData = uploadResult.data
 
         // ── Step 3: Get URL & save to DB ──
         const { data: urlData } = supabase
@@ -85,14 +94,14 @@ export function ProductImageUpload({
           .from("uploads")
           .getPublicUrl(uploadData.path)
 
-        const { data: imageData, error: insertError } = await supabase
-          .from("product_images")
+        const { data: imageData, error: insertError } = await (supabase
+          .from("product_images") as any)
           .insert({
             product_id: productId,
             image_url: urlData.publicUrl,
             display_order: images.length + newImages.length,
             is_primary: images.length === 0 && newImages.length === 0,
-          } as any)
+          })
           .select()
           .single()
 

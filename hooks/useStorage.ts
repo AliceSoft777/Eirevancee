@@ -138,8 +138,8 @@ export function useStorage() {
     const result = await uploadFile(file, STORAGE_PATHS.PRODUCT_IMAGES)
 
     // Insert into product_images table
-    const { data: imageRecord, error: dbError } = await supabase
-      .from('product_images')
+    const { data: imageRecord, error: dbError } = await (supabase
+      .from('product_images') as any)
       .insert([{
         product_id: productId,
         image_url: result.publicUrl,
