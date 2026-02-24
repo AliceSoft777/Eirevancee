@@ -107,6 +107,7 @@ export function useReviews() {
 }
 
 export function useFeedbacks() {
+  const supabase = getSupabaseBrowserClient()
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -135,7 +136,7 @@ export function useFeedbacks() {
       }
 
       // 2. Fetch Responses
-      const feedbackIds = dbFeedbacks.map(f => f.id)
+      const feedbackIds = dbFeedbacks.map((f: any) => f.id)
       const responsesResult = await (supabase
         .from('feedback_responses') as any)
         .select('*')
@@ -148,10 +149,10 @@ export function useFeedbacks() {
       }
 
       // 3. Merge
-      const mergedFeedbacks = dbFeedbacks.map(feedback => {
+      const mergedFeedbacks = dbFeedbacks.map((feedback: any) => {
         const responses = (dbResponses || [])
-          .filter(r => r.feedback_id === feedback.id)
-          .map(r => ({
+          .filter((r: any) => r.feedback_id === feedback.id)
+          .map((r: any) => ({
             ...r,
             timestamp: r.created_at // Map created_at to timestamp as expected by UI
           }))

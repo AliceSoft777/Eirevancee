@@ -41,10 +41,11 @@ export default function AccountClient({ session, initialFullName, initialPhone }
         setIsSaving(true)
         try {
             const supabase = getSupabaseBrowserClient()
-            const { error } = await (supabase as any)
+            const result = await (supabase as any)
                 .from('profiles')
                 .update({ full_name: editFullName, phone: editPhone })
                 .eq('id', session.userId)
+            const { error } = result || {}
             if (error) throw error
             setFullName(editFullName)
             setPhone(editPhone)

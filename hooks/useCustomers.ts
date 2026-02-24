@@ -59,7 +59,7 @@ export function useCustomers() {
       }
 
       // 3. Aggregate Data (client-side - fast since data is already loaded)
-      const customerData = profiles.map(profile => {
+      const customerData = profiles.map((profile: any) => {
         const userOrders = orders.filter((o: any) => o.user_id === profile.id)
         
         const totalOrders = userOrders.length

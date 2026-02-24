@@ -79,7 +79,16 @@ export function useOrders(userId?: string | null | 'ALL') {
         query = query.eq('user_id', userId)
       }
       
-      const { data: dbOrders, error: orderError } = await query.order('created_at', { ascending: false })
+      const result = await query.order('created_at', { ascending: false })
+
+      // Guard: if Supabase returns undefined (e.g. stale auth session), bail gracefully
+      if (!result) {
+        console.warn('[useOrders] Query returned undefined — possible auth session issue')
+        setOrders([])
+        return
+      }
+
+      const { data: dbOrders, error: orderError } = result
 
       if (orderError) {
         console.error('[useOrders] ❌ Order fetch error:', orderError)
@@ -186,12 +195,17 @@ export function useOrders(userId?: string | null | 'ALL') {
 
   async function getOrderById(id: string) {
     const supabase = getSupabaseBrowserClient()
-    const { data: dbOrder, error } = await (supabase as any)
+    const result = await (supabase as any)
       .from('orders')
       .select('*')
       .eq('id', id)
       .single()
 
+    if (!result) {
+      throw new Error('Failed to fetch order — please try refreshing the page')
+    }
+
+    const { data: dbOrder, error } = result
     if (error) throw error
 
     // ✅ NEW: Extract items and history from JSONB data (no separate table fetch needed)
@@ -227,11 +241,17 @@ export function useOrders(userId?: string | null | 'ALL') {
       const supabase = getSupabaseBrowserClient()
       
       // 1. Get current order to access existing status_history
-      const { data: orderData, error: fetchError } = await (supabase as any)
+      const fetchResult = await (supabase as any)
         .from('orders')
         .select('status_history')
         .eq('id', orderId)
         .single()
+
+      if (!fetchResult) {
+        throw new Error('Failed to fetch order status — please try refreshing')
+      }
+
+      const { data: orderData, error: fetchError } = fetchResult
 
       if (fetchError) {
         console.error('[updateOrderStatus] Fetch error:', fetchError)
@@ -256,7 +276,7 @@ export function useOrders(userId?: string | null | 'ALL') {
 
 
       // 4. Update order with new status AND updated history
-      const { error: updateError } = await (supabase as any)
+      const updateResult = await (supabase as any)
         .from('orders')
         .update({ 
           status,
@@ -264,6 +284,12 @@ export function useOrders(userId?: string | null | 'ALL') {
           updated_at: new Date().toISOString()
         })
         .eq('id', orderId)
+
+      if (!updateResult) {
+        throw new Error('Failed to update order status — please try refreshing')
+      }
+
+      const { error: updateError } = updateResult
 
       if (updateError) {
         console.error('[updateOrderStatus] Update error:', updateError)
