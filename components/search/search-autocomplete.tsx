@@ -93,12 +93,11 @@ export function SearchAutocomplete({ onSearch }: SearchAutocompleteProps) {
 
     setIsLoading(true);
     try {
-      // Search products
-      const { data: productsData, error: productsError } = await supabase
-        .from("products")
+      // Search products — use `as any` casting consistent with all other Supabase queries
+      const { data: productsData, error: productsError } = await (supabase
+        .from("products") as any)
         .select("id, name, slug, price, image, category_id, categories(name)")
         .ilike("name", `%${searchQuery}%`)
-        .eq("status", "active")
         .limit(6);
 
       if (productsError) {
@@ -107,8 +106,8 @@ export function SearchAutocomplete({ onSearch }: SearchAutocompleteProps) {
       }
 
       // Search categories
-      const { data: categoriesData, error: categoriesError } = await supabase
-        .from("categories")
+      const { data: categoriesData, error: categoriesError } = await (supabase
+        .from("categories") as any)
         .select("id, name, slug")
         .ilike("name", `%${searchQuery}%`)
         .limit(4);
@@ -120,7 +119,8 @@ export function SearchAutocomplete({ onSearch }: SearchAutocompleteProps) {
 
       setSuggestions(productsData || []);
       setCategories(categoriesData || []);
-      setIsOpen((productsData || []).length > 0 || (categoriesData || []).length > 0);
+      // Always open dropdown when user has typed - show results or "no results" message
+      setIsOpen(true);
       setSelectedIndex(-1);
     } catch (err: any) {
       // Silently ignore AbortError
@@ -128,6 +128,7 @@ export function SearchAutocomplete({ onSearch }: SearchAutocompleteProps) {
       console.error("Search error:", err);
       setSuggestions([]);
       setCategories([]);
+      setIsOpen(true); // Still show dropdown with "no results" on error
     } finally {
       setIsLoading(false);
     }

@@ -130,8 +130,7 @@ export function MegaMenu({ category, products }: MegaMenuProps) {
                                                 <span className="text-xs uppercase">No Image</span>
                                             </div>
                                         )}
-                                        {/* Overlay */}
-                                        <div className="absolute inset-0 bg-black/5 group-hover:bg-black/0 transition-colors" />
+                                        {/* Overlay removed - clean image display */}
                                     </div>
                                     
                                     <div className="p-3 bg-white text-center border-t border-gray-100">
