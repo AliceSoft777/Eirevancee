@@ -27,15 +27,25 @@ export default function ResetPasswordClient() {
     if (code) {
       setIsExchangingCode(true)
       const supabase = getSupabaseBrowserClient()
-      supabase.auth.exchangeCodeForSession(code).then(({ error: exchangeError }) => {
-        if (exchangeError) {
-          setError(exchangeError.message)
+      // detectSessionInUrl: true + flowType: 'pkce' auto-exchanges the code
+      // during Supabase client initialization. We just verify the session exists.
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (!session) {
+          setError("Reset link is invalid or expired. Please request a new one.")
           toast({
             title: "Error",
-            description: exchangeError.message,
+            description: "Reset link is invalid or expired. Please request a new one.",
             variant: "destructive",
           })
         }
+        setIsExchangingCode(false)
+      }).catch(() => {
+        setError("Failed to verify reset link. Please request a new one.")
+        toast({
+          title: "Error",
+          description: "Failed to verify reset link. Please request a new one.",
+          variant: "destructive",
+        })
         setIsExchangingCode(false)
       })
     }
