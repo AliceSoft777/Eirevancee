@@ -14,42 +14,13 @@ export default function ResetPasswordClient() {
   const [error, setError] = useState("")
   const [message, setMessage] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const [isExchangingCode, setIsExchangingCode] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
 
-  // Exchange the auth code for a recovery session
   useEffect(() => {
-    const code = searchParams.get("code")
-    if (code) {
-      setIsExchangingCode(true)
-      const supabase = getSupabaseBrowserClient()
-      // detectSessionInUrl: true + flowType: 'pkce' auto-exchanges the code
-      // during Supabase client initialization. We just verify the session exists.
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        if (!session) {
-          setError("Reset link is invalid or expired. Please request a new one.")
-          toast({
-            title: "Error",
-            description: "Reset link is invalid or expired. Please request a new one.",
-            variant: "destructive",
-          })
-        }
-        setIsExchangingCode(false)
-      }).catch(() => {
-        setError("Failed to verify reset link. Please request a new one.")
-        toast({
-          title: "Error",
-          description: "Failed to verify reset link. Please request a new one.",
-          variant: "destructive",
-        })
-        setIsExchangingCode(false)
-      })
-    }
-
     const errorParam = searchParams.get("error_description")
     if (errorParam) {
       setError(decodeURIComponent(errorParam))
@@ -59,7 +30,8 @@ export default function ResetPasswordClient() {
         variant: "destructive",
       })
     }
-  }, [searchParams, toast])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -191,9 +163,9 @@ export default function ResetPasswordClient() {
           variant="default"
           size="lg"
           className="w-full bg-primary hover:bg-primary-dark text-white font-semibold tracking-wide"
-          disabled={isLoading || isExchangingCode || !!error}
+          disabled={isLoading || !!error}
         >
-          {isExchangingCode ? "Verifying..." : isLoading ? "Updating password..." : "Reset Password"}
+          {isLoading ? "Updating password..." : "Reset Password"}
         </Button>
       </form>
     </div>
