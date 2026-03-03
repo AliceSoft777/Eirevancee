@@ -8,6 +8,7 @@ import { useStore } from "@/hooks/useStore"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { useRouter } from "next/navigation"
 import { Chrome, Eye, EyeOff } from "lucide-react"
+import { toast } from "sonner"
 
 export default function LoginClient() {
     const supabase = getSupabaseBrowserClient()
@@ -19,6 +20,16 @@ export default function LoginClient() {
     const [rememberMe, setRememberMe] = useState(false)
     const { login } = useStore()
     const router = useRouter()
+
+    // Show logout success toast if redirected from logout
+    useEffect(() => {
+        const cookies = document.cookie.split(';').map(c => c.trim())
+        if (cookies.some(c => c === 'logged_out=true')) {
+            toast.success('Logged out successfully')
+            // Clear the cookie
+            document.cookie = 'logged_out=; max-age=0; path=/'
+        }
+    }, [])
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -67,6 +78,9 @@ export default function LoginClient() {
                 
                 // Sync to Zustand store
                 login(data.user.id, userName, data.user.email!, roleName)
+                
+                // ✅ Show login success toast
+                toast.success(`Welcome back, ${userName}!`)
                 
                 // ✅ Clear loading state before redirect
                 setIsLoading(false)

@@ -12,10 +12,8 @@ export default function StorefrontLayout({
 }) {
   return (
     <>
-      {/* @ts-expect-error Async Server Component */}
       <HeaderServerWrapper />
       {children}
-      {/* @ts-expect-error Async Server Component */}
       <FooterServerWrapper />
     </>
   )

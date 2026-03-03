@@ -25,6 +25,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 }
                 if (event !== 'SIGNED_IN' && event !== 'INITIAL_SESSION') return
 
+                // Skip auto-login on reset-password page — recovery session must not trigger login
+                if (window.location.pathname === '/reset-password') return
+
                 if (!session?.user) {
                     await logout()
                     return

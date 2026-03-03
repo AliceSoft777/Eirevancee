@@ -65,7 +65,7 @@ export const supabaseBrowserClient = createBrowserClient<Database>(
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: true,
-      flowType: 'pkce',
+      flowType: 'implicit',
     },
     global: {
       headers: {

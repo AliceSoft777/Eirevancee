@@ -33,25 +33,37 @@ export function ReviewForm({ productId, productName, onReviewSubmitted }: Review
 
         const checkPurchase = async () => {
             try {
+                console.log('[ReviewForm] Checking purchase for user:', user.id, 'product:', productId)
+                
                 // Query orders where:
                 // 1. user_id matches the logged-in user
                 // 2. payment was completed (Paid)
                 // 3. items JSONB array contains an entry with this product_id
-                const { data, error } = await supabase
-                    .from('orders')
-                    .select('id')
+                const { data, error } = await (supabase
+                    .from('orders') as any)
+                    .select('id, payment_status, items')
                     .eq('user_id', user.id)
                     .eq('payment_status', 'Paid')
-                    .contains('items', [{ product_id: productId }])
-                    .limit(1)
+                    .limit(10)
 
+                console.log('[ReviewForm] Orders query result:', { data, error, count: data?.length })
+                
                 if (error) {
+                    console.error('[ReviewForm] Purchase check error:', error)
                     setHasPurchased(false)
                     return
                 }
 
-                setHasPurchased(!!data && data.length > 0)
-            } catch {
+                // Manual check: does any paid order contain this product?
+                const hasProduct = (data || []).some((order: any) => {
+                    const items = order.items || []
+                    return items.some((item: any) => item.product_id === productId)
+                })
+                
+                console.log('[ReviewForm] Has purchased this product:', hasProduct)
+                setHasPurchased(hasProduct)
+            } catch (err) {
+                console.error('[ReviewForm] Purchase check exception:', err)
                 setHasPurchased(false)
             }
         }
@@ -111,17 +123,18 @@ export function ReviewForm({ productId, productName, onReviewSubmitted }: Review
                 customerName = (profile as any)?.full_name || null
             }
 
-            const { error } = await supabase
-                .from('reviews')
+            const { error } = await (supabase
+                .from('reviews') as any)
                 .insert([{
                     product_id: productId,
+                    product_name: productName,
                     customer_id: user.id,
                     customer_name: customerName,
                     customer_email: user.email,
                     rating,
                     comment: comment.trim(),
                     status: 'pending',
-                }] as any)
+                }])
 
             if (error) {
                 toast.error(error.message || 'Failed to submit review')

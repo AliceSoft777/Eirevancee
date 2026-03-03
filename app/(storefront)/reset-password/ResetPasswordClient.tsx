@@ -19,7 +19,6 @@ export default function ResetPasswordClient() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
-
   useEffect(() => {
     const errorParam = searchParams.get("error_description")
     if (errorParam) {
@@ -65,6 +64,9 @@ export default function ResetPasswordClient() {
         setIsLoading(false)
         return
       }
+
+      // Sign out the recovery session so the user must log in fresh
+      await supabase.auth.signOut()
 
       setMessage("Password has been reset successfully.")
       toast({

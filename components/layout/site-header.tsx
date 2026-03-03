@@ -120,43 +120,27 @@ export function SiteHeader({
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
+    setIsProfileOpen(false);
+    
     try {
       const supabase = getSupabaseBrowserClient();
       
-      // ✅ Sign out from Supabase
-      await supabase.auth.signOut();
-      
-      // ✅ Call logout from store (clears state & localStorage)
-      await logout();
-      
-      // ✅ Clear all storage
+      // 1. Clear storage FIRST to prevent reactive hooks from re-fetching
       if (typeof window !== 'undefined') {
         localStorage.clear();
         sessionStorage.clear();
+        // Set cookie for logout toast on login page
+        document.cookie = 'logged_out=true; max-age=10; path=/';
       }
       
-      toast.success("Logged out successfully");
+      // 2. Sign out (fire-and-forget — don't await to avoid hook loops)
+      supabase.auth.signOut().catch(() => {});
       
-      // ✅ Hard redirect with page reload
-      window.location.href = "/";
-    } catch (err) {
-      console.error("Error signing out", err);
-      toast.error("An error occurred while logging out");
-      
-      // Force logout anyway
-      try {
-        await logout();
-      } catch {}
-      
-      if (typeof window !== 'undefined') {
-        localStorage.clear();
-        sessionStorage.clear();
-      }
-      
-      window.location.href = "/";
-    } finally {
-      setIsProfileOpen(false);
-      setIsLoggingOut(false);
+      // 3. Redirect immediately — page reload wipes all React/Zustand state
+      window.location.href = "/login";
+    } catch {
+      // Force redirect even on error
+      window.location.href = "/login";
     }
   };
 

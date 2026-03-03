@@ -68,19 +68,16 @@ export default function RegisterClient() {
       }
 
       // Profile is automatically created by database trigger
-      const userName = `${formData.firstName} ${formData.lastName}`
       
-      // If the user is not automatically logged in (requires email confirmation)
-      if (!data.session) {
-        setMessage("Account created! Please check your email to confirm your account.")
-        setIsLoading(false)
-        return
-      }
+      // Sign out the auto-created session so user must log in explicitly
+      await supabase.auth.signOut()
 
-      login(data.user.id, userName, formData.email, "customer")
-
-      router.push("/")
-      router.refresh()
+      setMessage("Account created successfully! Redirecting to login...")
+      setIsLoading(false)
+      
+      setTimeout(() => {
+        router.push("/login")
+      }, 2000)
     } catch {
       setError("An unexpected error occurred. Please try again.")
       setIsLoading(false)

@@ -1,3 +1,4 @@
+import { cache } from 'react'
 import { createServerSupabase } from '@/lib/supabase/server'
 import type { Category, Product } from "@/lib/supabase-types"
 
@@ -32,7 +33,7 @@ export interface WishlistItemData {
 /**
  * Get current user session from Supabase auth
  */
-export async function getServerSession(): Promise<ServerSession> {
+export const getServerSession = cache(async function getServerSession(): Promise<ServerSession> {
   try {
     const supabase = await createServerSupabase()
     const response = await supabase.auth.getUser()
@@ -63,7 +64,7 @@ export async function getServerSession(): Promise<ServerSession> {
   } catch {
     return { userId: null, userName: null, userEmail: null, userRole: 'customer' }
   }
-}
+})
 
 /**
  * Category with children for hierarchical navigation
@@ -76,7 +77,7 @@ export interface CategoryWithChildren extends Category {
  * Get navigation data (categories) as a TREE structure.
  * Root categories have `children` arrays containing subcategories.
  */
-export async function getNavData(): Promise<{ categories: CategoryWithChildren[] }> {
+export const getNavData = cache(async function getNavData(): Promise<{ categories: CategoryWithChildren[] }> {
   try {
     const supabase = await createServerSupabase()
 
@@ -153,7 +154,7 @@ export async function getNavData(): Promise<{ categories: CategoryWithChildren[]
     console.error('getNavData fatal:', err)
     return { categories: [] }
   }
-}
+})
 
 /**
  * Get products for display
