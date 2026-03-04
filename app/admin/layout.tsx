@@ -2,6 +2,9 @@ import { redirect } from "next/navigation"
 import { getServerSession } from "@/lib/loaders"
 import { AdminHeader } from "@/components/admin/AdminHeader"
 
+// Prevent Next.js from caching any admin page — always fetch fresh data
+export const dynamic = 'force-dynamic'
+
 export default async function AdminLayout({
   children,
 }: {

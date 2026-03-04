@@ -60,30 +60,44 @@ export default function AdminDashboardPage() {
   const lowStockCount = getLowStockProducts().length
 
   const revenueChartData = useMemo(() => {
-    const dataMap = new Map<string, number>()
+    const dataMap = new Map<string, { date: string, timestamp: number, revenue: number }>()
     
     filteredOrders.forEach(order => {
       if (order.status === 'Cancelled') return
-      const date = new Date(order.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
-      dataMap.set(date, (dataMap.get(date) || 0) + order.total)
+      const orderDate = new Date(order.createdAt)
+      const date = orderDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
+      const existing = dataMap.get(date)
+      dataMap.set(date, {
+        date,
+        timestamp: existing?.timestamp ?? orderDate.getTime(),
+        revenue: (existing?.revenue || 0) + order.total,
+      })
     })
     
-    return Array.from(dataMap.entries())
-      .map(([date, revenue]) => ({ date, revenue }))
+    return Array.from(dataMap.values())
+      .sort((a, b) => a.timestamp - b.timestamp)
       .slice(-10)
+      .map(({ date, revenue }) => ({ date, revenue }))
   }, [filteredOrders])
 
   const ordersChartData = useMemo(() => {
-    const dataMap = new Map<string, number>()
+    const dataMap = new Map<string, { date: string, timestamp: number, count: number }>()
     
     filteredOrders.forEach(order => {
-      const date = new Date(order.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
-      dataMap.set(date, (dataMap.get(date) || 0) + 1)
+      const orderDate = new Date(order.createdAt)
+      const date = orderDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
+      const existing = dataMap.get(date)
+      dataMap.set(date, {
+        date,
+        timestamp: existing?.timestamp ?? orderDate.getTime(),
+        count: (existing?.count || 0) + 1,
+      })
     })
     
-    return Array.from(dataMap.entries())
-      .map(([date, count]) => ({ date, count }))
+    return Array.from(dataMap.values())
+      .sort((a, b) => a.timestamp - b.timestamp)
       .slice(-10)
+      .map(({ date, count }) => ({ date, count }))
   }, [filteredOrders])
 
   const recentOrders = filteredOrders

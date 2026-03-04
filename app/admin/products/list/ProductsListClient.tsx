@@ -31,6 +31,15 @@ export default function ProductsListClient({ initialProducts }: ProductsListClie
   const { deleteProduct, refetch } = useProducts()
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [categoryFilter, setCategoryFilter] = useState("all")
+
+  const uniqueCategories = useMemo(() => {
+    const categories = new Set<string>()
+    initialProducts.forEach(p => {
+      if ((p as any).categoryName) categories.add((p as any).categoryName)
+    })
+    return Array.from(categories).sort()
+  }, [initialProducts])
   
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -54,9 +63,11 @@ export default function ProductsListClient({ initialProducts }: ProductsListClie
 
       const matchesStatus = statusFilter === "all" || product.status === statusFilter
 
-      return matchesSearch && matchesStatus
+      const matchesCategory = categoryFilter === "all" || (product as any).categoryName === categoryFilter
+
+      return matchesSearch && matchesStatus && matchesCategory
     })
-  }, [initialProducts, searchTerm, statusFilter])
+  }, [initialProducts, searchTerm, statusFilter, categoryFilter])
 
   const { 
     currentPage, 
@@ -74,7 +85,7 @@ export default function ProductsListClient({ initialProducts }: ProductsListClie
 
   useEffect(() => {
     goToPage(1)
-  }, [searchTerm, statusFilter, goToPage])
+  }, [searchTerm, statusFilter, categoryFilter, goToPage])
 
   return (
     <AdminRoute>
@@ -105,6 +116,21 @@ export default function ProductsListClient({ initialProducts }: ProductsListClie
                 />
               </div>
               
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className="w-full sm:w-48">
+                  <div className="flex items-center gap-2">
+                    <Filter className="w-4 h-4 text-muted-foreground" />
+                    <SelectValue placeholder="Category" />
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  {uniqueCategories.map(cat => (
+                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="w-full sm:w-40">
                   <div className="flex items-center gap-2">
@@ -132,11 +158,12 @@ export default function ProductsListClient({ initialProducts }: ProductsListClie
                   icon={Package}
                   title="No products found"
                   description="Try adjusting your search or filter to find what you're looking for."
-                  actionLabel={searchTerm || statusFilter !== "all" ? "Clear Filters" : "Add Product"}
+                  actionLabel={searchTerm || statusFilter !== "all" || categoryFilter !== "all" ? "Clear Filters" : "Add Product"}
                   onAction={() => {
-                    if (searchTerm || statusFilter !== "all") {
+                    if (searchTerm || statusFilter !== "all" || categoryFilter !== "all") {
                       setSearchTerm("")
                       setStatusFilter("all")
+                      setCategoryFilter("all")
                     } else {
                        handleAddProduct()
                     }
