@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import nodemailer from 'nodemailer'
 
+// Read env vars at runtime — prevents Next.js from inlining secret values at build time
+function env(key: string): string {
+  return process.env[key] || ''
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { name, email, phone, message } = await req.json()
@@ -24,12 +29,12 @@ export async function POST(req: NextRequest) {
 
     // Create SMTP transporter (Office 365)
     const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: Number(process.env.SMTP_PORT) || 587,
+      host: env('SMTP_HOST'),
+      port: Number(env('SMTP_PORT')) || 587,
       secure: false, // STARTTLS
       auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
+        user: env('SMTP_USER'),
+        pass: env('SMTP_PASS'),
       },
       tls: {
         ciphers: 'SSLv3',
@@ -39,8 +44,8 @@ export async function POST(req: NextRequest) {
 
     // Email to admin — the contact form submission
     await transporter.sendMail({
-      from: `"Celtic Tiles Contact" <${process.env.SMTP_USER}>`,
-      to: process.env.CONTACT_EMAIL,
+      from: `"Celtic Tiles Contact" <${env('SMTP_USER')}>`,
+      to: env('CONTACT_EMAIL'),
       replyTo: email,
       subject: `New Contact Message from ${name}`,
       html: `
@@ -76,7 +81,7 @@ export async function POST(req: NextRequest) {
 
     // Auto-reply to the customer
     await transporter.sendMail({
-      from: `"Celtic Tiles" <${process.env.SMTP_USER}>`,
+      from: `"Celtic Tiles" <${env('SMTP_USER')}>`,
       to: email,
       subject: `Thank you for contacting Celtic Tiles`,
       html: `
