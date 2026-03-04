@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { getSupabaseBrowserClient } from '@/lib/supabase'
 
 export interface Brand {
@@ -17,10 +17,20 @@ export function useBrands() {
   const [brands, setBrands] = useState<Brand[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const mountedRef = useRef(true)
 
   useEffect(() => {
+    mountedRef.current = true
     fetchBrands()
+    return () => { mountedRef.current = false }
   }, [])
+
+  // Auto-retry: if loading stays stuck for 5s, retry
+  useEffect(() => {
+    if (!isLoading) return
+    const t = setTimeout(() => { if (mountedRef.current && isLoading) fetchBrands() }, 5000)
+    return () => clearTimeout(t)
+  }, [isLoading])
 
   async function fetchBrands() {
     try {
@@ -31,12 +41,13 @@ export function useBrands() {
         .order('name', { ascending: true })
       const { data, error } = result || {}
 
+      if (!mountedRef.current) return
       if (error) throw error
       setBrands(data || [])
     } catch (err: any) {
-      setError(err.message)
+      if (mountedRef.current) setError(err.message)
     } finally {
-      setIsLoading(false)
+      if (mountedRef.current) setIsLoading(false)
     }
   }
 

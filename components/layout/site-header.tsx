@@ -217,7 +217,7 @@ export function SiteHeader({
                   
                   {/* Dropdown Menu */}
                   {isProfileOpen && user && (
-                    <div className="absolute right-0 mt-4 w-64 bg-[#E5E9F0] rounded-[1.5rem] neu-raised py-2 z-50 animate-in fade-in slide-in-from-top-2 overflow-hidden">
+                    <div className="absolute right-0 mt-4 w-64 bg-[#E5E9F0] rounded-[1.5rem] py-2 z-50 animate-in fade-in slide-in-from-top-2 overflow-hidden" style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.08)' }}>
                       <div className="px-5 py-3 border-b border-white/20 bg-white/20">
                         <p className="font-bold text-sm text-slate-900">{user.name}</p>
                         <p className="text-[10px] text-slate-500 truncate font-medium uppercase tracking-wider">{user.role}</p>
@@ -228,12 +228,16 @@ export function SiteHeader({
                             <LayoutDashboard className="h-4 w-4 text-primary" /> Dashboard
                           </Link>
                         )}
-                        <Link href="/account" className="flex items-center gap-3 px-5 py-2 hover:bg-white/40 transition-colors text-sm text-slate-700">
-                          <User className="h-4 w-4" /> My Profile
-                        </Link>
-                        <Link href="/account/orders" className="flex items-center gap-3 px-5 py-2 hover:bg-white/40 transition-colors text-sm text-slate-700">
-                          <Package className="h-4 w-4" /> My Orders
-                        </Link>
+                        {!canAccessDashboard() && (
+                          <>
+                            <Link href="/account" className="flex items-center gap-3 px-5 py-2 hover:bg-white/40 transition-colors text-sm text-slate-700">
+                              <User className="h-4 w-4" /> My Profile
+                            </Link>
+                            <Link href="/account/orders" className="flex items-center gap-3 px-5 py-2 hover:bg-white/40 transition-colors text-sm text-slate-700">
+                              <Package className="h-4 w-4" /> My Orders
+                            </Link>
+                          </>
+                        )}
                         <div className="h-px bg-white/20 my-1 mx-4" />
                         <button 
                           onClick={handleLogout} 
@@ -377,22 +381,26 @@ export function SiteHeader({
                   <div className="mb-8">
                     <h3 className="text-xs font-bold text-slate-600 uppercase tracking-widest mb-4">Account</h3>
                     <nav className="space-y-2">
-                      <Link
-                        href="/account"
-                        onClick={() => setIsMobileMenuOpen(false)}
-                        className="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-700 font-bold hover:bg-white/40 transition-colors"
-                      >
-                        <User className="h-5 w-5" />
-                        My Profile
-                      </Link>
-                      <Link
-                        href="/account/orders"
-                        onClick={() => setIsMobileMenuOpen(false)}
-                        className="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-700 font-bold hover:bg-white/40 transition-colors"
-                      >
-                        <Package className="h-5 w-5" />
-                        My Orders
-                      </Link>
+                      {!canAccessDashboard() && (
+                        <>
+                          <Link
+                            href="/account"
+                            onClick={() => setIsMobileMenuOpen(false)}
+                            className="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-700 font-bold hover:bg-white/40 transition-colors"
+                          >
+                            <User className="h-5 w-5" />
+                            My Profile
+                          </Link>
+                          <Link
+                            href="/account/orders"
+                            onClick={() => setIsMobileMenuOpen(false)}
+                            className="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-700 font-bold hover:bg-white/40 transition-colors"
+                          >
+                            <Package className="h-5 w-5" />
+                            My Orders
+                          </Link>
+                        </>
+                      )}
                       <Link
                         href="/wishlist"
                         onClick={() => setIsMobileMenuOpen(false)}

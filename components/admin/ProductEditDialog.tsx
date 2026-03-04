@@ -361,33 +361,45 @@ export function ProductEditDialog({
 
           {/* Flags */}
           <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="has_led"
-                checked={formData.has_led}
-                onChange={(e) => setFormData({ ...formData, has_led: e.target.checked })}
-                className="w-4 h-4"
-              />
-              <Label htmlFor="has_led" className="cursor-pointer">
-                Has LED lighting
-              </Label>
+            <div className="flex items-center gap-3 cursor-pointer" onClick={() => setFormData({ ...formData, has_led: !formData.has_led })}>
+              <div className={`
+                  w-5 h-5 rounded flex items-center justify-center flex-shrink-0
+                  transition-all duration-200
+                  ${formData.has_led
+                      ? 'bg-primary shadow-[inset_2px_2px_4px_rgba(0,0,0,0.2),inset_-2px_-2px_4px_rgba(255,255,255,0.1)]'
+                      : 'bg-[#E5E9F0] shadow-[2px_2px_4px_rgba(0,0,0,0.1),-2px_-2px_4px_rgba(255,255,255,0.9)]'
+                  }
+              `}>
+                  {formData.has_led && (
+                      <svg className="w-3 h-3 text-white" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" viewBox="0 0 24 24" stroke="currentColor">
+                          <path d="M5 13l4 4L19 7" />
+                      </svg>
+                  )}
+              </div>
+              <Label className="cursor-pointer">Has LED lighting</Label>
             </div>
 
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="is_clearance"
-                checked={formData.is_clearance}
-                onChange={(e) => setFormData({ ...formData, is_clearance: e.target.checked })}
-                className="w-4 h-4"
-              />
-              <Label htmlFor="is_clearance" className="cursor-pointer">
+            <div className="flex items-center gap-3 cursor-pointer" onClick={() => setFormData({ ...formData, is_clearance: !formData.is_clearance })}>
+              <div className={`
+                  w-5 h-5 rounded flex items-center justify-center flex-shrink-0
+                  transition-all duration-200
+                  ${formData.is_clearance
+                      ? 'bg-red-500 shadow-[inset_2px_2px_4px_rgba(0,0,0,0.2),inset_-2px_-2px_4px_rgba(255,255,255,0.1)]'
+                      : 'bg-[#E5E9F0] shadow-[2px_2px_4px_rgba(0,0,0,0.1),-2px_-2px_4px_rgba(255,255,255,0.9)]'
+                  }
+              `}>
+                  {formData.is_clearance && (
+                      <svg className="w-3 h-3 text-white" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" viewBox="0 0 24 24" stroke="currentColor">
+                          <path d="M5 13l4 4L19 7" />
+                      </svg>
+                  )}
+              </div>
+              <Label className="cursor-pointer">
                 🔥 Mark as Clearance Sale
               </Label>
             </div>
             {formData.is_clearance && (
-              <p className="text-xs text-red-600 ml-6">
+              <p className="text-xs text-red-600 ml-8">
                 Product will appear on dedicated Clearance page and be excluded from category listings
               </p>
             )}

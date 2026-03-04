@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { getSupabaseBrowserClient } from '@/lib/supabase'
 
 export interface Customer {
@@ -19,6 +19,7 @@ export function useCustomers() {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const mountedRef = useRef(true)
 
   const fetchCustomers = useCallback(async () => {
     try {
@@ -32,6 +33,7 @@ export function useCustomers() {
         .eq('name', 'customer')
         .single()
       
+      if (!mountedRef.current) return
       if (!roleResult || roleResult.error) throw roleResult?.error || new Error('Failed to fetch roles')
       const customerRoleId = roleResult.data.id
 
@@ -47,14 +49,14 @@ export function useCustomers() {
           .select('user_id, total, created_at, customer_phone')
       ])
 
+      if (!mountedRef.current) return
       if (!profilesResult || profilesResult.error) throw profilesResult?.error || new Error('Failed to fetch profiles')
       
       const profiles = profilesResult.data
       const orders = ordersResult?.data || []
 
       if (!profiles || profiles.length === 0) {
-        setCustomers([])
-        setIsLoading(false)
+        if (mountedRef.current) { setCustomers([]); setIsLoading(false) }
         return
       }
 
@@ -87,17 +89,26 @@ export function useCustomers() {
         }
       })
 
-      setCustomers(customerData)
+      if (mountedRef.current) setCustomers(customerData)
     } catch (err: any) {
-      setError(err.message || 'Failed to fetch customers')
+      if (mountedRef.current) setError(err.message || 'Failed to fetch customers')
     } finally {
-      setIsLoading(false)
+      if (mountedRef.current) setIsLoading(false)
     }
   }, [])
 
   useEffect(() => {
+    mountedRef.current = true
     fetchCustomers()
+    return () => { mountedRef.current = false }
   }, [fetchCustomers])
+
+  // Auto-retry: if loading stays stuck for 5s, retry
+  useEffect(() => {
+    if (!isLoading) return
+    const t = setTimeout(() => { if (mountedRef.current && isLoading) fetchCustomers() }, 5000)
+    return () => clearTimeout(t)
+  }, [isLoading, fetchCustomers])
 
   return {
     customers,

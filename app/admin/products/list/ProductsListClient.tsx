@@ -61,7 +61,11 @@ export default function ProductsListClient({ initialProducts }: ProductsListClie
         product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         product.slug.toLowerCase().includes(searchTerm.toLowerCase())
 
-      const matchesStatus = statusFilter === "all" || product.status === statusFilter
+      const matchesStatus = 
+        statusFilter === "all" ? true :
+        statusFilter === "clearance" ? product.is_clearance :
+        statusFilter === "no-images" ? !product.image :
+        product.status === statusFilter
 
       const matchesCategory = categoryFilter === "all" || (product as any).categoryName === categoryFilter
 
@@ -142,6 +146,8 @@ export default function ProductsListClient({ initialProducts }: ProductsListClie
                   <SelectItem value="all">All Statuses</SelectItem>
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="draft">Draft</SelectItem>
+                  <SelectItem value="clearance">Clearance</SelectItem>
+                  <SelectItem value="no-images">No Images</SelectItem>
                 </SelectContent>
               </Select>
           </div>

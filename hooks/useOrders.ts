@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { getSupabaseBrowserClient } from '@/lib/supabase'
 
 // Component-friendly interface (camelCase, with nested data)
@@ -52,6 +52,7 @@ export function useOrders(userId?: string | null | 'ALL') {
   const [orders, setOrders] = useState<Order[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const mountedRef = useRef(true)
 
   const fetchOrders = useCallback(async () => {
     try {
@@ -97,6 +98,8 @@ export function useOrders(userId?: string | null | 'ALL') {
       }
       
 
+      if (!mountedRef.current) return
+
       if (!dbOrders || dbOrders.length === 0) {
         setOrders([])
         return
@@ -128,18 +131,31 @@ export function useOrders(userId?: string | null | 'ALL') {
         return transformOrder(dbOrder, orderItems, history)
       })
 
-      setOrders(transformedOrders)
+      if (mountedRef.current) setOrders(transformedOrders)
     } catch (err: any) {
       console.error('Error fetching user orders:', err)
-      setError(err.message || 'Failed to fetch orders')
+      if (mountedRef.current) setError(err.message || 'Failed to fetch orders')
     } finally {
-      setIsLoading(false)
+      if (mountedRef.current) setIsLoading(false)
     }
   }, [userId])
 
   useEffect(() => {
+    mountedRef.current = true
     fetchOrders()
+    return () => { mountedRef.current = false }
   }, [fetchOrders])
+
+  // Auto-retry: if loading stays stuck for 5s, retry the fetch
+  useEffect(() => {
+    if (!isLoading) return
+    const retryTimer = setTimeout(() => {
+      if (mountedRef.current && isLoading) {
+        fetchOrders()
+      }
+    }, 5000)
+    return () => clearTimeout(retryTimer)
+  }, [isLoading, fetchOrders])
 
   // Auto-refetch on window focus to prevent stale data after navigating back
   useEffect(() => {

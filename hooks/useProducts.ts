@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { getSupabaseBrowserClient } from '@/lib/supabase/client'
 
 // Raw database types matching actual schema
@@ -156,6 +156,7 @@ export function useProducts() {
   const [products, setProducts] = useState<Product[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const mountedRef = useRef(true)
 
   async function fetchProducts() {
     try {
@@ -170,6 +171,8 @@ export function useProducts() {
         .limit(100)
       const { data, error: fetchError } = result || {}
 
+      if (!mountedRef.current) return // Don't setState if unmounted
+
       if (fetchError) {
         // Silently ignore AbortErrors (expected during React Strict Mode remounts)
         if (fetchError.message?.includes('AbortError')) {
@@ -181,25 +184,38 @@ export function useProducts() {
       // Transform each product
       const transformedProducts = (data || []).map((p: any) => transformProduct(p))
 
+      if (!mountedRef.current) return // Don't setState if unmounted
       setProducts(transformedProducts)
     } catch (err: any) {
       // ✅ SILENTLY IGNORE ABORT ERRORS: Expected during React Strict Mode
       if (err?.message?.includes('AbortError') || err?.name === 'AbortError') {
-        setIsLoading(false)
+        if (mountedRef.current) setIsLoading(false)
         return
       }
       
       console.error('Error fetching products:', err)
-      setError(err.message)
+      if (mountedRef.current) setError(err.message)
     } finally {
-      setIsLoading(false)
+      if (mountedRef.current) setIsLoading(false)
     }
   }
 
   useEffect(() => {
-    // Initial fetch only - products don't change on login/logout
+    mountedRef.current = true
     fetchProducts()
+    return () => { mountedRef.current = false }
   }, [])
+
+  // Auto-retry: if loading stays stuck for 5s, retry the fetch
+  useEffect(() => {
+    if (!isLoading) return
+    const retryTimer = setTimeout(() => {
+      if (mountedRef.current && isLoading) {
+        fetchProducts()
+      }
+    }, 5000)
+    return () => clearTimeout(retryTimer)
+  }, [isLoading])
 
   // Auto-refetch on window focus to prevent stale data after navigating back
   useEffect(() => {

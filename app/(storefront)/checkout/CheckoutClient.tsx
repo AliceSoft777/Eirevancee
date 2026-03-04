@@ -627,30 +627,48 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
                                 <CardTitle>Payment Method</CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-4">
-                                <div className="border border-border rounded-lg p-4">
+                                <div 
+                                    className={`border rounded-lg p-4 cursor-pointer transition-all ${formData.payment === 'card' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40'}`}
+                                    onClick={() => setFormData(prev => ({ ...prev, payment: 'card' }))}
+                                >
                                     <label className="flex items-center gap-3 cursor-pointer">
-                                        <input 
-                                            type="radio" 
-                                            name="payment" 
-                                            value="card" 
-                                            checked={formData.payment === 'card'} 
-                                            onChange={(e) => setFormData(prev => ({ ...prev, payment: e.target.value }))}
-                                            className="w-4 h-4" 
-                                        />
+                                        <div className={`
+                                            w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0
+                                            transition-all duration-200
+                                            ${formData.payment === 'card'
+                                                ? 'bg-primary shadow-[inset_2px_2px_4px_rgba(0,0,0,0.2),inset_-2px_-2px_4px_rgba(255,255,255,0.1)]'
+                                                : 'bg-[#E5E9F0] shadow-[2px_2px_4px_rgba(0,0,0,0.1),-2px_-2px_4px_rgba(255,255,255,0.9)]'
+                                            }
+                                        `}>
+                                            {formData.payment === 'card' && (
+                                                <svg className="w-3 h-3 text-white" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path d="M5 13l4 4L19 7" />
+                                                </svg>
+                                            )}
+                                        </div>
                                         <span className="font-medium">Credit/Debit Card</span>
                                     </label>
                                 </div>
                                 {(userRole === 'admin' || userRole === 'sales') && (
-                                    <div className="border border-border rounded-lg p-4">
+                                    <div 
+                                        className={`border rounded-lg p-4 cursor-pointer transition-all ${formData.payment === 'offline_cash' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40'}`}
+                                        onClick={() => setFormData(prev => ({ ...prev, payment: 'offline_cash' }))}
+                                    >
                                         <label className="flex items-center gap-3 cursor-pointer">
-                                            <input 
-                                                type="radio" 
-                                                name="payment" 
-                                                value="offline_cash" 
-                                                checked={formData.payment === 'offline_cash'} 
-                                                onChange={(e) => setFormData(prev => ({ ...prev, payment: e.target.value }))}
-                                                className="w-4 h-4" 
-                                            />
+                                            <div className={`
+                                                w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0
+                                                transition-all duration-200
+                                                ${formData.payment === 'offline_cash'
+                                                    ? 'bg-primary shadow-[inset_2px_2px_4px_rgba(0,0,0,0.2),inset_-2px_-2px_4px_rgba(255,255,255,0.1)]'
+                                                    : 'bg-[#E5E9F0] shadow-[2px_2px_4px_rgba(0,0,0,0.1),-2px_-2px_4px_rgba(255,255,255,0.9)]'
+                                                }
+                                            `}>
+                                                {formData.payment === 'offline_cash' && (
+                                                    <svg className="w-3 h-3 text-white" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path d="M5 13l4 4L19 7" />
+                                                    </svg>
+                                                )}
+                                            </div>
                                             <span className="font-medium">Offline Cash Payment</span>
                                             <span className="text-xs text-muted-foreground">(Pay in store)</span>
                                         </label>

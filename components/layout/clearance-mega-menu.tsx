@@ -28,7 +28,7 @@ export function ClearanceMegaMenu({ products, categories }: ClearanceMegaMenuPro
     // If no clearance products, show empty state
     if (clearanceProducts.length === 0) {
         return (
-            <div className="w-full bg-white shadow-2xl border-t border-gray-100 py-8">
+            <div className="w-full bg-[#E5E9F0] border-t border-gray-200 py-8" style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}>
                 <div className="container mx-auto max-w-[1400px] px-4 text-center py-12">
                     <p className="text-gray-500 text-lg">No clearance products available at the moment</p>
                 </div>
@@ -37,7 +37,7 @@ export function ClearanceMegaMenu({ products, categories }: ClearanceMegaMenuPro
     }
 
     return (
-        <div className="w-full bg-white shadow-2xl border-t border-gray-100 py-8">
+        <div className="w-full bg-[#E5E9F0] border-t border-gray-200 py-8" style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}>
             <div className="container mx-auto max-w-[1400px] px-4">
                 <div className="grid grid-cols-12 gap-8">
                     {/* Left Sidebar: Clearance Categories & Featured Products */}

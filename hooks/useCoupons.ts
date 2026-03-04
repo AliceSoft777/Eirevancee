@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { getSupabaseBrowserClient } from '@/lib/supabase'
 import type { CouponFormData } from '@/components/admin/CouponDialog'
 
@@ -23,10 +23,20 @@ export function useCoupons() {
   const [coupons, setCoupons] = useState<Coupon[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const mountedRef = useRef(true)
 
   useEffect(() => {
+    mountedRef.current = true
     fetchCoupons()
+    return () => { mountedRef.current = false }
   }, [])
+
+  // Auto-retry: if loading stays stuck for 5s, retry
+  useEffect(() => {
+    if (!isLoading) return
+    const t = setTimeout(() => { if (mountedRef.current && isLoading) fetchCoupons() }, 5000)
+    return () => clearTimeout(t)
+  }, [isLoading])
 
   async function fetchCoupons() {
     try {
@@ -37,12 +47,13 @@ export function useCoupons() {
         .order('created_at', { ascending: false })
       const { data, error } = result || {}
 
+      if (!mountedRef.current) return
       if (error) throw error
       setCoupons(data || [])
     } catch (err: any) {
-      setError(err.message)
+      if (mountedRef.current) setError(err.message)
     } finally {
-      setIsLoading(false)
+      if (mountedRef.current) setIsLoading(false)
     }
   }
 

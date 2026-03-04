@@ -30,7 +30,7 @@ export function ProductsOnlyMegaMenu({ category, products }: ProductsOnlyMegaMen
     // Get trending now products for left sidebar (3 products, offset to avoid duplicates)
     const trendingProducts = categoryProducts.slice(4, 7)
     return (
-        <div className="w-full bg-white shadow-2xl border-t border-gray-100 py-8">
+        <div className="w-full bg-[#E5E9F0] border-t border-gray-200 py-8" style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}>
             <div className="container mx-auto max-w-[1400px] px-4">
                 <div className="grid grid-cols-12 gap-8">
                     {/* Left Sidebar: Category Info & Trending Products */}
@@ -103,7 +103,7 @@ export function ProductsOnlyMegaMenu({ category, products }: ProductsOnlyMegaMen
                                 <Link
                                     key={product.id}
                                     href={`/product/${product.slug}`}
-                                    className="group relative block overflow-hidden rounded-md bg-gray-50 hover:shadow-lg transition-all duration-300"
+                                    className="group relative block rounded-lg overflow-hidden bg-[#D8DEE9] border border-gray-300/40 hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
                                 >
                                     <div className="aspect-[4/3] w-full relative">
                                         {product.image ? (
@@ -116,14 +116,13 @@ export function ProductsOnlyMegaMenu({ category, products }: ProductsOnlyMegaMen
                                                 unoptimized
                                             />
                                         ) : (
-                                            <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400">
+                                            <div className="w-full h-full flex items-center justify-center bg-gray-200 text-gray-400">
                                                 <span className="text-xs uppercase">No Image</span>
                                             </div>
                                         )}
-                                        {/* Overlay removed - clean image display */}
                                     </div>
                                     
-                                    <div className="p-3 bg-white text-center border-t border-gray-100">
+                                    <div className="p-3 text-center">
                                         <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wide group-hover:text-primary transition-colors line-clamp-1">
                                             {product.name}
                                         </h3>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { getSupabaseBrowserClient } from '@/lib/supabase'
 
 export interface Review {
@@ -53,10 +53,20 @@ export function useReviews() {
   const [reviews, setReviews] = useState<Review[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const mountedRef = useRef(true)
 
   useEffect(() => {
+    mountedRef.current = true
     fetchReviews()
+    return () => { mountedRef.current = false }
   }, [])
+
+  // Auto-retry: if loading stays stuck for 5s, retry
+  useEffect(() => {
+    if (!isLoading) return
+    const t = setTimeout(() => { if (mountedRef.current && isLoading) fetchReviews() }, 5000)
+    return () => clearTimeout(t)
+  }, [isLoading])
 
   async function fetchReviews() {
     try {
@@ -67,12 +77,13 @@ export function useReviews() {
         .order('created_at', { ascending: false })
       const { data, error } = result || {}
 
+      if (!mountedRef.current) return
       if (error) throw error
       setReviews(data || [])
     } catch (err: any) {
-      setError(err.message)
+      if (mountedRef.current) setError(err.message)
     } finally {
-      setIsLoading(false)
+      if (mountedRef.current) setIsLoading(false)
     }
   }
 
@@ -111,10 +122,20 @@ export function useFeedbacks() {
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const mountedRef = useRef(true)
 
   useEffect(() => {
+    mountedRef.current = true
     fetchFeedbacks()
+    return () => { mountedRef.current = false }
   }, [])
+
+  // Auto-retry: if loading stays stuck for 5s, retry
+  useEffect(() => {
+    if (!isLoading) return
+    const t = setTimeout(() => { if (mountedRef.current && isLoading) fetchFeedbacks() }, 5000)
+    return () => clearTimeout(t)
+  }, [isLoading])
 
   async function fetchFeedbacks() {
     try {
@@ -127,11 +148,11 @@ export function useFeedbacks() {
         .order('created_at', { ascending: false })
       const { data: dbFeedbacks, error: feedbacksError } = feedbackResult || {}
 
+      if (!mountedRef.current) return
       if (feedbacksError) throw feedbacksError
       
       if (!dbFeedbacks || dbFeedbacks.length === 0) {
-        setFeedbacks([])
-        setIsLoading(false)
+        if (mountedRef.current) { setFeedbacks([]); setIsLoading(false) }
         return
       }
 
@@ -144,6 +165,7 @@ export function useFeedbacks() {
         .order('created_at', { ascending: true })
       const { data: dbResponses, error: responsesError } = responsesResult || {}
       
+      if (!mountedRef.current) return
       if (responsesError) {
         console.error("Error fetching responses:", responsesError)
       }
@@ -154,23 +176,23 @@ export function useFeedbacks() {
           .filter((r: any) => r.feedback_id === feedback.id)
           .map((r: any) => ({
             ...r,
-            timestamp: r.created_at // Map created_at to timestamp as expected by UI
+            timestamp: r.created_at
           }))
         
         return {
           ...feedback,
-          customerName: feedback.customer_name, // Map snake_case to camelCase expected by UI
+          customerName: feedback.customer_name,
           customerEmail: feedback.customer_email,
           createdAt: feedback.created_at,
           responses
         }
       })
 
-      setFeedbacks(mergedFeedbacks)
+      if (mountedRef.current) setFeedbacks(mergedFeedbacks)
     } catch (err: any) {
-      setError(err.message)
+      if (mountedRef.current) setError(err.message)
     } finally {
-      setIsLoading(false)
+      if (mountedRef.current) setIsLoading(false)
     }
   }
 

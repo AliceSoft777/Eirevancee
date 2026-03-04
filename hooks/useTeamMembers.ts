@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { getSupabaseBrowserClient } from '@/lib/supabase'
 
 export interface TeamMember {
@@ -18,6 +18,7 @@ export function useTeamMembers() {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const mountedRef = useRef(true)
 
   const fetchTeamMembers = useCallback(async () => {
     try {
@@ -39,6 +40,7 @@ export function useTeamMembers() {
         .order('created_at', { ascending: false })
       const { data, error: fetchError } = result || {}
 
+      if (!mountedRef.current) return
       if (fetchError) throw fetchError
       
       // Transform to expected format with role name
@@ -46,27 +48,37 @@ export function useTeamMembers() {
         id: member.id,
         email: member.email,
         full_name: member.full_name,
-        name: member.full_name || '', // Map full_name to name
+        name: member.full_name || '',
         role: (member.role?.name || 'customer') as any,
         permissions: member.permissions,
         created_at: member.created_at
       }))
       
-      // Filter for admin and sales only (case-insensitive)
-      setTeamMembers(transformed.filter((m: any) => {
-        const role = m.role?.toLowerCase() || ''
-        return role === 'admin' || role === 'sales'
-      }))
+      if (mountedRef.current) {
+        setTeamMembers(transformed.filter((m: any) => {
+          const role = m.role?.toLowerCase() || ''
+          return role === 'admin' || role === 'sales'
+        }))
+      }
     } catch (err: any) {
-      setError(err.message || 'Failed to fetch team members')
+      if (mountedRef.current) setError(err.message || 'Failed to fetch team members')
     } finally {
-      setIsLoading(false)
+      if (mountedRef.current) setIsLoading(false)
     }
   }, [])
 
   useEffect(() => {
+    mountedRef.current = true
     fetchTeamMembers()
+    return () => { mountedRef.current = false }
   }, [fetchTeamMembers])
+
+  // Auto-retry: if loading stays stuck for 5s, retry
+  useEffect(() => {
+    if (!isLoading) return
+    const t = setTimeout(() => { if (mountedRef.current && isLoading) fetchTeamMembers() }, 5000)
+    return () => clearTimeout(t)
+  }, [isLoading, fetchTeamMembers])
 
   async function addTeamMember(member: Omit<TeamMember, 'id' | 'created_at'> & { password: string }) {
     // Create Supabase Auth account first

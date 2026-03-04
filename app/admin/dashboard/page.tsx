@@ -18,7 +18,7 @@ import {
   PackageX,
   Plus
 } from "lucide-react"
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { DashboardSkeleton } from "@/components/admin/AdminSkeletons"
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
@@ -26,9 +26,24 @@ type DateRange = 'today' | '7d' | '30d' | 'all'
 
 export default function AdminDashboardPage() {
   const { user } = useStore()
-  const { orders, isLoading: ordersLoading } = useOrders('ALL')
-  const { getLowStockProducts, isLoading: productsLoading } = useProducts()
+  const { orders, isLoading: ordersLoading, error: ordersError, refetch: refetchOrders } = useOrders('ALL')
+  const { products, getLowStockProducts, isLoading: productsLoading, error: productsError, refetch: refetchProducts } = useProducts()
   const [dateRange, setDateRange] = useState<DateRange>('30d')
+  const [loadingTimedOut, setLoadingTimedOut] = useState(false)
+
+  // Timeout: if data hasn't loaded in 10 seconds, show error state
+  useEffect(() => {
+    if (!ordersLoading && !productsLoading) {
+      setLoadingTimedOut(false)
+      return
+    }
+    const timer = setTimeout(() => {
+      if (ordersLoading || productsLoading) {
+        setLoadingTimedOut(true)
+      }
+    }, 10000)
+    return () => clearTimeout(timer)
+  }, [ordersLoading, productsLoading])
 
   const filteredOrders = useMemo(() => {
     const now = new Date()
@@ -130,6 +145,45 @@ export default function AdminDashboardPage() {
       color: "text-red-600"
     }
   ]
+
+  if (loadingTimedOut || ordersError || productsError) {
+    return (
+      <AdminRoute>
+        <AdminLayout>
+          <div className="flex items-center justify-center py-20">
+            <div className="neu-raised rounded-[2rem] bg-[#E5E9F0] p-10 max-w-md text-center space-y-5">
+              <div className="h-16 w-16 rounded-full neu-inset bg-[#E5E9F0] flex items-center justify-center mx-auto">
+                <PackageX className="h-8 w-8 text-slate-400" />
+              </div>
+              <h2 className="text-xl font-serif font-bold text-slate-800">Dashboard failed to load</h2>
+              <p className="text-sm text-slate-500 leading-relaxed">
+                {ordersError || productsError || 'The data request timed out. This can happen if your session expired or there is a connectivity issue.'}
+              </p>
+              <div className="flex gap-3 justify-center pt-2">
+                <Button 
+                  className="rounded-full neu-raised bg-primary hover:bg-primary-dark text-white px-6"
+                  onClick={() => {
+                    setLoadingTimedOut(false)
+                    refetchOrders()
+                    refetchProducts()
+                  }}
+                >
+                  Try Again
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="rounded-full neu-raised bg-[#E5E9F0] hover:bg-white/40 border-0 px-6"
+                  onClick={() => window.location.reload()}
+                >
+                  Reload Page
+                </Button>
+              </div>
+            </div>
+          </div>
+        </AdminLayout>
+      </AdminRoute>
+    )
+  }
 
   if (ordersLoading || productsLoading) {
     return (
