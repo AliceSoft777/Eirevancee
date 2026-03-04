@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
 
     // Create SMTP transporter (Office 365)
     const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || 'smtp.office365.com',
+      host: process.env.SMTP_HOST,
       port: Number(process.env.SMTP_PORT) || 587,
       secure: false, // STARTTLS
       auth: {
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     // Email to admin — the contact form submission
     await transporter.sendMail({
       from: `"Celtic Tiles Contact" <${process.env.SMTP_USER}>`,
-      to: process.env.CONTACT_EMAIL || 'admin@celtictiles.ie',
+      to: process.env.CONTACT_EMAIL,
       replyTo: email,
       subject: `New Contact Message from ${name}`,
       html: `
