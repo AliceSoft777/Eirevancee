@@ -157,10 +157,13 @@ export function useProducts() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const mountedRef = useRef(true)
+  const hasLoadedOnceRef = useRef(false)
 
   async function fetchProducts() {
     try {
-      setIsLoading(true)
+      if (!hasLoadedOnceRef.current) {
+        setIsLoading(true)
+      }
       setError(null)
 
       // Fetch products with category info and images
@@ -196,7 +199,10 @@ export function useProducts() {
       console.error('Error fetching products:', err)
       if (mountedRef.current) setError(err.message)
     } finally {
-      if (mountedRef.current) setIsLoading(false)
+      if (mountedRef.current) {
+        setIsLoading(false)
+        hasLoadedOnceRef.current = true
+      }
     }
   }
 
@@ -219,24 +225,28 @@ export function useProducts() {
 
   // Auto-refetch on window focus to prevent stale data after navigating back
   useEffect(() => {
-    let lastFetchTime = Date.now()
+    let lastFetchTime = 0
+    const MIN_REFETCH_INTERVAL_MS = 1000
 
     const handleFocus = () => {
-      // Only refetch if more than 60 seconds since last fetch (avoid redundant refetches)
-      if (Date.now() - lastFetchTime > 60000) {
-        lastFetchTime = Date.now()
-        fetchProducts()
+      // Debounce refetches from rapid focus/visibility events.
+      if (Date.now() - lastFetchTime < MIN_REFETCH_INTERVAL_MS) return
+      lastFetchTime = Date.now()
+      fetchProducts()
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        handleFocus()
       }
     }
 
     window.addEventListener('focus', handleFocus)
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') handleFocus()
-    })
+    document.addEventListener('visibilitychange', handleVisibilityChange)
 
     return () => {
       window.removeEventListener('focus', handleFocus)
-      document.removeEventListener('visibilitychange', handleFocus)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [])
 

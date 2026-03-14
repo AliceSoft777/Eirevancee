@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { formatPrice } from "@/lib/utils"
 import { TrendingUp, Package, Users, Download, FileText } from "lucide-react"
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import { toast } from "sonner"
 import { ReportsSkeleton } from "@/components/admin/AdminSkeletons"
@@ -16,18 +16,43 @@ import { ReportsSkeleton } from "@/components/admin/AdminSkeletons"
 type DateRange = 'today' | '7d' | '30d' | 'all'
 
 const STATUS_COLORS = {
+  'Pending': '#f97316',
+  'Confirmed': '#ef4444',
   'New': '#3b82f6',
   'Processing': '#f59e0b',
   'Ready': '#8b5cf6',
   'Shipped': '#06b6d4',
   'Delivered': '#10b981',
-  'Cancelled': '#ef4444'
+  'Cancelled': '#6b7280'
+}
+
+type StatusBreakdownItem = {
+  name: string
+  value: number
 }
 
 export default function SalesReportPage() {
-  const { orders, isLoading: ordersLoading } = useOrders('ALL')
-  const { } = useProducts()
+  const { orders, isLoading: ordersLoading, error, refetch } = useOrders('ALL')
   const [dateRange, setDateRange] = useState<DateRange>('30d')
+
+  // Auto-retry: if fetch fails, retry after 3 seconds (max 3 attempts)
+  const [retryCount, setRetryCount] = useState(0)
+  useEffect(() => {
+    if (error && retryCount < 3) {
+      const timer = setTimeout(() => {
+        setRetryCount(prev => prev + 1)
+        refetch()
+      }, 3000)
+      return () => clearTimeout(timer)
+    }
+  }, [error, retryCount, refetch])
+
+  // Reset retry count when data loads successfully
+  useEffect(() => {
+    if (!ordersLoading && !error && orders.length > 0) {
+      setRetryCount(0)
+    }
+  }, [ordersLoading, error, orders.length])
 
   const filteredOrders = useMemo(() => {
     const now = new Date()
@@ -58,24 +83,32 @@ export default function SalesReportPage() {
   const avgOrderValue = filteredOrders.length > 0 ? totalRevenue / filteredOrders.length : 0
 
   const revenueChartData = useMemo(() => {
-    const dataMap = new Map<string, number>()
+    const dataMap = new Map<string, { revenue: number; sortKey: number }>()
     
     filteredOrders.forEach(order => {
       if (order.status === 'Cancelled') return
-      const date = new Date(order.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
-      dataMap.set(date, (dataMap.get(date) || 0) + order.total)
+      const orderDate = new Date(order.createdAt)
+      const dateLabel = orderDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
+      const existing = dataMap.get(dateLabel)
+      dataMap.set(dateLabel, {
+        revenue: (existing?.revenue || 0) + order.total,
+        sortKey: existing?.sortKey ?? orderDate.getTime()
+      })
     })
     
     return Array.from(dataMap.entries())
-      .map(([date, revenue]) => ({ date, revenue }))
+      .map(([date, { revenue, sortKey }]) => ({ date, revenue, sortKey }))
+      .sort((a, b) => a.sortKey - b.sortKey)
       .slice(-15)
   }, [filteredOrders])
 
-  const statusBreakdown = useMemo(() => {
-    return ["New", "Processing", "Ready", "Shipped", "Delivered", "Cancelled"].map((status) => ({
-      name: status,
-      value: filteredOrders.filter(o => o.status === status).length
-    })).filter(item => item.value > 0)
+  const statusBreakdown = useMemo<StatusBreakdownItem[]>(() => {
+    return ["Pending", "Confirmed", "New", "Processing", "Ready", "Shipped", "Delivered", "Cancelled"]
+      .map((status) => ({
+        name: status,
+        value: filteredOrders.filter(o => o.status === status).length
+      }))
+      .filter(item => item.value > 0)
   }, [filteredOrders])
 
   const productSales = filteredOrders
@@ -129,6 +162,23 @@ export default function SalesReportPage() {
       <AdminRoute>
         <AdminLayout>
           <ReportsSkeleton />
+        </AdminLayout>
+      </AdminRoute>
+    )
+  }
+
+  if (error) {
+    return (
+      <AdminRoute>
+        <AdminLayout>
+          <div className="flex flex-col items-center justify-center py-20 space-y-4">
+            <p className="text-muted-foreground">
+              {retryCount < 3 ? `Failed to load reports. Retrying... (${retryCount}/3)` : 'Failed to load reports data.'}
+            </p>
+            <Button variant="outline" onClick={() => { setRetryCount(0); refetch(); }}>
+              Retry Now
+            </Button>
+          </div>
         </AdminLayout>
       </AdminRoute>
     )
@@ -255,7 +305,7 @@ export default function SalesReportPage() {
                       cx="50%"
                       cy="50%"
                       labelLine={false}
-                      label={(entry) => `${entry.name}: ${entry.value}`}
+                      label={false}
                       outerRadius={80}
                       fill="#8884d8"
                       dataKey="value"
@@ -264,8 +314,13 @@ export default function SalesReportPage() {
                         <Cell key={`cell-${index}`} fill={STATUS_COLORS[entry.name as keyof typeof STATUS_COLORS]} />
                       ))}
                     </Pie>
-                    <Tooltip />
-                    <Legend />
+                    <Tooltip formatter={(value) => `${value}`} />
+                    <Legend
+                      formatter={(value) => {
+                        const item = statusBreakdown.find((entry) => entry.name === String(value))
+                        return `${String(value)}: ${item?.value ?? 0}`
+                      }}
+                    />
                   </PieChart>
                 </ResponsiveContainer>
               </CardContent>

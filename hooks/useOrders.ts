@@ -53,10 +53,18 @@ export function useOrders(userId?: string | null | 'ALL') {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const mountedRef = useRef(true)
+  const hasLoadedOnceRef = useRef(false)
+  const isFetchingRef = useRef(false)
 
   const fetchOrders = useCallback(async () => {
+    if (isFetchingRef.current) return
+
     try {
-      setIsLoading(true)
+      isFetchingRef.current = true
+
+      if (!hasLoadedOnceRef.current) {
+        setIsLoading(true)
+      }
       setError(null)
 
       const supabase = getSupabaseBrowserClient()
@@ -67,6 +75,7 @@ export function useOrders(userId?: string | null | 'ALL') {
       if (!isAdminMode && !userId) {
         setOrders([])
         setIsLoading(false)
+        hasLoadedOnceRef.current = true
         return
       }
       
@@ -136,7 +145,11 @@ export function useOrders(userId?: string | null | 'ALL') {
       console.error('Error fetching user orders:', err)
       if (mountedRef.current) setError(err.message || 'Failed to fetch orders')
     } finally {
-      if (mountedRef.current) setIsLoading(false)
+      if (mountedRef.current) {
+        setIsLoading(false)
+        hasLoadedOnceRef.current = true
+      }
+      isFetchingRef.current = false
     }
   }, [userId])
 
@@ -146,37 +159,30 @@ export function useOrders(userId?: string | null | 'ALL') {
     return () => { mountedRef.current = false }
   }, [fetchOrders])
 
-  // Auto-retry: if loading stays stuck for 5s, retry the fetch
-  useEffect(() => {
-    if (!isLoading) return
-    const retryTimer = setTimeout(() => {
-      if (mountedRef.current && isLoading) {
-        fetchOrders()
-      }
-    }, 5000)
-    return () => clearTimeout(retryTimer)
-  }, [isLoading, fetchOrders])
-
   // Auto-refetch on window focus to prevent stale data after navigating back
   useEffect(() => {
-    let lastFetchTime = Date.now()
+    let lastFetchTime = 0
+    const MIN_REFETCH_INTERVAL_MS = 1000
 
     const handleFocus = () => {
-      // Only refetch if more than 60 seconds since last fetch (avoid redundant refetches)
-      if (Date.now() - lastFetchTime > 60000) {
-        lastFetchTime = Date.now()
-        fetchOrders()
+      // Debounce refetches from rapid focus/visibility events.
+      if (Date.now() - lastFetchTime < MIN_REFETCH_INTERVAL_MS) return
+      lastFetchTime = Date.now()
+      fetchOrders()
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        handleFocus()
       }
     }
 
     window.addEventListener('focus', handleFocus)
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') handleFocus()
-    })
+    document.addEventListener('visibilitychange', handleVisibilityChange)
 
     return () => {
       window.removeEventListener('focus', handleFocus)
-      document.removeEventListener('visibilitychange', handleFocus)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [fetchOrders])
 

@@ -13,7 +13,7 @@ export default async function CartPage() {
     const { wishlistCount } = await getWishlistData(session.userId)
 
     // Fetch site settings for dynamic tax & shipping
-    let siteSettings = { tax_rate: 0, free_shipping_threshold: 500, shipping_fee: 10 }
+    let siteSettings = { tax_rate: 0, free_shipping_threshold: 1000, shipping_fee: 10 }
     try {
         const supabase = await createServerSupabase()
         const { data } = await (supabase as any)
@@ -21,9 +21,10 @@ export default async function CartPage() {
             .select('tax_rate, free_shipping_threshold')
             .single()
         if (data) {
+            const dbThreshold = Number(data.free_shipping_threshold ?? 1000)
             siteSettings = {
                 tax_rate: data.tax_rate ?? 0,
-                free_shipping_threshold: data.free_shipping_threshold ?? 500,
+                free_shipping_threshold: Math.max(dbThreshold, 1000),
                 shipping_fee: 10,
             }
         }

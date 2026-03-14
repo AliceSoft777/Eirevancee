@@ -11,7 +11,7 @@ export default async function CheckoutPage() {
 
     let initialAddresses: UserAddress[] = []
     let initialProfile: { full_name: string | null; phone: string | null } | null = null
-    let siteSettings = { tax_rate: 0, free_shipping_threshold: 500, shipping_fee: 10 }
+    let siteSettings = { tax_rate: 0, free_shipping_threshold: 1000, shipping_fee: 10 }
 
     const supabase = await createServerSupabase()
 
@@ -22,9 +22,10 @@ export default async function CheckoutPage() {
             .select('tax_rate, free_shipping_threshold')
             .single()
         if (settingsData) {
+            const dbThreshold = Number(settingsData.free_shipping_threshold ?? 1000)
             siteSettings = {
                 tax_rate: settingsData.tax_rate ?? 0,
-                free_shipping_threshold: settingsData.free_shipping_threshold ?? 500,
+                free_shipping_threshold: Math.max(dbThreshold, 1000),
                 shipping_fee: 10,
             }
         }
