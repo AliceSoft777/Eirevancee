@@ -64,6 +64,51 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
 
     const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(null)
 
+    // Re-validate and increment coupon at checkout time
+    const validateAndIncrementCoupon = async (): Promise<boolean> => {
+        if (!appliedCoupon) return true
+        try {
+            const { data, error } = await (supabase.from('coupons') as any)
+                .select('*').eq('code', appliedCoupon.code).single()
+            if (error || !data) {
+                toast.error('Coupon is no longer valid')
+                setAppliedCoupon(null)
+                sessionStorage.removeItem('appliedCoupon')
+                return false
+            }
+            // Check expiry
+            if (data.expires_at) {
+                let expiryDate = new Date(data.expires_at)
+                if (!data.expires_at.includes('T')) {
+                    expiryDate = new Date(`${data.expires_at}T23:59:59.999Z`)
+                }
+                if (expiryDate < new Date()) {
+                    toast.error('This coupon has expired since you added it')
+                    setAppliedCoupon(null)
+                    sessionStorage.removeItem('appliedCoupon')
+                    return false
+                }
+            }
+            // Check usage limit
+            if (data.usage_limit && data.used_count >= data.usage_limit) {
+                toast.error('This coupon has reached its usage limit')
+                setAppliedCoupon(null)
+                sessionStorage.removeItem('appliedCoupon')
+                return false
+            }
+            // Increment used_count
+            await (supabase.from('coupons') as any)
+                .update({ used_count: (data.used_count || 0) + 1 })
+                .eq('code', appliedCoupon.code)
+            sessionStorage.removeItem('appliedCoupon')
+            return true
+        } catch {
+            // Non-blocking — let the order proceed
+            sessionStorage.removeItem('appliedCoupon')
+            return true
+        }
+    }
+
     const subtotal = getCartTotal()
     const taxRate = (siteSettings.tax_rate ?? 0) / 100 // from DB (0 = inclusive/no extra tax)
 
@@ -321,16 +366,12 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
                     // ✅ Stock deduction for card payments is handled by the Supabase Edge Function
                     // after Stripe confirms payment (checkout.session.completed event)
 
-                    // Step 3: Redirect to Stripe (clear coupon from session - order is saved)
-                    if (appliedCoupon) {
-                        try {
-                            const { data: cpn } = await (supabase.from('coupons') as any)
-                                .select('used_count').eq('code', appliedCoupon.code).single()
-                            await (supabase.from('coupons') as any)
-                                .update({ used_count: (cpn?.used_count || 0) + 1 })
-                                .eq('code', appliedCoupon.code)
-                        } catch {}
-                        sessionStorage.removeItem('appliedCoupon')
+                    // Step 3: Re-validate & increment coupon, then redirect to Stripe
+                    const couponValid = await validateAndIncrementCoupon()
+                    if (!couponValid) {
+                        clearTimeout(timeoutId)
+                        setIsProcessing(false)
+                        return
                     }
                     clearTimeout(timeoutId)
                     toast.success("Redirecting to payment...")
@@ -407,16 +448,12 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
                 console.warn('⚠️ Cart clear failed but order was created:', cartError)
             }
 
-            // 4. Increment coupon used_count if coupon was applied
-            if (appliedCoupon) {
-                try {
-                    const { data: cpn } = await (supabase.from('coupons') as any)
-                        .select('used_count').eq('code', appliedCoupon.code).single()
-                    await (supabase.from('coupons') as any)
-                        .update({ used_count: (cpn?.used_count || 0) + 1 })
-                        .eq('code', appliedCoupon.code)
-                } catch {}
-                sessionStorage.removeItem('appliedCoupon')
+            // 4. Re-validate & increment coupon used_count
+            const couponValid = await validateAndIncrementCoupon()
+            if (!couponValid) {
+                clearTimeout(timeoutId)
+                // Order was already created, so just warn — don't block
+                toast.warning('Coupon could not be applied but your order has been placed.')
             }
 
             // 5. Clear timeout and show success

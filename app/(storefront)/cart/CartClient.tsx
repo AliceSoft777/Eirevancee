@@ -100,10 +100,17 @@ export default function CartClient({ initialCart, isLoggedIn, siteSettings }: Ca
                 return
             }
 
-            // Check expiry
-            if (data.expires_at && new Date(data.expires_at) < new Date()) {
-                toast.error('This coupon has expired')
-                return
+            // Check expiry — normalise bare date strings to end-of-day so coupon is valid the full day
+            if (data.expires_at) {
+                let expiryDate = new Date(data.expires_at)
+                // If stored as bare date (no time component), treat as end-of-day UTC
+                if (!data.expires_at.includes('T')) {
+                    expiryDate = new Date(`${data.expires_at}T23:59:59.999Z`)
+                }
+                if (expiryDate < new Date()) {
+                    toast.error('This coupon has expired')
+                    return
+                }
             }
 
             // Check usage limit

@@ -46,12 +46,17 @@ export function CouponDialog({
     discount_value: coupon?.discount_value || 0,
     min_order_value: coupon?.min_order_value || 0,
     usage_limit: coupon?.usage_limit || 100,
-    expires_at: coupon?.expires_at || ""
+    expires_at: coupon?.expires_at ? coupon.expires_at.split('T')[0] : ""
   })
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    onSave(formData)
+    // Convert bare date to end-of-day UTC so the coupon is valid for the entire expiry day
+    const submissionData = { ...formData }
+    if (submissionData.expires_at && !submissionData.expires_at.includes('T')) {
+      submissionData.expires_at = `${submissionData.expires_at}T23:59:59.999Z`
+    }
+    onSave(submissionData)
   }
 
   return (

@@ -49,7 +49,42 @@ export function useCoupons() {
 
       if (!mountedRef.current) return
       if (error) throw error
-      setCoupons(data || [])
+
+      const now = new Date()
+      const processed = (data || []).map((c: Coupon) => {
+        let effectiveStatus = c.status
+
+        // Check expiry
+        if (c.expires_at) {
+          let expiryDate = new Date(c.expires_at)
+          if (!c.expires_at.includes('T')) {
+            expiryDate = new Date(`${c.expires_at}T23:59:59.999Z`)
+          }
+          if (expiryDate < now) effectiveStatus = 'expired'
+        }
+
+        // Check usage limit
+        if (c.usage_limit && c.used_count >= c.usage_limit) {
+          effectiveStatus = 'expired'
+        }
+
+        return { ...c, status: effectiveStatus } as Coupon
+      })
+
+      // Lazily update DB for any coupons that just transitioned to expired
+      const newlyExpired = processed.filter(
+        (c: Coupon, i: number) => c.status === 'expired' && (data || [])[i]?.status === 'active'
+      )
+      if (newlyExpired.length > 0) {
+        const ids = newlyExpired.map((c: Coupon) => c.id)
+        ;(supabase.from('coupons') as any)
+          .update({ status: 'expired' })
+          .in('id', ids)
+          .then(() => {})
+          .catch(() => {})
+      }
+
+      setCoupons(processed)
     } catch (err: any) {
       if (mountedRef.current) setError(err.message)
     } finally {
