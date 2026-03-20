@@ -318,26 +318,8 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
                         return
                     }
 
-                    // Step 2b: Deduct stock for card payments too
-                    try {
-                        const stockResponse = await fetch('/api/orders/deduct-stock', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                orderId: (orderData as any).id,
-                                items: cartItems.map(item => ({
-                                    product_id: item.product_id,
-                                    quantity: item.quantity,
-                                    product_name: item.product_name
-                                }))
-                            })
-                        })
-                        if (!stockResponse.ok) {
-                            console.warn('[Checkout] Stock deduction failed for card order:', stockResponse.status)
-                        }
-                    } catch (stockErr) {
-                        console.warn('[Checkout] Stock deduction request failed:', stockErr)
-                    }
+                    // ✅ Stock deduction for card payments is handled by the Supabase Edge Function
+                    // after Stripe confirms payment (checkout.session.completed event)
 
                     // Step 3: Redirect to Stripe (clear coupon from session - order is saved)
                     if (appliedCoupon) {

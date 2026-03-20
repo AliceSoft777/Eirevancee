@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     const { orderId, amount, customerEmail } = await req.json()
 
     // ✅ Validate amount is in reasonable EUR range for tiles
-    if (amount < 10 || amount > 50000) {
+    if (amount < 0.10 || amount > 50000) {
       console.error('[Stripe] Invalid amount:', amount)
       return NextResponse.json(
         { error: 'Invalid order amount' },

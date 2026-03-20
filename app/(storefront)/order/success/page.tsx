@@ -3,6 +3,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { createServerSupabase } from "@/lib/supabase/server"
 import { ClearCartOnSuccess } from "./ClearCartOnSuccess"
+import { ConfirmOrderEmail } from "./ConfirmOrderEmail"
 
 export const dynamic = 'force-dynamic'
 
@@ -63,6 +64,8 @@ export default async function OrderSuccessPage({ searchParams }: Props) {
   return (
     <div className="min-h-screen bg-neutral-light flex items-center justify-center p-4">
       <ClearCartOnSuccess />
+      {/* ✅ Client component: calls /api/orders/confirm ONCE to verify payment + send email */}
+      {order && <ConfirmOrderEmail orderNumber={order.order_number} />}
       <div className="max-w-md w-full bg-white rounded-lg shadow-card-hover p-8 text-center">
         <div className="mb-6 flex justify-center">
           <CheckCircle className="h-24 w-24 text-success" strokeWidth={1.5} />
@@ -110,9 +113,9 @@ export default async function OrderSuccessPage({ searchParams }: Props) {
           </div>
         </div>
 
-        {/* <p className="text-sm text-muted-foreground mb-6">
+        <p className="text-sm text-muted-foreground mb-6">
           A confirmation email has been sent to {order?.customer_email ?? 'your email'}.
-        </p> */}
+        </p>
 
         <div className="flex flex-col gap-3">
           <Button asChild variant="default" size="lg" className="w-full">

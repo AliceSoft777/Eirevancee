@@ -18,6 +18,17 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createServerSupabase()
 
+    // Cancel any previous pending card orders for this user (prevents ghost orders)
+    if (stripeSessionId) {
+      await (supabase as any)
+        .from('orders')
+        .update({ status: 'Cancelled', payment_status: 'Cancelled', updated_at: new Date().toISOString() })
+        .eq('user_id', session.userId)
+        .eq('payment_method', 'card')
+        .eq('payment_status', 'Pending')
+        .eq('status', 'Pending')
+    }
+
     const payload = stripeSessionId
       ? { ...orderPayload, stripe_session_id: stripeSessionId }
       : orderPayload
@@ -42,3 +53,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: err.message || 'Server error' }, { status: 500 })
   }
 }
+
+

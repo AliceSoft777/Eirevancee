@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import {
   Dialog,
   DialogContent,
@@ -43,6 +44,7 @@ export function OrderDetailModal({
   const [isUpdating, setIsUpdating] = useState(false)
   const { updateOrderStatus } = useOrders(null)
   const { user } = useStore()
+  const router = useRouter()
 
   const validNextStatuses = getValidNextStatuses(order.status)
 
@@ -62,6 +64,7 @@ export function OrderDetailModal({
       setShowStatusDialog(false)
       setSelectedStatus(null)
       onOpenChange(false) // Close the modal after successful update
+      router.refresh() // Re-fetch server data to update the orders list
     } catch (error) {
       console.error('Error updating order status:', error)
       toast.error('Failed to update order status')

@@ -259,7 +259,6 @@ export function useOrders(userId?: string | null | 'ALL') {
     updatedBy: string
   ) {
     try {
-
       const supabase = getSupabaseBrowserClient()
       
       // 1. Get current order to access existing status_history
@@ -280,50 +279,33 @@ export function useOrders(userId?: string | null | 'ALL') {
         throw fetchError
       }
 
-
-
-      // 2. Parse existing history (it's a JSONB array)
+      // 2. Parse existing history and add new entry
       const existingHistory = (orderData?.status_history || []) as any[]
-      
-      // 3. Add new status entry
       const newHistoryEntry = {
         status,
         note: note || '',
         timestamp: new Date().toISOString(),
         updated_by: updatedBy
       }
-      
       const updatedHistory = [...existingHistory, newHistoryEntry]
 
-
-
-      // 4. Update order with new status AND updated history
-      const updateResult = await (supabase as any)
-        .from('orders')
-        .update({ 
+      // 3. Call server API route (handles DB update + email notification)
+      const response = await fetch(`/api/orders/${orderId}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           status,
           status_history: updatedHistory,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', orderId)
+        }),
+      })
 
-      if (!updateResult) {
-        throw new Error('Failed to update order status — please try refreshing')
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}))
+        throw new Error(errData.error || 'Failed to update order status')
       }
 
-      const { error: updateError } = updateResult
-
-      if (updateError) {
-        console.error('[updateOrderStatus] Update error:', updateError)
-        throw updateError
-      }
-
-
-
-      // 5. Only refresh if we have a userId (user-specific orders)
-      if (userId) {
-        await fetchOrders()
-      }
+      // 4. Refresh the orders list
+      await fetchOrders()
     } catch (err) {
       console.error('[updateOrderStatus] Error:', err)
       throw err

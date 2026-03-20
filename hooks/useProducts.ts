@@ -273,7 +273,6 @@ export function useProducts() {
       thickness: product.thickness,
       sqm_per_box: product.sqm_per_box,
       application_area: product.application_area,
-      model: product.model,
       brand: product.brand,
       availability: product.availability,
       panel_length: product.panel_length,
@@ -303,7 +302,7 @@ export function useProducts() {
       'name', 'slug', 'subtitle', 'description', 'price', 'image',
       'category_id', 'stock', 'status', 'low_stock_threshold',
       'assigned_code', 'material', 'size', 'finish', 'thickness',
-      'sqm_per_box', 'application_area', 'is_clearance', 'model',
+      'sqm_per_box', 'application_area', 'is_clearance',
       'brand', 'availability', 'panel_length', 'panel_width',
       'package_included', 'has_led'
     ]

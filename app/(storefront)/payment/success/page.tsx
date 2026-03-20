@@ -124,10 +124,10 @@ function PaymentSuccessContent() {
           </div>
         </div>
 
-        {/* Confirmation Email Notice
+        {/* Confirmation Email Notice */}
         <p className="text-sm text-muted-foreground mb-6">
           A confirmation email has been sent to your registered email address.
-        </p> */}
+        </p>
 
         {/* Action Buttons */}
         <div className="flex flex-col gap-3">
