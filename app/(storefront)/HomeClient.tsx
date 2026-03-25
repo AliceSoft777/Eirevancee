@@ -11,6 +11,7 @@ import { useStore } from "@/hooks/useStore"
 import type { Product } from "@/lib/supabase-types"
 import type { ServerSession, CategoryWithChildren } from "@/lib/loaders"
 import { getPopularProductsAction } from "@/app/actions/popular"
+import { toast } from "sonner"
 
 // Lazy load heavy components
 const CategoryShowcaseGrid = lazy(() => import("@/components/home/category-showcase-grid").then(m => ({ default: m.CategoryShowcaseGrid })))
@@ -32,6 +33,8 @@ const CATEGORY_IMAGES: Record<string, string> = {
     'decking':                '/images/categories/decking.png',
     'slat-panelling':         '/images/categories/slat-panelling.png',
     'slat-wall-panelling':    '/images/categories/slat-panelling.png',
+    'wall-panels':            '/images/categories/slat-panelling.png',
+    'mirrors':                '/images/placeholder.jpg',
     'vanity-units':           '/images/categories/vanity-unit.png',
     'vanity-unit':            '/images/categories/vanity-unit.png',
     'walk-in-shower':         '/images/categories/walk-in-shower.png',
@@ -62,6 +65,16 @@ export default function HomeClient({
         for (const cat of categories) {
             if (cat.children && cat.children.length > 0) {
                 for (const child of cat.children) {
+                    const normalizedName = child.name.toLowerCase().trim()
+                    const normalizedSlug = child.slug.toLowerCase().trim()
+                    const isToiletCategory =
+                        normalizedName.includes('toilet') ||
+                        normalizedSlug.includes('toilet')
+
+                    if (isToiletCategory) {
+                        continue
+                    }
+
                     items.push({
                         name: child.name.toUpperCase(),
                         href: `/${child.slug}`,
@@ -70,8 +83,51 @@ export default function HomeClient({
                 }
             }
         }
+
+        const hasVanityInItems = items.some((item) => item.href === '/vanity-units' || item.href === '/vanity-unit')
+        if (!hasVanityInItems) {
+            const vanityCategory = categories.find((cat) => {
+                const normalizedName = cat.name.toLowerCase().trim()
+                return normalizedName === 'vanity units' || normalizedName === 'vanity unit'
+            })
+
+            if (vanityCategory) {
+                items.push({
+                    name: vanityCategory.name.toUpperCase(),
+                    href: `/${vanityCategory.slug}`,
+                    image: CATEGORY_IMAGES[vanityCategory.slug] || vanityCategory.image || '/images/categories/vanity-unit.png',
+                })
+            }
+        }
+
         return items
     }, [categories])
+
+    // Quick Shop should include direct root categories that do not have subcategories.
+    const quickShopItems = useMemo(() => {
+        const items = [...categoryItems]
+        const seen = new Set(items.map(item => item.href))
+        const directCategoryNames = new Set(['wall panels', 'mirrors', 'vanity units'])
+
+        for (const cat of categories) {
+            const hasChildren = Boolean(cat.children && cat.children.length > 0)
+            const isDirectCategory = directCategoryNames.has(cat.name.toLowerCase().trim())
+
+            if (!hasChildren && isDirectCategory) {
+                const href = `/${cat.slug}`
+                if (!seen.has(href)) {
+                    items.push({
+                        name: cat.name.toUpperCase(),
+                        href,
+                        image: CATEGORY_IMAGES[cat.slug] || cat.image || '/images/placeholder.jpg',
+                    })
+                    seen.add(href)
+                }
+            }
+        }
+
+        return items
+    }, [categories, categoryItems])
     
     useEffect(() => {
         // Only sync ONCE after Zustand hydrates, and only if data actually changed
@@ -95,6 +151,15 @@ export default function HomeClient({
         
         hasSyncedRef.current = true
     }, [_hasHydrated, session.userId, session.userName, session.userEmail, session.userRole, wishlistProductIds, login, setWishlist])
+
+    useEffect(() => {
+        if (typeof document === 'undefined') return
+
+        if (document.cookie.includes('logged_out=true')) {
+            toast.success('Logged out successfully')
+            document.cookie = 'logged_out=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/'
+        }
+    }, [])
     
     // Popular products: start with first 8 active, then replace with real order-based data
     const fallbackProducts = useMemo(() =>
@@ -133,7 +198,7 @@ export default function HomeClient({
                 <Suspense fallback={<div className="py-12 bg-white"><div className="container mx-auto max-w-[1400px] px-4"><div className="h-64 bg-tm-bg-muted animate-pulse rounded-lg" /></div></div>}>
                     <CircleCategoryCarousel
                         title="QUICK SHOP"
-                        categories={categoryItems}
+                        categories={quickShopItems}
                     />
                 </Suspense>
 

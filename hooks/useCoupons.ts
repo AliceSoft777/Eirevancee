@@ -38,6 +38,23 @@ export function useCoupons() {
     return () => clearTimeout(t)
   }, [isLoading])
 
+  // Keep admin coupon screens fresh without requiring focus changes.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const isAdminRoute = window.location.pathname.startsWith('/admin')
+    if (!isAdminRoute) return
+
+    const POLL_INTERVAL_MS = 15000
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchCoupons()
+      }
+    }, POLL_INTERVAL_MS)
+
+    return () => window.clearInterval(timer)
+  }, [])
+
   async function fetchCoupons() {
     try {
       setIsLoading(true)

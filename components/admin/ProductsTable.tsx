@@ -83,7 +83,7 @@ export function ProductsTable({ products, onDelete, onEdit }: ProductsTableProps
               <TableCell className="text-right">
                 <div className="flex items-center justify-end gap-2">
                   <Button variant="ghost" size="icon" asChild className="hover:text-muted-foreground">
-                    <Link href={`/product/${product.slug}`}>
+                    <Link href={`/product/${product.slug}`} aria-label={`Preview ${product.name}`}>
                         <Eye className="w-4 h-4 text-muted-foreground" />
                     </Link>
                   </Button>
@@ -91,6 +91,7 @@ export function ProductsTable({ products, onDelete, onEdit }: ProductsTableProps
                     variant="ghost" 
                     size="icon" 
                     onClick={() => onEdit(product)}
+                    aria-label={`Edit ${product.name}`}
                     className="hover:text-orange-500"
                   >
                     <Pencil className="w-4 h-4 text-orange-500" />
@@ -103,6 +104,7 @@ export function ProductsTable({ products, onDelete, onEdit }: ProductsTableProps
                             onDelete(product.id)
                         }
                     }}
+                    aria-label={`Delete ${product.name}`}
                     className="hover:text-red-500"
                    >
                     <Trash2 className="w-4 h-4 text-red-500" />

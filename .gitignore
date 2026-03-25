@@ -68,6 +68,7 @@ verify-orders-addresses.js
 # Documentation and temp files
 *.md
 !README.md
+production-readiness/
 COMPLETE_SESSION_FIXES_SUMMARY.txt
 NEXTJS_15_PARAMS_FIX_PROOF.txt
 PRODUCT_MANAGEMENT_COMPLETE.md

@@ -1,10 +1,6 @@
 "use client"
 
-import { AdminRoute } from "@/components/admin/AdminRoute"
-import { AdminLayout } from "@/components/admin/AdminLayout"
 import { useOrders } from "@/hooks/useOrders"
-import { useProducts } from "@/hooks/useProducts"
-import { useStore } from "@/hooks/useStore"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
@@ -25,25 +21,85 @@ import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, R
 type DateRange = 'today' | '7d' | '30d' | 'all'
 
 export default function AdminDashboardPage() {
-  const { user } = useStore()
-  const { orders, isLoading: ordersLoading, error: ordersError, refetch: refetchOrders } = useOrders('ALL')
-  const { products, getLowStockProducts, isLoading: productsLoading, error: productsError, refetch: refetchProducts } = useProducts()
+  const { orders, isLoading: ordersLoading, error: ordersError } = useOrders('ALL')
   const [dateRange, setDateRange] = useState<DateRange>('30d')
   const [loadingTimedOut, setLoadingTimedOut] = useState(false)
+  const [lowStockCount, setLowStockCount] = useState<number | null>(null)
+  const [showCharts, setShowCharts] = useState(false)
 
   // Timeout: if data hasn't loaded in 10 seconds, show error state
   useEffect(() => {
-    if (!ordersLoading && !productsLoading) {
+    if (!ordersLoading) {
       setLoadingTimedOut(false)
       return
     }
     const timer = setTimeout(() => {
-      if (ordersLoading || productsLoading) {
+      if (ordersLoading) {
         setLoadingTimedOut(true)
       }
     }, 10000)
     return () => clearTimeout(timer)
-  }, [ordersLoading, productsLoading])
+  }, [ordersLoading])
+
+  useEffect(() => {
+    let timeoutId: ReturnType<typeof setTimeout> | undefined
+    let idleId: number | undefined
+
+    const show = () => setShowCharts(true)
+
+    if (typeof globalThis !== 'undefined' && 'requestIdleCallback' in globalThis) {
+      idleId = (globalThis as any).requestIdleCallback(show, { timeout: 1200 })
+    } else {
+      timeoutId = setTimeout(show, 600)
+    }
+
+    return () => {
+      if (typeof globalThis !== 'undefined' && idleId !== undefined && 'cancelIdleCallback' in globalThis) {
+        (globalThis as any).cancelIdleCallback(idleId)
+      }
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    let mounted = true
+
+    const fetchLowStockCount = async () => {
+      try {
+        const response = await fetch('/api/admin/products/low-stock-count', {
+          method: 'GET',
+          credentials: 'include',
+          cache: 'no-store',
+        })
+
+        if (!response.ok) {
+          return
+        }
+
+        const payload = await response.json()
+        if (mounted && typeof payload?.count === 'number') {
+          setLowStockCount(payload.count)
+        }
+      } catch {
+        // Keep previous count to avoid UI jumps.
+      }
+    }
+
+    fetchLowStockCount()
+
+    const poller = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchLowStockCount()
+      }
+    }, 60000)
+
+    return () => {
+      mounted = false
+      window.clearInterval(poller)
+    }
+  }, [])
 
   const filteredOrders = useMemo(() => {
     const now = new Date()
@@ -72,7 +128,7 @@ export default function AdminDashboardPage() {
   const totalRevenue = filteredOrders
     .filter(o => o.status !== "Cancelled")
     .reduce((sum, o) => sum + o.total, 0)
-  const lowStockCount = getLowStockProducts().length
+  const lowStockValue = lowStockCount ?? '—'
 
   const revenueChartData = useMemo(() => {
     const dataMap = new Map<string, { date: string, timestamp: number, revenue: number }>()
@@ -140,65 +196,23 @@ export default function AdminDashboardPage() {
     },
     {
       title: "Low Stock Items",
-      value: lowStockCount,
+      value: lowStockValue,
       icon: PackageX,
       color: "text-red-600"
     }
   ]
 
-  if (loadingTimedOut || ordersError || productsError) {
-    return (
-      <AdminRoute>
-        <AdminLayout>
-          <div className="flex items-center justify-center py-20">
-            <div className="neu-raised rounded-[2rem] bg-[#E5E9F0] p-10 max-w-md text-center space-y-5">
-              <div className="h-16 w-16 rounded-full neu-inset bg-[#E5E9F0] flex items-center justify-center mx-auto">
-                <PackageX className="h-8 w-8 text-slate-400" />
-              </div>
-              <h2 className="text-xl font-serif font-bold text-slate-800">Dashboard failed to load</h2>
-              <p className="text-sm text-slate-500 leading-relaxed">
-                {ordersError || productsError || 'The data request timed out. This can happen if your session expired or there is a connectivity issue.'}
-              </p>
-              <div className="flex gap-3 justify-center pt-2">
-                <Button 
-                  className="rounded-full neu-raised bg-primary hover:bg-primary-dark text-white px-6"
-                  onClick={() => {
-                    setLoadingTimedOut(false)
-                    refetchOrders()
-                    refetchProducts()
-                  }}
-                >
-                  Try Again
-                </Button>
-                <Button 
-                  variant="outline" 
-                  className="rounded-full neu-raised bg-[#E5E9F0] hover:bg-white/40 border-0 px-6"
-                  onClick={() => window.location.reload()}
-                >
-                  Reload Page
-                </Button>
-              </div>
-            </div>
-          </div>
-        </AdminLayout>
-      </AdminRoute>
-    )
-  }
-
-  if (ordersLoading || productsLoading) {
-    return (
-      <AdminRoute>
-        <AdminLayout>
-          <DashboardSkeleton />
-        </AdminLayout>
-      </AdminRoute>
-    )
+  if (ordersLoading && !loadingTimedOut) {
+    return <DashboardSkeleton />
   }
 
   return (
-    <AdminRoute>
-      <AdminLayout>
-        <div className="space-y-8">
+    <div className="space-y-8">
+          {(loadingTimedOut || ordersError) && (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-amber-900">
+              Live dashboard data is delayed. Showing last available values.
+            </div>
+          )}
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-3xl font-serif font-bold text-primary">Dashboard</h1>
@@ -236,15 +250,19 @@ export default function AdminDashboardPage() {
                 <CardTitle>Revenue Trend</CardTitle>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={250}>
-                  <LineChart data={revenueChartData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis />
-                    <Tooltip formatter={(value) => formatPrice(value as number)} />
-                    <Line type="monotone" dataKey="revenue" stroke="#8b5cf6" strokeWidth={2} />
-                  </LineChart>
-                </ResponsiveContainer>
+                {showCharts ? (
+                  <ResponsiveContainer width="100%" height={250}>
+                    <LineChart data={revenueChartData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" />
+                      <YAxis />
+                      <Tooltip formatter={(value) => formatPrice(value as number)} />
+                      <Line type="monotone" dataKey="revenue" stroke="#8b5cf6" strokeWidth={2} isAnimationActive={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-[250px] rounded-md bg-muted/20" />
+                )}
               </CardContent>
             </Card>
 
@@ -253,15 +271,19 @@ export default function AdminDashboardPage() {
                 <CardTitle>Orders Over Time</CardTitle>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={250}>
-                  <BarChart data={ordersChartData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="count" fill="#8b5cf6" />
-                  </BarChart>
-                </ResponsiveContainer>
+                {showCharts ? (
+                  <ResponsiveContainer width="100%" height={250}>
+                    <BarChart data={ordersChartData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" />
+                      <YAxis />
+                      <Tooltip />
+                      <Bar dataKey="count" fill="#8b5cf6" isAnimationActive={false} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-[250px] rounded-md bg-muted/20" />
+                )}
               </CardContent>
             </Card>
           </div>
@@ -335,8 +357,6 @@ export default function AdminDashboardPage() {
               </Link>
             </Button>
           </div>
-        </div>
-      </AdminLayout>
-    </AdminRoute>
+    </div>
   )
 }

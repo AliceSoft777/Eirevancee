@@ -2,8 +2,6 @@
 
 import { useState, useMemo, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { AdminRoute } from "@/components/admin/AdminRoute"
-import { AdminLayout } from "@/components/admin/AdminLayout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { OrdersTable } from "@/components/admin/OrdersTable"
 import { Input } from "@/components/ui/input"
@@ -45,7 +43,7 @@ export default function OrdersListClient({
   // Refresh data when component mounts (e.g., after navigation back from detail page)
   useEffect(() => {
     router.refresh()
-  }, [])
+  }, [router])
 
   const filteredOrders = useMemo(() => {
     return orders.filter(order => {
@@ -80,9 +78,7 @@ export default function OrdersListClient({
   }, [searchTerm, statusFilter, goToPage])
 
   return (
-    <AdminRoute>
-      <AdminLayout>
-        <div className="space-y-6">
+    <div className="space-y-6">
           <div className="flex flex-col sm:flex-row justify-between gap-4">
             <div>
               <h1 className="text-3xl font-serif font-bold text-primary">
@@ -152,8 +148,6 @@ export default function OrdersListClient({
               )}
             </CardContent>
           </Card>
-        </div>
-      </AdminLayout>
-    </AdminRoute>
+    </div>
   )
 }

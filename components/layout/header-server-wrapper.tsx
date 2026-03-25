@@ -1,4 +1,11 @@
-import { getServerSession, getNavData, getNavProducts, getCartData, getWishlistData } from "@/lib/loaders"
+import {
+  getServerSession,
+  getNavData,
+  getNavProducts,
+  getCartData,
+  getWishlistData,
+  type CategoryWithChildren,
+} from "@/lib/loaders"
 import { SiteHeader } from "./site-header"
 
 /**
@@ -6,12 +13,17 @@ import { SiteHeader } from "./site-header"
  * Fetches all header-required data on the server and passes props to client SiteHeader.
  * Uses getNavProducts() (lightweight) instead of getProducts() (full catalog).
  */
-export async function HeaderServerWrapper() {
-  const [session, { categories }, { products: navProducts }] = await Promise.all([
+interface HeaderServerWrapperProps {
+  categories?: CategoryWithChildren[]
+}
+
+export async function HeaderServerWrapper({ categories: preloadedCategories }: HeaderServerWrapperProps = {}) {
+  const [session, { products: navProducts }] = await Promise.all([
     getServerSession(),
-    getNavData(),
     getNavProducts()
   ])
+
+  const categories = preloadedCategories ?? (await getNavData()).categories
 
   // Cart and wishlist depend on session, so fetch after
   const [{ cartCount }, { wishlistCount }] = await Promise.all([

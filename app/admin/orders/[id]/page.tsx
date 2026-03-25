@@ -3,8 +3,6 @@
 import { useState, useEffect } from "react"
 import { use } from "react"
 import { notFound } from "next/navigation"
-import { AdminRoute } from "@/components/admin/AdminRoute"
-import { AdminLayout } from "@/components/admin/AdminLayout"
 import { useOrders, type Order } from "@/hooks/useOrders"
 import { useStore } from "@/hooks/useStore"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -59,11 +57,11 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   }
 
   const handleConfirmStatusChange = async (note: string) => {
-    if (selectedStatus && user && order) {
+    if (selectedStatus && order) {
 
       setIsUpdating(true)
       try {
-        await updateOrderStatus(order.id, selectedStatus, note, user.name)
+        await updateOrderStatus(order.id, selectedStatus, note, user?.name || "admin")
         toast.success(`Order status updated to ${selectedStatus}`)
         setShowDialog(false)
         setSelectedStatus(null)
@@ -95,9 +93,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const validNextStatuses = getValidNextStatuses(order.status)
 
   return (
-    <AdminRoute>
-      <AdminLayout>
-        <div className="space-y-6">
+    <div className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
               <div className="flex items-center gap-3">
@@ -272,21 +268,17 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
             </CardContent>
           </Card>
 
-
-        </div>
-
-        <StatusUpdateDialog
-          isOpen={showDialog}
-          currentStatus={order.status}
-          newStatus={selectedStatus || ""}
-          onConfirm={handleConfirmStatusChange}
-          onCancel={() => {
-            setShowDialog(false)
-            setSelectedStatus(null)
-          }}
-          isLoading={isUpdating}
-        />
-      </AdminLayout>
-    </AdminRoute>
+      <StatusUpdateDialog
+        isOpen={showDialog}
+        currentStatus={order.status}
+        newStatus={selectedStatus || ""}
+        onConfirm={handleConfirmStatusChange}
+        onCancel={() => {
+          setShowDialog(false)
+          setSelectedStatus(null)
+        }}
+        isLoading={isUpdating}
+      />
+    </div>
   )
 }

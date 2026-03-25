@@ -10,7 +10,7 @@ const RESERVED_SLUGS = [
   'cart', 'wishlist', 'login', 'register', 'product', 'admin',
   'account', 'checkout', 'about', 'contact', 'faq', 'terms',
   'privacy', 'returns', 'delivery', 'trade', 'clearance', 'payment',
-  'test-supabase'
+  'test-supabase', 'robots.txt', 'favicon.ico', 'sitemap.xml'
 ]
 
 const PRICE_OPTIONS = [
@@ -73,7 +73,8 @@ interface Props {
 export default async function CategoryPage(props: Props) {
   const { categorySlug } = await props.params
 
-  if (RESERVED_SLUGS.includes(categorySlug)) notFound()
+  // Block common static-style probes from hitting category DB lookups.
+  if (RESERVED_SLUGS.includes(categorySlug) || categorySlug.includes('.')) notFound()
 
   const supabase = await createServerSupabase()
 

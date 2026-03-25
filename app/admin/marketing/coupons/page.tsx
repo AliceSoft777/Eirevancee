@@ -2,8 +2,6 @@
 
 import { useState } from "react"
 import { toast } from "sonner"
-import { AdminRoute } from "@/components/admin/AdminRoute"
-import { AdminLayout } from "@/components/admin/AdminLayout"
 import { useCoupons } from "@/hooks/useCoupons"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -50,9 +48,7 @@ export default function CouponsPage() {
   }
 
   return (
-    <AdminRoute>
-      <AdminLayout>
-        <div className="space-y-6">
+    <div className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-serif font-bold text-primary">
@@ -181,7 +177,6 @@ export default function CouponsPage() {
               </div>
             </CardContent>
           </Card>
-        </div>
 
         <CouponDialog
           isOpen={isCreating}
@@ -198,17 +193,16 @@ export default function CouponsPage() {
           />
         )}
 
-        {deletingCoupon && (
-          <DeleteConfirmDialog
-            isOpen
-            title="Delete Coupon"
-            description="Are you sure you want to delete this coupon code?"
-            itemName={deletingCoupon.code ?? "this coupon"}
-            onConfirm={handleDelete}
-            onCancel={() => setDeletingCoupon(null)}
-          />
-        )}
-      </AdminLayout>
-    </AdminRoute>
+      {deletingCoupon && (
+        <DeleteConfirmDialog
+          isOpen
+          title="Delete Coupon"
+          description="Are you sure you want to delete this coupon code?"
+          itemName={deletingCoupon.code ?? "this coupon"}
+          onConfirm={handleDelete}
+          onCancel={() => setDeletingCoupon(null)}
+        />
+      )}
+    </div>
   )
 }

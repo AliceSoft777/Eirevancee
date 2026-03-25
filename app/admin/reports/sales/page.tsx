@@ -1,9 +1,6 @@
 "use client"
 
-import { AdminRoute } from "@/components/admin/AdminRoute"
-import { AdminLayout } from "@/components/admin/AdminLayout"
 import { useOrders } from "@/hooks/useOrders"
-import { useProducts } from "@/hooks/useProducts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { formatPrice } from "@/lib/utils"
@@ -34,25 +31,43 @@ type StatusBreakdownItem = {
 export default function SalesReportPage() {
   const { orders, isLoading: ordersLoading, error, refetch } = useOrders('ALL')
   const [dateRange, setDateRange] = useState<DateRange>('30d')
+  const [loadingTimedOut, setLoadingTimedOut] = useState(false)
+  const [showCharts, setShowCharts] = useState(false)
 
-  // Auto-retry: if fetch fails, retry after 3 seconds (max 3 attempts)
-  const [retryCount, setRetryCount] = useState(0)
   useEffect(() => {
-    if (error && retryCount < 3) {
-      const timer = setTimeout(() => {
-        setRetryCount(prev => prev + 1)
-        refetch()
-      }, 3000)
-      return () => clearTimeout(timer)
-    }
-  }, [error, retryCount, refetch])
+    let timeoutId: ReturnType<typeof setTimeout> | undefined
+    let idleId: number | undefined
 
-  // Reset retry count when data loads successfully
-  useEffect(() => {
-    if (!ordersLoading && !error && orders.length > 0) {
-      setRetryCount(0)
+    const show = () => setShowCharts(true)
+
+    if (typeof globalThis !== 'undefined' && 'requestIdleCallback' in globalThis) {
+      idleId = (globalThis as any).requestIdleCallback(show, { timeout: 1200 })
+    } else {
+      timeoutId = setTimeout(show, 600)
     }
-  }, [ordersLoading, error, orders.length])
+
+    return () => {
+      if (typeof globalThis !== 'undefined' && idleId !== undefined && 'cancelIdleCallback' in globalThis) {
+        (globalThis as any).cancelIdleCallback(idleId)
+      }
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!ordersLoading) {
+      setLoadingTimedOut(false)
+      return
+    }
+    const timer = setTimeout(() => {
+      if (ordersLoading) {
+        setLoadingTimedOut(true)
+      }
+    }, 10000)
+    return () => clearTimeout(timer)
+  }, [ordersLoading])
 
   const filteredOrders = useMemo(() => {
     const now = new Date()
@@ -153,41 +168,63 @@ export default function SalesReportPage() {
     toast.success('CSV exported successfully')
   }
 
-  const exportToPDF = () => {
-    toast.info('PDF export requires jsPDF library - install with: npm install jspdf jspdf-autotable')
+  const exportToPDF = async () => {
+    try {
+      const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+        import('jspdf'),
+        import('jspdf-autotable'),
+      ])
+
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' })
+      const generatedAt = new Date().toLocaleString()
+
+      doc.setFontSize(18)
+      doc.text('Sales Report', 40, 40)
+      doc.setFontSize(11)
+      doc.text(`Range: ${dateRange.toUpperCase()} | Generated: ${generatedAt}`, 40, 60)
+
+      doc.setFontSize(12)
+      doc.text(`Total Revenue: ${formatPrice(totalRevenue)}`, 40, 88)
+      doc.text(`Total Orders: ${filteredOrders.length}`, 40, 106)
+      doc.text(`Avg Order Value: ${formatPrice(avgOrderValue)}`, 40, 124)
+
+      const tableRows = filteredOrders.map((o) => [
+        o.orderNumber,
+        o.customerName,
+        o.customerEmail,
+        formatPrice(o.total),
+        o.status,
+        new Date(o.createdAt).toLocaleDateString(),
+      ])
+
+      autoTable(doc, {
+        startY: 145,
+        head: [['Order #', 'Customer', 'Email', 'Total', 'Status', 'Date']],
+        body: tableRows,
+        styles: { fontSize: 9, cellPadding: 5 },
+        headStyles: { fillColor: [139, 28, 28] },
+        margin: { left: 40, right: 40 },
+      })
+
+      doc.save(`sales-report-${dateRange}.pdf`)
+      toast.success('PDF exported successfully')
+    } catch (err) {
+      console.warn('PDF export failed', err)
+      toast.error('Failed to export PDF')
+    }
   }
 
-  if (ordersLoading) {
-    return (
-      <AdminRoute>
-        <AdminLayout>
-          <ReportsSkeleton />
-        </AdminLayout>
-      </AdminRoute>
-    )
-  }
-
-  if (error) {
-    return (
-      <AdminRoute>
-        <AdminLayout>
-          <div className="flex flex-col items-center justify-center py-20 space-y-4">
-            <p className="text-muted-foreground">
-              {retryCount < 3 ? `Failed to load reports. Retrying... (${retryCount}/3)` : 'Failed to load reports data.'}
-            </p>
-            <Button variant="outline" onClick={() => { setRetryCount(0); refetch(); }}>
-              Retry Now
-            </Button>
-          </div>
-        </AdminLayout>
-      </AdminRoute>
-    )
+  if (ordersLoading && !loadingTimedOut) {
+    return <ReportsSkeleton />
   }
 
   return (
-    <AdminRoute>
-      <AdminLayout>
-        <div className="space-y-6">
+    <div className="space-y-6">
+          {(error || loadingTimedOut) && (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-amber-900">
+              Live reports data is delayed. Showing last available values.
+            </div>
+          )}
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-3xl font-serif font-bold text-primary">Sales Reports</h1>
@@ -281,15 +318,19 @@ export default function SalesReportPage() {
                 <CardTitle>Revenue Over Time</CardTitle>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={revenueChartData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis />
-                    <Tooltip formatter={(value) => formatPrice(value as number)} />
-                    <Line type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={2} />
-                  </LineChart>
-                </ResponsiveContainer>
+                {showCharts ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={revenueChartData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" />
+                      <YAxis />
+                      <Tooltip formatter={(value) => formatPrice(value as number)} />
+                      <Line type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={2} isAnimationActive={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-[300px] rounded-md bg-muted/20" />
+                )}
               </CardContent>
             </Card>
 
@@ -298,31 +339,36 @@ export default function SalesReportPage() {
                 <CardTitle>Order Status Distribution</CardTitle>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={statusBreakdown}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={false}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
-                    >
-                      {statusBreakdown.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={STATUS_COLORS[entry.name as keyof typeof STATUS_COLORS]} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(value) => `${value}`} />
-                    <Legend
-                      formatter={(value) => {
-                        const item = statusBreakdown.find((entry) => entry.name === String(value))
-                        return `${String(value)}: ${item?.value ?? 0}`
-                      }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
+                {showCharts ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
+                      <Pie
+                        data={statusBreakdown}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={false}
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="value"
+                        isAnimationActive={false}
+                      >
+                        {statusBreakdown.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={STATUS_COLORS[entry.name as keyof typeof STATUS_COLORS]} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value) => `${value}`} />
+                      <Legend
+                        formatter={(value) => {
+                          const item = statusBreakdown.find((entry) => entry.name === String(value))
+                          return `${String(value)}: ${item?.value ?? 0}`
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-[300px] rounded-md bg-muted/20" />
+                )}
               </CardContent>
             </Card>
           </div>
@@ -356,8 +402,6 @@ export default function SalesReportPage() {
               </div>
             </CardContent>
           </Card>
-        </div>
-      </AdminLayout>
-    </AdminRoute>
+    </div>
   )
 }

@@ -1,23 +1,22 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
+import { usePathname } from "next/navigation"
 import { User, Package, Heart, MapPin, CreditCard, Bell, LogOut } from "lucide-react"
 import { useStore } from "@/hooks/useStore"
-import { getSupabaseBrowserClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
+import { logoutOrchestrator } from "@/lib/logout-orchestrator"
 
 export function AccountSidebar() {
     const pathname = usePathname()
-    const router = useRouter()
     const { logout } = useStore()
-    const supabase = getSupabaseBrowserClient()
 
     const handleLogout = async () => {
-        await supabase.auth.signOut()
-        logout()
-        router.push("/")
-        router.refresh()
+        await logoutOrchestrator({
+            redirectTo: "/",
+            setLoggedOutCookie: true,
+            runStoreLogout: logout,
+        })
     }
 
     const navItems = [

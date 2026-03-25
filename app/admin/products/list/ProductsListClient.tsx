@@ -1,8 +1,6 @@
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
-import { AdminRoute } from "@/components/admin/AdminRoute"
-import { AdminLayout } from "@/components/admin/AdminLayout"
 import { useProducts, Product } from "@/hooks/useProducts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ProductsTable } from "@/components/admin/ProductsTable"
@@ -15,7 +13,6 @@ import {
   SelectValue 
 } from "@/components/ui/select"
 import { Search, Filter, Package, Plus } from "lucide-react"
-import { TableRowsSkeleton } from "@/components/admin/TableSkeleton"
 import { Pagination } from "@/components/admin/Pagination"
 import { EmptyState } from "@/components/admin/EmptyState"
 import { usePagination } from "@/hooks/usePagination"
@@ -92,9 +89,7 @@ export default function ProductsListClient({ initialProducts }: ProductsListClie
   }, [searchTerm, statusFilter, categoryFilter, goToPage])
 
   return (
-    <AdminRoute>
-      <AdminLayout>
-        <div className="space-y-6">
+    <div className="space-y-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
               <h1 className="text-3xl font-serif font-bold text-primary">Products</h1>
@@ -204,8 +199,6 @@ export default function ProductsListClient({ initialProducts }: ProductsListClie
             product={selectedProduct} 
           />
 
-        </div>
-      </AdminLayout>
-    </AdminRoute>
+    </div>
   )
 }

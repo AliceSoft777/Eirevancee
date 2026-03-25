@@ -2,8 +2,6 @@
 
 import Link from "next/link"
 import Image from "next/image"
-import { useRouter } from "next/navigation"
-import { getSupabaseBrowserClient } from "@/lib/supabase/client"
 import { 
   User, 
   LogOut, 
@@ -15,6 +13,7 @@ import { Button } from "@/components/ui/button"
 import { useState, useRef, useEffect } from "react"
 import { useStore } from "@/hooks/useStore"
 import type { ServerSession } from "@/lib/loaders"
+import { logoutOrchestrator } from "@/lib/logout-orchestrator"
 
 // Role badge component
 function RoleBadge({ role }: { role: string }) {
@@ -40,7 +39,6 @@ export interface AdminHeaderProps {
 }
 
 export function AdminHeader({ session }: AdminHeaderProps) {
-  const router = useRouter()
   const { logout } = useStore()
   
   const user = session?.userId ? {
@@ -66,24 +64,12 @@ export function AdminHeader({ session }: AdminHeaderProps) {
 
   const handleLogout = async () => {
     setIsProfileOpen(false)
-    
-    try {
-      const supabase = getSupabaseBrowserClient()
-      await supabase.auth.signOut()
-    } catch (err) {
-      console.error("Supabase sign out error:", err)
-    }
-    
-    // Always clear state + storage regardless of Supabase result
-    try { await logout() } catch (_) {}
-    
-    if (typeof window !== 'undefined') {
-      localStorage.clear()
-      sessionStorage.clear()
-    }
-    
-    // Hard redirect to force full page reload
-    window.location.href = '/login'
+
+    await logoutOrchestrator({
+      redirectTo: "/",
+      setLoggedOutCookie: true,
+      runStoreLogout: logout,
+    })
   }
 
   return (

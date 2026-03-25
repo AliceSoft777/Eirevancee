@@ -1,7 +1,8 @@
 "use client"
 
-import { useEffect, useState, useRef } from 'react'
+import { useCallback, useEffect, useState, useRef } from 'react'
 import { getSupabaseBrowserClient } from '@/lib/supabase/client'
+import { logClientTiming, normalizeClientError } from '@/lib/client-runtime-utils'
 
 // Raw database types matching actual schema
 interface DbProduct {
@@ -158,27 +159,56 @@ export function useProducts() {
   const [error, setError] = useState<string | null>(null)
   const mountedRef = useRef(true)
   const hasLoadedOnceRef = useRef(false)
+  const isFetchingRef = useRef(false)
+  const productCountRef = useRef(0)
 
-  async function fetchProducts() {
+  useEffect(() => {
+    productCountRef.current = products.length
+  }, [products.length])
+
+  const withTimeout = useCallback(async <T,>(promise: Promise<T>, timeoutMs: number, errorMessage: string): Promise<T> => {
+    let timeoutId: ReturnType<typeof setTimeout> | undefined
     try {
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error(errorMessage)), timeoutMs)
+      })
+      return await Promise.race([promise, timeoutPromise])
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId)
+    }
+  }, [])
+
+  const fetchProducts = useCallback(async () => {
+    if (isFetchingRef.current) return
+
+    const startedAt = Date.now()
+    let rowCount = 0
+
+    try {
+      isFetchingRef.current = true
+
       if (!hasLoadedOnceRef.current) {
         setIsLoading(true)
       }
       setError(null)
 
       // Fetch products with category info and images
-      const result = await (supabase
-        .from('products') as any)
-        .select('*, categories!category_id(name, parent_id, categories!parent_id(name)), product_images!left(id, image_url, is_primary, display_order)')
-        .order('created_at', { ascending: false })
-        .limit(100)
+      const result: any = await withTimeout(
+        (supabase
+          .from('products') as any)
+          .select('*, categories!category_id(name, parent_id, categories!parent_id(name)), product_images!left(id, image_url, is_primary, display_order)')
+          .order('created_at', { ascending: false })
+          .limit(100),
+        25000,
+        'Products request timed out. Please retry.'
+      )
       const { data, error: fetchError } = result || {}
 
       if (!mountedRef.current) return // Don't setState if unmounted
 
       if (fetchError) {
-        // Silently ignore AbortErrors (expected during React Strict Mode remounts)
-        if (fetchError.message?.includes('AbortError')) {
+        const normalizedFetchError = normalizeClientError(fetchError, 'Failed to fetch products')
+        if (normalizedFetchError.isAbortLike) {
           setIsLoading(false)
           return
         }
@@ -186,42 +216,53 @@ export function useProducts() {
       }
       // Transform each product
       const transformedProducts = (data || []).map((p: any) => transformProduct(p))
+      rowCount = transformedProducts.length
 
       if (!mountedRef.current) return // Don't setState if unmounted
       setProducts(transformedProducts)
-    } catch (err: any) {
-      // ✅ SILENTLY IGNORE ABORT ERRORS: Expected during React Strict Mode
-      if (err?.message?.includes('AbortError') || err?.name === 'AbortError') {
+    } catch (err: unknown) {
+      const normalizedError = normalizeClientError(err, 'Failed to fetch products')
+      const message = normalizedError.message.toLowerCase()
+      const isSessionOrNetworkTransient =
+        normalizedError.isAbortLike ||
+        normalizedError.code === 'PGRST301' ||
+        message.includes('jwt') ||
+        message.includes('session') ||
+        message.includes('network')
+
+      if (hasLoadedOnceRef.current && productCountRef.current > 0 && isSessionOrNetworkTransient) {
+        console.warn('[useProducts] transient refresh issue, keeping previous data', {
+          message: normalizedError.message,
+          code: normalizedError.code,
+        })
+        return
+      }
+
+      if (normalizedError.isAbortLike) {
         if (mountedRef.current) setIsLoading(false)
         return
       }
-      
-      console.error('Error fetching products:', err)
-      if (mountedRef.current) setError(err.message)
+
+      console.warn('[useProducts] fetchProducts failed', {
+        message: normalizedError.message,
+        code: normalizedError.code,
+      })
+      if (mountedRef.current) setError(normalizedError.message)
     } finally {
       if (mountedRef.current) {
         setIsLoading(false)
         hasLoadedOnceRef.current = true
       }
+      isFetchingRef.current = false
+      logClientTiming('useProducts.fetchProducts', startedAt, { rowCount })
     }
-  }
+  }, [supabase, withTimeout])
 
   useEffect(() => {
     mountedRef.current = true
     fetchProducts()
     return () => { mountedRef.current = false }
-  }, [])
-
-  // Auto-retry: if loading stays stuck for 5s, retry the fetch
-  useEffect(() => {
-    if (!isLoading) return
-    const retryTimer = setTimeout(() => {
-      if (mountedRef.current && isLoading) {
-        fetchProducts()
-      }
-    }, 5000)
-    return () => clearTimeout(retryTimer)
-  }, [isLoading])
+  }, [fetchProducts])
 
   // Auto-refetch on window focus to prevent stale data after navigating back
   useEffect(() => {
@@ -248,7 +289,24 @@ export function useProducts() {
       window.removeEventListener('focus', handleFocus)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [])
+  }, [fetchProducts])
+
+  // Keep admin product views live without requiring manual refresh.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const isAdminRoute = window.location.pathname.startsWith('/admin')
+    if (!isAdminRoute) return
+
+    const POLL_INTERVAL_MS = 15000
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchProducts()
+      }
+    }, POLL_INTERVAL_MS)
+
+    return () => window.clearInterval(timer)
+  }, [fetchProducts])
 
   async function addProduct(product: Partial<Product>): Promise<DbProduct | null> {
     // Generate slug from name if not provided
@@ -273,6 +331,7 @@ export function useProducts() {
       thickness: product.thickness,
       sqm_per_box: product.sqm_per_box,
       application_area: product.application_area,
+      model: product.model,
       brand: product.brand,
       availability: product.availability,
       panel_length: product.panel_length,
@@ -302,7 +361,7 @@ export function useProducts() {
       'name', 'slug', 'subtitle', 'description', 'price', 'image',
       'category_id', 'stock', 'status', 'low_stock_threshold',
       'assigned_code', 'material', 'size', 'finish', 'thickness',
-      'sqm_per_box', 'application_area', 'is_clearance',
+      'sqm_per_box', 'application_area', 'is_clearance', 'model',
       'brand', 'availability', 'panel_length', 'panel_width',
       'package_included', 'has_led'
     ]

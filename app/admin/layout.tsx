@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation"
 import { getServerSession } from "@/lib/loaders"
 import { AdminHeader } from "@/components/admin/AdminHeader"
+import { AdminLayout as AdminShell } from "@/components/admin/AdminLayout"
 
 // Prevent Next.js from caching any admin page — always fetch fresh data
 export const dynamic = 'force-dynamic'
@@ -20,9 +21,9 @@ export default async function AdminLayout({
   return (
   <>
     <AdminHeader session={session} />
-    <main className="min-h-screen bg-background">
+    <AdminShell userRole={session.userRole}>
       {children}
-    </main>
+    </AdminShell>
   </>
 )
 }

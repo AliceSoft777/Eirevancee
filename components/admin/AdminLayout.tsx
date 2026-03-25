@@ -1,9 +1,8 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
+import { usePathname } from "next/navigation"
 import { useStore } from "@/hooks/useStore"
-import { getSupabaseBrowserClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { 
   LayoutDashboard, 
@@ -11,7 +10,6 @@ import {
   Package, 
   Users,
   UserRoundCog,
-  MessageSquare,
   Star,
   Tag,
   Mail,
@@ -25,9 +23,11 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useEffect, useMemo, useState } from "react"
+import { logoutOrchestrator } from "@/lib/logout-orchestrator"
 
 interface AdminLayoutProps {
   children: React.ReactNode
+  userRole: "admin" | "sales"
 }
 
 interface NavItem {
@@ -44,7 +44,6 @@ const allNavigation: NavItem[] = [
   { name: "Products", href: "/admin/products/list", icon: Package },
   { name: "Reviews", href: "/admin/reviews/pending", icon: Star },
   { name: "Customers", href: "/admin/customers/list", icon: Users },
-  //{ name: "Support", href: "/admin/feedback/list", icon: MessageSquare },
   // Admin-only items
   { name: "Team", href: "/admin/team/list", icon: UserRoundCog, adminOnly: true },
   { name: "Marketing", href: "/admin/marketing/coupons", icon: Tag, adminOnly: true },
@@ -53,15 +52,15 @@ const allNavigation: NavItem[] = [
   { name: "Settings", href: "/admin/settings/general", icon: Settings, adminOnly: true },
 ]
 
-export function AdminLayout({ children }: AdminLayoutProps) {
+export function AdminLayout({ children, userRole }: AdminLayoutProps) {
   const pathname = usePathname()
-  const router = useRouter()
-  const { user, canAccessDashboard, isAdmin, logout, _hasHydrated } = useStore()
+  const { logout } = useStore()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const isAdmin = userRole === "admin"
 
   // Filter navigation based on role
   const navigation = useMemo(() => {
-    if (isAdmin()) {
+    if (isAdmin) {
       return allNavigation
     }
     return allNavigation.filter(item => !item.adminOnly)
@@ -72,59 +71,12 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     setIsSidebarOpen(false)
   }, [pathname])
 
-  // Redirect if not authorized
-  useEffect(() => {
-    if (_hasHydrated && (!user || !canAccessDashboard())) {
-      router.push("/login")
-    }
-  }, [_hasHydrated, user, canAccessDashboard, router])
-
   const handleLogout = async () => {
-    try {
-      const supabase = getSupabaseBrowserClient()
-      
-      // ✅ Sign out from Supabase
-      await supabase.auth.signOut()
-      
-      // ✅ Clear Zustand state & localStorage
-      await logout()
-      
-      // ✅ Clear all storage
-      if (typeof window !== 'undefined') {
-        localStorage.clear()
-        sessionStorage.clear()
-      }
-      
-      // ✅ Hard redirect with page reload
-      window.location.href = '/'
-    } catch (err) {
-      console.error("Logout error:", err)
-      logout()
-      
-      if (typeof window !== 'undefined') {
-        localStorage.clear()
-        sessionStorage.clear()
-      }
-      
-      window.location.href = '/'
-    }
-  }
-
-  // Loading state
-  if (!_hasHydrated) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
-          <p className="text-muted-foreground text-sm">Loading...</p>
-        </div>
-      </div>
-    )
-  }
-
-  // Not authorized
-  if (!user || !canAccessDashboard()) {
-    return null
+    await logoutOrchestrator({
+      redirectTo: "/",
+      setLoggedOutCookie: true,
+      runStoreLogout: logout,
+    })
   }
 
   return (
@@ -132,12 +84,13 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       {/* Mobile Header */}
       <header className="lg:hidden shrink-0 z-30 bg-card border-b border-border px-4 py-3 flex items-center justify-between" suppressHydrationWarning>
         <h1 className="text-lg font-serif font-bold text-primary">
-          Celtic Tiles <span className="text-xs font-sans text-muted-foreground">{isAdmin() ? "Admin" : "Staff"}</span>
+          Celtic Tiles <span className="text-xs font-sans text-muted-foreground">{isAdmin ? "Admin" : "Staff"}</span>
         </h1>
         <Button
           variant="ghost"
           size="sm"
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+          aria-label={isSidebarOpen ? "Close navigation menu" : "Open navigation menu"}
           suppressHydrationWarning
           className="hover:text-foreground"
         >
@@ -162,7 +115,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           isSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}
         style={{
-          background: 'hsl(var(--neu-bg))',
+          background: '#eef1f5',
           borderRight: '1px solid hsl(var(--border) / 0.3)'
         }}>
           {/* Logo - Desktop only */}
@@ -170,7 +123,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             borderBottom: '1px solid hsl(var(--border) / 0.3)'
           }}>
             <h1 className="text-lg font-serif font-bold text-primary">
-              Celtic Tiles <span className="text-sm font-sans text-muted-foreground">{isAdmin() ? "Admin" : "Staff"}</span>
+              Celtic Tiles <span className="text-sm font-sans text-muted-foreground">{isAdmin ? "Admin" : "Staff"}</span>
             </h1>
           </div>
 
@@ -180,6 +133,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           }}>
             <span className="font-medium text-foreground">Menu</span>
             <Button variant="ghost" size="sm" onClick={() => setIsSidebarOpen(false)} suppressHydrationWarning
+              aria-label="Close menu"
               className="hover:bg-transparent rounded-xl neu-raised"
             >
               <X className="h-5 w-5 text-muted-foreground" />

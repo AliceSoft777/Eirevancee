@@ -11,8 +11,6 @@ import { EmptyState } from '@/components/admin/EmptyState'
 import { DeleteConfirmDialog } from '@/components/admin/DeleteConfirmDialog'
 import { TeamMemberModal } from '@/components/admin/TeamMemberModal'
 import { Pagination } from '@/components/admin/Pagination'
-import { AdminLayout } from '@/components/admin/AdminLayout'
-import { AdminRoute } from '@/components/admin/AdminRoute'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { toast } from 'sonner'
 import * as React from "react"
@@ -100,9 +98,7 @@ export default function TeamListClient({ initialTeamMembers, serverError }: Team
   }
 
   return (
-    <AdminRoute>
-      <AdminLayout>
-        <div className="space-y-6">
+    <div className="space-y-6">
           {/* Header */}
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
@@ -293,8 +289,6 @@ export default function TeamListClient({ initialTeamMembers, serverError }: Team
               </DialogContent>
             </Dialog>
           )}
-        </div>
-      </AdminLayout>
-    </AdminRoute>
+    </div>
   )
 }

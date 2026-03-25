@@ -10,7 +10,10 @@ if (typeof window !== 'undefined' && navigator?.locks?.request) {
   ): Promise<any> => {
     const p = third ? orig(name, second, third) : orig(name, second)
     return p.catch((err: any) => {
-      if (err?.name === 'AbortError' || err?.message?.includes('signal is aborted') || err?.code === 20) {
+      const isAbortError = err?.name === 'AbortError' || err?.message?.includes('signal is aborted') || err?.code === 20
+      const isTimeoutError = err?.name === 'TimeoutError' || err?.code === 23 || err?.message?.toLowerCase?.().includes('timeout')
+
+      if (isAbortError || isTimeoutError) {
         return undefined
       }
       throw err

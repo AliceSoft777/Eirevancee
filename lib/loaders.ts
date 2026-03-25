@@ -1,6 +1,8 @@
 import { cache } from 'react'
+import { unstable_cache } from 'next/cache'
+import { createClient } from '@supabase/supabase-js'
 import { createServerSupabase } from '@/lib/supabase/server'
-import type { Category, Product } from "@/lib/supabase-types"
+import type { Category, Product, Database } from "@/lib/supabase-types"
 
 
 /**
@@ -30,10 +32,57 @@ export interface WishlistItemData {
   product_id: string
 }
 
+// Public server client for non-user-specific read-only data.
+const publicSupabase = createClient<Database>(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  }
+)
+
+const getCachedCategories = unstable_cache(
+  async () => {
+    const { data, error } = await publicSupabase
+      .from('categories')
+      .select('id, name, slug, parent_id, image, description, created_at')
+      .order('name', { ascending: true })
+
+    if (error) {
+      throw error
+    }
+
+    return (data || []) as Category[]
+  },
+  ['nav-categories-v1'],
+  { revalidate: 300 }
+)
+
+const getCachedNavProductsData = unstable_cache(
+  async () => {
+    const { data, error } = await publicSupabase
+      .from('products')
+      .select('id, name, slug, price, image, category_id, status, is_clearance')
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      throw error
+    }
+
+    return (data || []) as Product[]
+  },
+  ['nav-products-v1'],
+  { revalidate: 120 }
+)
+
 /**
  * Get current user session from Supabase auth
  */
-export const getServerSession = cache(async function getServerSession(): Promise<ServerSession> {
+export async function getServerSession(): Promise<ServerSession> {
   try {
     const supabase = await createServerSupabase()
     const response = await supabase.auth.getUser()
@@ -64,7 +113,7 @@ export const getServerSession = cache(async function getServerSession(): Promise
   } catch {
     return { userId: null, userName: null, userEmail: null, userRole: 'customer' }
   }
-})
+}
 
 /**
  * Category with children for hierarchical navigation
@@ -79,23 +128,10 @@ export interface CategoryWithChildren extends Category {
  */
 export const getNavData = cache(async function getNavData(): Promise<{ categories: CategoryWithChildren[] }> {
   try {
-    const supabase = await createServerSupabase()
-
-    const { data, error } = await supabase
-      .from('categories')
-      .select('id, name, slug, parent_id, image, description, created_at')
-      .order('name', { ascending: true })
-
-    if (error) {
-      console.error('getNavData error:', error)
+    const typedData = await getCachedCategories()
+    if (typedData.length === 0) {
       return { categories: [] }
     }
-
-    if (!data || data.length === 0) {
-      return { categories: [] }
-    }
-
-    const typedData = data as Category[]
 
     const map = new Map<string, CategoryWithChildren>()
     const roots: CategoryWithChildren[] = []
@@ -200,20 +236,8 @@ export async function getProducts(limit?: number): Promise<{ products: Product[]
  */
 export async function getNavProducts(): Promise<{ products: Product[] }> {
   try {
-    const supabase = await createServerSupabase()
-    
-
-    const { data, error } = await supabase
-      .from('products')
-      .select('id, name, slug, price, image, category_id, status, is_clearance')
-      .eq('status', 'active')
-      .order('created_at', { ascending: false })
-      // console.log("getNavProducts result:", data, error);
-
-
-    if (error) throw error
-
-    return { products: (data || []) as Product[] }
+    const products = await getCachedNavProductsData()
+    return { products }
   } catch {
     return { products: [] }
   }

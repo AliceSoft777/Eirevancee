@@ -1,7 +1,5 @@
 "use client"
 
-import { AdminRoute } from "@/components/admin/AdminRoute"
-import { AdminLayout } from "@/components/admin/AdminLayout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -133,12 +131,11 @@ export default function GeneralSettingsPage() {
   }
 
   return (
-    <AdminRoute>
-      <AdminLayout>
-          {isLoadingSettings ? (
-            <SettingsSkeleton />
-          ) : (
-          <>
+    <div className="space-y-6">
+      {isLoadingSettings ? (
+        <SettingsSkeleton />
+      ) : (
+        <>
           <div>
             <h1 className="text-3xl font-serif font-bold text-primary">General Settings</h1>
             <p className="text-muted-foreground mt-1">Configure store settings and preferences</p>
@@ -306,9 +303,8 @@ export default function GeneralSettingsPage() {
               </Button>
             </CardContent>
           </Card>
-          </>
-          )}
-      </AdminLayout>
-    </AdminRoute>
+        </>
+      )}
+    </div>
   )
 }

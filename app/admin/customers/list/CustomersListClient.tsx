@@ -1,8 +1,6 @@
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
-import { AdminRoute } from "@/components/admin/AdminRoute"
-import { AdminLayout } from "@/components/admin/AdminLayout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -63,8 +61,8 @@ export default function CustomersListClient({ initialCustomers }: CustomersListC
 
   const handleDeactivate = async (id: string) => {
     try {
-      const { error } = await supabase
-        .from('profiles')
+      const { error } = await (supabase
+        .from('profiles') as any)
         .update({ is_active: false })
         .eq('id', id)
 
@@ -105,8 +103,8 @@ export default function CustomersListClient({ initialCustomers }: CustomersListC
     if (!editCustomer) return
     setIsSaving(true)
     try {
-      const { error } = await supabase
-        .from('profiles')
+      const { error } = await (supabase
+        .from('profiles') as any)
         .update({ full_name: editName, phone: editPhone })
         .eq('id', editCustomer.id)
 
@@ -125,9 +123,7 @@ export default function CustomersListClient({ initialCustomers }: CustomersListC
   }
 
   return (
-    <AdminRoute>
-      <AdminLayout>
-        <div className="space-y-6">
+    <div className="space-y-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
               <h1 className="text-3xl font-serif font-bold text-primary">Customers</h1>
@@ -210,7 +206,6 @@ export default function CustomersListClient({ initialCustomers }: CustomersListC
               )}
             </CardContent>
           </Card>
-        </div>
 
         {/* Edit Customer Dialog */}
         <Dialog open={!!editCustomer} onOpenChange={(open) => { if (!open) setEditCustomer(null) }}>
@@ -269,15 +264,14 @@ export default function CustomersListClient({ initialCustomers }: CustomersListC
           onCancel={() => setDeleteId(null)}
         />
 
-        <DeleteConfirmDialog
-          isOpen={!!deactivateId}
-          title="Deactivate Customer"
-          description="Are you sure you want to deactivate this customer? They will not be able to log in."
-          itemName="customer"
-          onConfirm={() => deactivateId && handleDeactivate(deactivateId)}
-          onCancel={() => setDeactivateId(null)}
-        />
-      </AdminLayout>
-    </AdminRoute>
+      <DeleteConfirmDialog
+        isOpen={!!deactivateId}
+        title="Deactivate Customer"
+        description="Are you sure you want to deactivate this customer? They will not be able to log in."
+        itemName="customer"
+        onConfirm={() => deactivateId && handleDeactivate(deactivateId)}
+        onCancel={() => setDeactivateId(null)}
+      />
+    </div>
   )
 }

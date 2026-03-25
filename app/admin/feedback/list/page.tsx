@@ -1,8 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { AdminRoute } from "@/components/admin/AdminRoute"
-import { AdminLayout } from "@/components/admin/AdminLayout"
 import { useStore } from "@/hooks/useStore"
 import { useFeedbacks } from "@/hooks/useReviews"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -51,9 +49,7 @@ export default function FeedbackListPage() {
   }
 
   return (
-    <AdminRoute>
-      <AdminLayout>
-        <div className="space-y-6">
+    <div className="space-y-6">
           <div>
             <h1 className="text-3xl font-serif font-bold text-primary">Support Tickets</h1>
             <p className="text-muted-foreground mt-1">Manage customer support and feedback</p>
@@ -164,19 +160,17 @@ export default function FeedbackListPage() {
               )}
             </CardContent>
           </Card>
-        </div>
 
         {/* Response Dialog */}
-        {respondingTo && (
-          <FeedbackResponseDialog
-            isOpen={!!respondingTo}
-            feedbackId={respondingTo.id}
-            feedbackSubject={respondingTo.subject}
-            onSend={handleRespond}
-            onCancel={() => setRespondingTo(null)}
-          />
-        )}
-      </AdminLayout>
-    </AdminRoute>
+      {respondingTo && (
+        <FeedbackResponseDialog
+          isOpen={!!respondingTo}
+          feedbackId={respondingTo.id}
+          feedbackSubject={respondingTo.subject}
+          onSend={handleRespond}
+          onCancel={() => setRespondingTo(null)}
+        />
+      )}
+    </div>
   )
 }

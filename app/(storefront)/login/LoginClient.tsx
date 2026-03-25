@@ -6,9 +6,17 @@ import Link from "next/link"
 import { useState, useEffect } from "react"
 import { useStore } from "@/hooks/useStore"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
-import { useRouter } from "next/navigation"
 import { Chrome, Eye, EyeOff } from "lucide-react"
 import { toast } from "sonner"
+
+function reportAuthAudit(event: string, payload: Record<string, unknown>) {
+    fetch('/api/auth/audit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event, ...payload }),
+        keepalive: true,
+    }).catch(() => {})
+}
 
 export default function LoginClient() {
     const supabase = getSupabaseBrowserClient()
@@ -19,7 +27,6 @@ export default function LoginClient() {
     const [showPassword, setShowPassword] = useState(false)
     const [rememberMe, setRememberMe] = useState(false)
     const { login } = useStore()
-    const router = useRouter()
 
     // Show logout success toast if redirected from logout
     useEffect(() => {
@@ -81,15 +88,22 @@ export default function LoginClient() {
                 
                 // ✅ Show login success toast
                 toast.success(`Welcome back, ${userName}!`)
+
+                reportAuthAudit('login_success', {
+                    userId: data.user.id,
+                    role: roleName,
+                    source: 'login_client',
+                    path: window.location.pathname,
+                })
                 
                 // ✅ Clear loading state before redirect
                 setIsLoading(false)
                 
                 // Redirect based on role
                 if (roleName === 'admin' || roleName === 'sales') {
-                    router.push('/admin/dashboard')
+                    window.location.href = '/admin/dashboard'
                 } else {
-                    router.push('/')
+                    window.location.href = '/'
                 }
             }
         } catch {

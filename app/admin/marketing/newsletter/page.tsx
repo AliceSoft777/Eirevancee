@@ -1,12 +1,10 @@
 "use client"
 
-import { AdminRoute } from "@/components/admin/AdminRoute"
-import { AdminLayout } from "@/components/admin/AdminLayout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Mail, Download, Search } from "lucide-react"
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { toast } from "sonner"
 import type { NewsletterSubscription } from "@/lib/supabase-types"
@@ -17,11 +15,7 @@ export default function NewsletterSubscribersPage() {
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
 
-  useEffect(() => {
-    fetchSubscribers()
-  }, [])
-
-  const fetchSubscribers = async () => {
+  const fetchSubscribers = useCallback(async () => {
     try {
       setLoading(true)
       const { data, error } = await supabase
@@ -42,7 +36,27 @@ export default function NewsletterSubscribersPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [supabase])
+
+  useEffect(() => {
+    fetchSubscribers()
+  }, [fetchSubscribers])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+
+    const isAdminRoute = window.location.pathname.startsWith("/admin")
+    if (!isAdminRoute) return
+
+    const POLL_INTERVAL_MS = 15000
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        fetchSubscribers()
+      }
+    }, POLL_INTERVAL_MS)
+
+    return () => window.clearInterval(timer)
+  }, [fetchSubscribers])
 
   const filteredSubscribers = useMemo(() => {
     if (!searchQuery.trim()) return subscribers
@@ -84,9 +98,7 @@ export default function NewsletterSubscribersPage() {
   }
 
   return (
-    <AdminRoute>
-      <AdminLayout>
-        <div className="space-y-6">
+    <div className="space-y-6">
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-3xl font-serif font-bold text-primary">Newsletter Subscribers</h1>
@@ -198,8 +210,6 @@ export default function NewsletterSubscribersPage() {
               )}
             </CardContent>
           </Card>
-        </div>
-      </AdminLayout>
-    </AdminRoute>
+    </div>
   )
 }

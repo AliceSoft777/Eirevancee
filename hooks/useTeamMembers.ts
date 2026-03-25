@@ -80,6 +80,23 @@ export function useTeamMembers() {
     return () => clearTimeout(t)
   }, [isLoading, fetchTeamMembers])
 
+  // Keep admin team pages fresh without requiring focus changes.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const isAdminRoute = window.location.pathname.startsWith('/admin')
+    if (!isAdminRoute) return
+
+    const POLL_INTERVAL_MS = 15000
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchTeamMembers()
+      }
+    }, POLL_INTERVAL_MS)
+
+    return () => window.clearInterval(timer)
+  }, [fetchTeamMembers])
+
   async function addTeamMember(member: Omit<TeamMember, 'id' | 'created_at'> & { password: string }) {
     // Create Supabase Auth account first
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({

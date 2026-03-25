@@ -1,7 +1,5 @@
 "use client"
 
-import { AdminRoute } from "@/components/admin/AdminRoute"
-import { AdminLayout } from "@/components/admin/AdminLayout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -22,9 +20,7 @@ export default function CustomerDetailClient({ customer, orders, addresses }: Cu
   const totalOrders = orders.length
 
   return (
-    <AdminRoute>
-      <AdminLayout>
-        <div className="space-y-6">
+    <div className="space-y-6">
           {/* Header */}
           <div className="flex items-center gap-4">
             <Button variant="outline" size="sm" asChild>
@@ -151,8 +147,6 @@ export default function CustomerDetailClient({ customer, orders, addresses }: Cu
               )}
             </CardContent>
           </Card>
-        </div>
-      </AdminLayout>
-    </AdminRoute>
+    </div>
   )
 }

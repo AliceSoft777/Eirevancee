@@ -110,6 +110,23 @@ export function useCustomers() {
     return () => clearTimeout(t)
   }, [isLoading, fetchCustomers])
 
+  // Keep admin customer screens fresh without requiring focus changes.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const isAdminRoute = window.location.pathname.startsWith('/admin')
+    if (!isAdminRoute) return
+
+    const POLL_INTERVAL_MS = 15000
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchCustomers()
+      }
+    }, POLL_INTERVAL_MS)
+
+    return () => window.clearInterval(timer)
+  }, [fetchCustomers])
+
   return {
     customers,
     isLoading,

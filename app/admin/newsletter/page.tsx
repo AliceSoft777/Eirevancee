@@ -1,8 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { AdminRoute } from "@/components/admin/AdminRoute"
-import { AdminLayout } from "@/components/admin/AdminLayout"
+import { useCallback, useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -30,27 +28,44 @@ export default function NewsletterPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
 
-  useEffect(() => {
-    async function fetchSubscribers() {
-      setIsLoading(true)
-      try {
-        const result = await (supabase
-          .from("newsletter_subscriptions") as any)
-          .select("*")
-          .order("subscribed_at", { ascending: false })
+  const fetchSubscribers = useCallback(async () => {
+    setIsLoading(true)
+    try {
+      const result = await (supabase
+        .from("newsletter_subscriptions") as any)
+        .select("*")
+        .order("subscribed_at", { ascending: false })
 
-        if (!result || result.error) {
-          throw result?.error || new Error('Failed to fetch subscribers')
-        }
-        setSubscribers((result.data as Subscriber[]) || [])
-      } catch (err: any) {
-        toast.error("Failed to load subscribers: " + (err?.message || 'Unknown error'))
-      } finally {
-        setIsLoading(false)
+      if (!result || result.error) {
+        throw result?.error || new Error('Failed to fetch subscribers')
       }
+      setSubscribers((result.data as Subscriber[]) || [])
+    } catch (err: any) {
+      toast.error("Failed to load subscribers: " + (err?.message || 'Unknown error'))
+    } finally {
+      setIsLoading(false)
     }
+  }, [supabase])
+
+  useEffect(() => {
     fetchSubscribers()
-  }, [])
+  }, [fetchSubscribers])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+
+    const isAdminRoute = window.location.pathname.startsWith("/admin")
+    if (!isAdminRoute) return
+
+    const POLL_INTERVAL_MS = 15000
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        fetchSubscribers()
+      }
+    }, POLL_INTERVAL_MS)
+
+    return () => window.clearInterval(timer)
+  }, [fetchSubscribers])
 
   const filtered = subscribers.filter(
     (s) =>
@@ -110,9 +125,7 @@ export default function NewsletterPage() {
   }
 
   return (
-    <AdminRoute>
-      <AdminLayout>
-        <div className="space-y-6">
+    <div className="space-y-6">
           {/* Header */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
@@ -209,8 +222,6 @@ export default function NewsletterPage() {
               )}
             </CardContent>
           </Card>
-        </div>
-      </AdminLayout>
-    </AdminRoute>
+    </div>
   )
 }
