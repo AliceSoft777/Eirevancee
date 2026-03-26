@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
-import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { OrdersTable } from "@/components/admin/OrdersTable"
 import { Input } from "@/components/ui/input"
@@ -17,6 +16,7 @@ import { TableSkeleton } from "@/components/admin/TableSkeleton"
 import { Pagination } from "@/components/admin/Pagination"
 import { EmptyState } from "@/components/admin/EmptyState"
 import { usePagination } from "@/hooks/usePagination"
+import { useRealtimeTable } from "@/hooks/useRealtimeTable"
 
 export type OrderListItem = {
   id: string
@@ -36,17 +36,54 @@ export default function OrdersListClient({
 }: {
   orders: OrderListItem[]
 }) {
-  const router = useRouter()
+  const [ordersState, setOrdersState] = useState<OrderListItem[]>(orders)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
 
-  // Refresh data when component mounts (e.g., after navigation back from detail page)
-  useEffect(() => {
-    router.refresh()
-  }, [router])
+  useRealtimeTable({
+    table: 'orders',
+    onInsert: (row) => {
+      const mapped: OrderListItem = {
+        id: row.id,
+        orderNumber: row.order_number,
+        customerName: row.customer_name,
+        customerEmail: row.customer_email,
+        customerPhone: row.customer_phone ?? null,
+        status: row.status,
+        total: String(row.total),
+        createdAt: row.created_at,
+        deliveryAddress: row.delivery_address ?? null,
+        items: Array.isArray(row.items) ? row.items : [],
+      }
+
+      setOrdersState((prev) => {
+        const filtered = prev.filter((order) => order.id !== mapped.id)
+        return [mapped, ...filtered].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      })
+    },
+    onUpdate: (row) => {
+      const mapped: OrderListItem = {
+        id: row.id,
+        orderNumber: row.order_number,
+        customerName: row.customer_name,
+        customerEmail: row.customer_email,
+        customerPhone: row.customer_phone ?? null,
+        status: row.status,
+        total: String(row.total),
+        createdAt: row.created_at,
+        deliveryAddress: row.delivery_address ?? null,
+        items: Array.isArray(row.items) ? row.items : [],
+      }
+
+      setOrdersState((prev) => prev.map((order) => (order.id === mapped.id ? mapped : order)))
+    },
+    onDelete: (row) => {
+      setOrdersState((prev) => prev.filter((order) => order.id !== row.id))
+    },
+  })
 
   const filteredOrders = useMemo(() => {
-    return orders.filter(order => {
+    return ordersState.filter(order => {
       const matchesSearch =
         order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
         order.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -57,7 +94,7 @@ export default function OrdersListClient({
 
       return matchesSearch && matchesStatus
     })
-  }, [orders, searchTerm, statusFilter])
+  }, [ordersState, searchTerm, statusFilter])
 
   const {
     currentPage,
@@ -122,7 +159,7 @@ export default function OrdersListClient({
               <CardTitle>All Orders ({filteredOrders.length})</CardTitle>
             </CardHeader>
             <CardContent>
-              {filteredOrders.length === 0 && orders.length === 0 ? (
+              {filteredOrders.length === 0 && ordersState.length === 0 ? (
                 <EmptyState
                   icon={ShoppingBag}
                   title="No orders yet"

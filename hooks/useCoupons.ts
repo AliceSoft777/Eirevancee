@@ -24,19 +24,13 @@ export function useCoupons() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const mountedRef = useRef(true)
+  const inFlightRef = useRef(false)
 
   useEffect(() => {
     mountedRef.current = true
     fetchCoupons()
     return () => { mountedRef.current = false }
   }, [])
-
-  // Auto-retry: if loading stays stuck for 5s, retry
-  useEffect(() => {
-    if (!isLoading) return
-    const t = setTimeout(() => { if (mountedRef.current && isLoading) fetchCoupons() }, 5000)
-    return () => clearTimeout(t)
-  }, [isLoading])
 
   // Keep admin coupon screens fresh without requiring focus changes.
   useEffect(() => {
@@ -47,7 +41,7 @@ export function useCoupons() {
 
     const POLL_INTERVAL_MS = 15000
     const timer = window.setInterval(() => {
-      if (document.visibilityState === 'visible') {
+      if (document.visibilityState === 'visible' && !inFlightRef.current) {
         fetchCoupons()
       }
     }, POLL_INTERVAL_MS)
@@ -56,7 +50,10 @@ export function useCoupons() {
   }, [])
 
   async function fetchCoupons() {
+    if (inFlightRef.current) return
+
     try {
+      inFlightRef.current = true
       setIsLoading(true)
       const result = await (supabase
         .from('coupons') as any)
@@ -105,6 +102,7 @@ export function useCoupons() {
     } catch (err: any) {
       if (mountedRef.current) setError(err.message)
     } finally {
+      inFlightRef.current = false
       if (mountedRef.current) setIsLoading(false)
     }
   }

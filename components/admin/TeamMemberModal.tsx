@@ -21,12 +21,13 @@ import {
 } from "@/components/ui/select"
 import { Loader2, Eye, EyeOff } from "lucide-react"
 import { toast } from "sonner"
-import { useTeamMembers, TeamMember } from "@/hooks/useTeamMembers"
+import { TeamMember } from "@/hooks/useTeamMembers"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 
 interface TeamMemberModalProps {
   isOpen: boolean
   onClose: () => void
+  onRefetch: () => Promise<void> | void
   member?: TeamMember | null // If null, we are in "Create" mode
 }
 
@@ -48,8 +49,7 @@ const INITIAL_FORM_STATE: TeamMemberFormState = {
   password: "",
 }
 
-export function TeamMemberModal({ isOpen, onClose, member }: TeamMemberModalProps) {
-  const { refetch } = useTeamMembers()
+export function TeamMemberModal({ isOpen, onClose, onRefetch, member }: TeamMemberModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [formData, setFormData] = useState<TeamMemberFormState>(INITIAL_FORM_STATE)
@@ -147,7 +147,7 @@ export function TeamMemberModal({ isOpen, onClose, member }: TeamMemberModalProp
       )
 
       // Refetch team members and close
-      await refetch()
+      await onRefetch()
       setFormData(INITIAL_FORM_STATE)
       onClose()
     } catch (err: any) {

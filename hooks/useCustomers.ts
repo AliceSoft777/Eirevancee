@@ -20,9 +20,13 @@ export function useCustomers() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const mountedRef = useRef(true)
+  const inFlightRef = useRef(false)
 
   const fetchCustomers = useCallback(async () => {
+    if (inFlightRef.current) return
+
     try {
+      inFlightRef.current = true
       setIsLoading(true)
       setError(null)
       
@@ -93,22 +97,16 @@ export function useCustomers() {
     } catch (err: any) {
       if (mountedRef.current) setError(err.message || 'Failed to fetch customers')
     } finally {
+      inFlightRef.current = false
       if (mountedRef.current) setIsLoading(false)
     }
-  }, [])
+  }, [supabase])
 
   useEffect(() => {
     mountedRef.current = true
     fetchCustomers()
     return () => { mountedRef.current = false }
   }, [fetchCustomers])
-
-  // Auto-retry: if loading stays stuck for 5s, retry
-  useEffect(() => {
-    if (!isLoading) return
-    const t = setTimeout(() => { if (mountedRef.current && isLoading) fetchCustomers() }, 5000)
-    return () => clearTimeout(t)
-  }, [isLoading, fetchCustomers])
 
   // Keep admin customer screens fresh without requiring focus changes.
   useEffect(() => {
@@ -119,7 +117,7 @@ export function useCustomers() {
 
     const POLL_INTERVAL_MS = 15000
     const timer = window.setInterval(() => {
-      if (document.visibilityState === 'visible') {
+      if (document.visibilityState === 'visible' && !inFlightRef.current) {
         fetchCustomers()
       }
     }, POLL_INTERVAL_MS)

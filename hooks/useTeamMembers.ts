@@ -19,9 +19,13 @@ export function useTeamMembers() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const mountedRef = useRef(true)
+  const inFlightRef = useRef(false)
 
   const fetchTeamMembers = useCallback(async () => {
+    if (inFlightRef.current) return
+
     try {
+      inFlightRef.current = true
       setIsLoading(true)
       setError(null)
       
@@ -63,22 +67,16 @@ export function useTeamMembers() {
     } catch (err: any) {
       if (mountedRef.current) setError(err.message || 'Failed to fetch team members')
     } finally {
+      inFlightRef.current = false
       if (mountedRef.current) setIsLoading(false)
     }
-  }, [])
+  }, [supabase])
 
   useEffect(() => {
     mountedRef.current = true
     fetchTeamMembers()
     return () => { mountedRef.current = false }
   }, [fetchTeamMembers])
-
-  // Auto-retry: if loading stays stuck for 5s, retry
-  useEffect(() => {
-    if (!isLoading) return
-    const t = setTimeout(() => { if (mountedRef.current && isLoading) fetchTeamMembers() }, 5000)
-    return () => clearTimeout(t)
-  }, [isLoading, fetchTeamMembers])
 
   // Keep admin team pages fresh without requiring focus changes.
   useEffect(() => {
@@ -89,7 +87,7 @@ export function useTeamMembers() {
 
     const POLL_INTERVAL_MS = 15000
     const timer = window.setInterval(() => {
-      if (document.visibilityState === 'visible') {
+      if (document.visibilityState === 'visible' && !inFlightRef.current) {
         fetchTeamMembers()
       }
     }, POLL_INTERVAL_MS)

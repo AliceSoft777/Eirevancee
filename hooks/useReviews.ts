@@ -54,19 +54,13 @@ export function useReviews() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const mountedRef = useRef(true)
+  const reviewsInFlightRef = useRef(false)
 
   useEffect(() => {
     mountedRef.current = true
     fetchReviews()
     return () => { mountedRef.current = false }
   }, [])
-
-  // Auto-retry: if loading stays stuck for 5s, retry
-  useEffect(() => {
-    if (!isLoading) return
-    const t = setTimeout(() => { if (mountedRef.current && isLoading) fetchReviews() }, 5000)
-    return () => clearTimeout(t)
-  }, [isLoading])
 
   // Keep admin review moderation screens fresh without requiring focus changes.
   useEffect(() => {
@@ -77,7 +71,7 @@ export function useReviews() {
 
     const POLL_INTERVAL_MS = 15000
     const timer = window.setInterval(() => {
-      if (document.visibilityState === 'visible') {
+      if (document.visibilityState === 'visible' && !reviewsInFlightRef.current) {
         fetchReviews()
       }
     }, POLL_INTERVAL_MS)
@@ -86,7 +80,10 @@ export function useReviews() {
   }, [])
 
   async function fetchReviews() {
+    if (reviewsInFlightRef.current) return
+
     try {
+      reviewsInFlightRef.current = true
       setIsLoading(true)
       const result = await (supabase
         .from('reviews') as any)
@@ -100,6 +97,7 @@ export function useReviews() {
     } catch (err: any) {
       if (mountedRef.current) setError(err.message)
     } finally {
+      reviewsInFlightRef.current = false
       if (mountedRef.current) setIsLoading(false)
     }
   }
@@ -140,19 +138,13 @@ export function useFeedbacks() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const mountedRef = useRef(true)
+  const feedbacksInFlightRef = useRef(false)
 
   useEffect(() => {
     mountedRef.current = true
     fetchFeedbacks()
     return () => { mountedRef.current = false }
   }, [])
-
-  // Auto-retry: if loading stays stuck for 5s, retry
-  useEffect(() => {
-    if (!isLoading) return
-    const t = setTimeout(() => { if (mountedRef.current && isLoading) fetchFeedbacks() }, 5000)
-    return () => clearTimeout(t)
-  }, [isLoading])
 
   // Keep admin feedback screens fresh without requiring focus changes.
   useEffect(() => {
@@ -163,7 +155,7 @@ export function useFeedbacks() {
 
     const POLL_INTERVAL_MS = 15000
     const timer = window.setInterval(() => {
-      if (document.visibilityState === 'visible') {
+      if (document.visibilityState === 'visible' && !feedbacksInFlightRef.current) {
         fetchFeedbacks()
       }
     }, POLL_INTERVAL_MS)
@@ -172,7 +164,10 @@ export function useFeedbacks() {
   }, [])
 
   async function fetchFeedbacks() {
+    if (feedbacksInFlightRef.current) return
+
     try {
+      feedbacksInFlightRef.current = true
       setIsLoading(true)
       
       // 1. Fetch Feedbacks
@@ -226,6 +221,7 @@ export function useFeedbacks() {
     } catch (err: any) {
       if (mountedRef.current) setError(err.message)
     } finally {
+      feedbacksInFlightRef.current = false
       if (mountedRef.current) setIsLoading(false)
     }
   }

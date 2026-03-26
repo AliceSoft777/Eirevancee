@@ -25,18 +25,23 @@ interface ProductsListClientProps {
 }
 
 export default function ProductsListClient({ initialProducts }: ProductsListClientProps) {
-  const { deleteProduct, refetch } = useProducts()
+  const [products, setProducts] = useState<ProductData[]>(initialProducts)
+  const { addProduct, updateProduct, deleteProduct, refetch } = useProducts({
+    initialData: initialProducts as any,
+    autoFetch: false,
+    enableLiveSync: true,
+  })
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [categoryFilter, setCategoryFilter] = useState("all")
 
   const uniqueCategories = useMemo(() => {
     const categories = new Set<string>()
-    initialProducts.forEach(p => {
+    products.forEach(p => {
       if ((p as any).categoryName) categories.add((p as any).categoryName)
     })
     return Array.from(categories).sort()
-  }, [initialProducts])
+  }, [products])
   
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -51,9 +56,18 @@ export default function ProductsListClient({ initialProducts }: ProductsListClie
     setSelectedProduct(product)
     setIsModalOpen(true)
   }
+
+  const handleSaved = async () => {
+    const latest = await refetch()
+    if (Array.isArray(latest)) {
+      setProducts(latest as any)
+    }
+    setIsModalOpen(false)
+    setSelectedProduct(null)
+  }
   
   const filteredProducts = useMemo(() => {
-    return initialProducts.filter(product => {
+    return products.filter(product => {
       const matchesSearch = 
         product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         product.slug.toLowerCase().includes(searchTerm.toLowerCase())
@@ -68,7 +82,7 @@ export default function ProductsListClient({ initialProducts }: ProductsListClie
 
       return matchesSearch && matchesStatus && matchesCategory
     })
-  }, [initialProducts, searchTerm, statusFilter, categoryFilter])
+  }, [products, searchTerm, statusFilter, categoryFilter])
 
   const { 
     currentPage, 
@@ -192,12 +206,19 @@ export default function ProductsListClient({ initialProducts }: ProductsListClie
           </Card>
 
           {/* Product Modal */}
-          <ProductFormModal 
-            isOpen={isModalOpen} 
-            onClose={() => setIsModalOpen(false)} 
-            onSave={refetch}
-            product={selectedProduct} 
-          />
+          {isModalOpen && (
+            <ProductFormModal 
+              isOpen={isModalOpen} 
+              onClose={() => {
+                setIsModalOpen(false)
+                setSelectedProduct(null)
+              }} 
+              onSave={handleSaved}
+              onCreateProduct={addProduct}
+              onUpdateProduct={updateProduct}
+              product={selectedProduct} 
+            />
+          )}
 
     </div>
   )

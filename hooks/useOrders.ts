@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { getSupabaseBrowserClient } from '@/lib/supabase'
 import { logClientTiming, normalizeClientError } from '@/lib/client-runtime-utils'
+import { useRealtimeTable } from '@/hooks/useRealtimeTable'
 
 // Component-friendly interface (camelCase, with nested data)
 export interface Order {
@@ -59,6 +60,7 @@ export function useOrders(userId?: string | null | 'ALL') {
   const orderCountRef = useRef(0)
   const isAdminMode = userId === 'ALL' || userId === undefined
   const cacheKey = 'admin_orders_cache_v1'
+  const realtimeEnabled = typeof userId === 'string' || isAdminMode
 
   useEffect(() => {
     orderCountRef.current = orders.length
@@ -117,6 +119,27 @@ export function useOrders(userId?: string | null | 'ALL') {
     })
   }, [])
 
+  const transformDbOrder = useCallback((dbOrder: any): Order => {
+    const orderItems = (dbOrder.items || []).map((item: any) => ({
+      productId: item.product_id,
+      productName: item.product_name,
+      sku: item.sku || '',
+      quantity: item.quantity,
+      unitPrice: item.unit_price,
+      subtotal: item.subtotal,
+      image: item.image,
+    }))
+
+    const history = (dbOrder.status_history || []).map((entry: any) => ({
+      status: entry.status,
+      note: entry.note || entry.notes || '',
+      updatedBy: entry.updated_by || entry.updatedBy || 'system',
+      timestamp: entry.timestamp || entry.created_at || new Date().toISOString(),
+    }))
+
+    return transformOrder(dbOrder, orderItems, history)
+  }, [])
+
   const fetchAdminOrdersFromServer = useCallback(async (): Promise<any[] | null> => {
     if (typeof window === 'undefined' || !isAdminMode) return null
 
@@ -163,9 +186,7 @@ export function useOrders(userId?: string | null | 'ALL') {
       const supabase = getSupabaseBrowserClient()
 
       if (isAdminMode) {
-        const authProbe = await supabase.auth.getSession()
         console.info('[useOrders] admin fetch start', {
-          hasSession: Boolean(authProbe.data.session),
           route: typeof window !== 'undefined' ? window.location.pathname : 'server',
           cachedRows: orderCountRef.current,
         })
@@ -317,49 +338,33 @@ export function useOrders(userId?: string | null | 'ALL') {
     return () => { mountedRef.current = false }
   }, [fetchOrders])
 
-  // Auto-refetch on window focus to prevent stale data after navigating back
+  useRealtimeTable({
+    table: 'orders',
+    enabled: realtimeEnabled,
+    onInsert: (row) => {
+      if (!isAdminMode && typeof userId === 'string' && row.user_id !== userId) return
+
+      const mapped = transformDbOrder(row)
+      setOrders((prev) => {
+        const filtered = prev.filter((order) => order.id !== mapped.id)
+        return [mapped, ...filtered].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      })
+    },
+    onUpdate: (row) => {
+      if (!isAdminMode && typeof userId === 'string' && row.user_id !== userId) return
+
+      const mapped = transformDbOrder(row)
+      setOrders((prev) => prev.map((order) => (order.id === mapped.id ? mapped : order)))
+    },
+    onDelete: (row) => {
+      setOrders((prev) => prev.filter((order) => order.id !== row.id))
+    },
+  })
+
   useEffect(() => {
-    let lastFetchTime = 0
-    const MIN_REFETCH_INTERVAL_MS = 1000
-
-    const handleFocus = () => {
-      // Debounce refetches from rapid focus/visibility events.
-      if (Date.now() - lastFetchTime < MIN_REFETCH_INTERVAL_MS) return
-      lastFetchTime = Date.now()
-      fetchOrders()
-    }
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        handleFocus()
-      }
-    }
-
-    window.addEventListener('focus', handleFocus)
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-
-    return () => {
-      window.removeEventListener('focus', handleFocus)
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-    }
-  }, [fetchOrders])
-
-  // Keep admin dashboards live without requiring tab focus changes.
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-
-    const isAdminRoute = window.location.pathname.startsWith('/admin')
-    if (!isAdminRoute) return
-
-    const POLL_INTERVAL_MS = 15000
-    const timer = window.setInterval(() => {
-      if (document.visibilityState === 'visible') {
-        fetchOrders()
-      }
-    }, POLL_INTERVAL_MS)
-
-    return () => window.clearInterval(timer)
-  }, [fetchOrders])
+    if (typeof window === 'undefined' || !isAdminMode) return
+    sessionStorage.setItem(cacheKey, JSON.stringify(orders))
+  }, [cacheKey, isAdminMode, orders])
 
   function transformOrder(dbOrder: any, items: OrderItem[], statusHistory: StatusHistoryEntry[]): Order {
     return {
@@ -495,10 +500,6 @@ export function useOrders(userId?: string | null | 'ALL') {
 
 
 
-      // 5. Only refresh if we have a userId (user-specific orders)
-      if (userId) {
-        await fetchOrders()
-      }
     } catch (err) {
       console.error('[updateOrderStatus] Error:', err)
       throw err
@@ -508,7 +509,6 @@ export function useOrders(userId?: string | null | 'ALL') {
   async function updateOrderNotes(orderId: string, notes: string) {
     // ✅ REMOVED: internal_notes field no longer exists in orders table
     console.warn('updateOrderNotes: internal_notes field has been removed from orders table')
-    await fetchOrders()
   }
 
   function getOrdersByStatus(status: string) {

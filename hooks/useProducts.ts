@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, useRef } from 'react'
 import { getSupabaseBrowserClient } from '@/lib/supabase/client'
 import { logClientTiming, normalizeClientError } from '@/lib/client-runtime-utils'
+import { useRealtimeTable } from '@/hooks/useRealtimeTable'
 
 // Raw database types matching actual schema
 interface DbProduct {
@@ -152,19 +153,31 @@ function transformProduct(dbProduct: any): Product {
   }
 }
 
-export function useProducts() {
+type UseProductsOptions = {
+  initialData?: Product[]
+  autoFetch?: boolean
+  enableLiveSync?: boolean
+}
+
+export function useProducts(options: UseProductsOptions = {}) {
+  const { initialData = [], autoFetch = true, enableLiveSync = true } = options
   const supabase = getSupabaseBrowserClient()
-  const [products, setProducts] = useState<Product[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [products, setProducts] = useState<Product[]>(initialData)
+  const [isLoading, setIsLoading] = useState(autoFetch && initialData.length === 0)
   const [error, setError] = useState<string | null>(null)
   const mountedRef = useRef(true)
   const hasLoadedOnceRef = useRef(false)
   const isFetchingRef = useRef(false)
   const productCountRef = useRef(0)
+  const productsRef = useRef<Product[]>(initialData)
 
   useEffect(() => {
     productCountRef.current = products.length
   }, [products.length])
+
+  useEffect(() => {
+    productsRef.current = products
+  }, [products])
 
   const withTimeout = useCallback(async <T,>(promise: Promise<T>, timeoutMs: number, errorMessage: string): Promise<T> => {
     let timeoutId: ReturnType<typeof setTimeout> | undefined
@@ -178,8 +191,8 @@ export function useProducts() {
     }
   }, [])
 
-  const fetchProducts = useCallback(async () => {
-    if (isFetchingRef.current) return
+  const fetchProducts = useCallback(async (): Promise<Product[]> => {
+    if (isFetchingRef.current) return productsRef.current
 
     const startedAt = Date.now()
     let rowCount = 0
@@ -204,13 +217,13 @@ export function useProducts() {
       )
       const { data, error: fetchError } = result || {}
 
-      if (!mountedRef.current) return // Don't setState if unmounted
+      if (!mountedRef.current) return productsRef.current // Don't setState if unmounted
 
       if (fetchError) {
         const normalizedFetchError = normalizeClientError(fetchError, 'Failed to fetch products')
         if (normalizedFetchError.isAbortLike) {
           setIsLoading(false)
-          return
+          return productsRef.current
         }
         throw fetchError
       }
@@ -218,8 +231,9 @@ export function useProducts() {
       const transformedProducts = (data || []).map((p: any) => transformProduct(p))
       rowCount = transformedProducts.length
 
-      if (!mountedRef.current) return // Don't setState if unmounted
+      if (!mountedRef.current) return transformedProducts // Don't setState if unmounted
       setProducts(transformedProducts)
+      return transformedProducts
     } catch (err: unknown) {
       const normalizedError = normalizeClientError(err, 'Failed to fetch products')
       const message = normalizedError.message.toLowerCase()
@@ -235,12 +249,12 @@ export function useProducts() {
           message: normalizedError.message,
           code: normalizedError.code,
         })
-        return
+        return productsRef.current
       }
 
       if (normalizedError.isAbortLike) {
         if (mountedRef.current) setIsLoading(false)
-        return
+        return productsRef.current
       }
 
       console.warn('[useProducts] fetchProducts failed', {
@@ -248,6 +262,7 @@ export function useProducts() {
         code: normalizedError.code,
       })
       if (mountedRef.current) setError(normalizedError.message)
+      return productsRef.current
     } finally {
       if (mountedRef.current) {
         setIsLoading(false)
@@ -260,53 +275,35 @@ export function useProducts() {
 
   useEffect(() => {
     mountedRef.current = true
+
+    if (!autoFetch) {
+      setIsLoading(false)
+      hasLoadedOnceRef.current = true
+      return () => { mountedRef.current = false }
+    }
+
     fetchProducts()
     return () => { mountedRef.current = false }
-  }, [fetchProducts])
+  }, [autoFetch, fetchProducts])
 
-  // Auto-refetch on window focus to prevent stale data after navigating back
-  useEffect(() => {
-    let lastFetchTime = 0
-    const MIN_REFETCH_INTERVAL_MS = 1000
-
-    const handleFocus = () => {
-      // Debounce refetches from rapid focus/visibility events.
-      if (Date.now() - lastFetchTime < MIN_REFETCH_INTERVAL_MS) return
-      lastFetchTime = Date.now()
-      fetchProducts()
-    }
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        handleFocus()
-      }
-    }
-
-    window.addEventListener('focus', handleFocus)
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-
-    return () => {
-      window.removeEventListener('focus', handleFocus)
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-    }
-  }, [fetchProducts])
-
-  // Keep admin product views live without requiring manual refresh.
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-
-    const isAdminRoute = window.location.pathname.startsWith('/admin')
-    if (!isAdminRoute) return
-
-    const POLL_INTERVAL_MS = 15000
-    const timer = window.setInterval(() => {
-      if (document.visibilityState === 'visible') {
-        fetchProducts()
-      }
-    }, POLL_INTERVAL_MS)
-
-    return () => window.clearInterval(timer)
-  }, [fetchProducts])
+  useRealtimeTable({
+    table: 'products',
+    enabled: enableLiveSync,
+    onInsert: (row) => {
+      const mapped = transformProduct(row)
+      setProducts((prev) => {
+        const filtered = prev.filter((product) => product.id !== mapped.id)
+        return [mapped, ...filtered]
+      })
+    },
+    onUpdate: (row) => {
+      const mapped = transformProduct(row)
+      setProducts((prev) => prev.map((product) => (product.id === mapped.id ? mapped : product)))
+    },
+    onDelete: (row) => {
+      setProducts((prev) => prev.filter((product) => product.id !== row.id))
+    },
+  })
 
   async function addProduct(product: Partial<Product>): Promise<DbProduct | null> {
     // Generate slug from name if not provided
@@ -349,8 +346,6 @@ export function useProducts() {
 
     if (productError) throw productError
     
-    // Refetch to get complete data
-    await fetchProducts()
     return newProduct
   }
 
@@ -394,8 +389,6 @@ export function useProducts() {
       throw new Error('Product not found or update failed')
     }
     
-    // Refetch to get complete data with relations
-    await fetchProducts()
     return data[0]
   }
 

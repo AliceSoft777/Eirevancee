@@ -1,14 +1,13 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import { useRouter } from "next/navigation"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useProducts, Product } from "@/hooks/useProducts"
+import { Product } from "@/hooks/useProducts"
 import { useCategories } from "@/hooks/useCategories"
 import { Loader2 } from "lucide-react"
 import { toast } from "sonner"
@@ -18,14 +17,14 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client"
 interface ProductFormModalProps {
   isOpen: boolean
   onClose: () => void
-  onSave?: () => void // Called after successful save to trigger refetch
+  onSave?: () => Promise<void> | void // Called after successful save to trigger refetch
+  onCreateProduct: (product: Partial<Product>) => Promise<any>
+  onUpdateProduct: (id: string, updates: Partial<Product>) => Promise<any>
   product?: Product | null // If null, we are in "Create" mode
 }
 
-export function ProductFormModal({ isOpen, onClose, onSave, product }: ProductFormModalProps) {
+export function ProductFormModal({ isOpen, onClose, onSave, onCreateProduct, onUpdateProduct, product }: ProductFormModalProps) {
   const supabase = getSupabaseBrowserClient()
-  const router = useRouter()
-  const { addProduct, updateProduct, refetch } = useProducts()
   const { categories } = useCategories()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLoadingProduct, setIsLoadingProduct] = useState(false)
@@ -191,12 +190,12 @@ export function ProductFormModal({ isOpen, onClose, onSave, product }: ProductFo
             const imageUrl = primaryImage?.image_url || null
             
             // Include image in the update payload
-            await updateProduct(product.id, { ...payload, image: imageUrl })
+            await onUpdateProduct(product.id, { ...payload, image: imageUrl })
             
             toast.success("Product updated successfully")
         } else {
             // For create, first create the product then allow image uploads
-            const newProduct = await addProduct(payload)
+            const newProduct = await onCreateProduct(payload)
             if (newProduct?.id) {
               setCreatedProductId(newProduct.id)
               toast.success("Product created! You can now add images.")
@@ -205,10 +204,8 @@ export function ProductFormModal({ isOpen, onClose, onSave, product }: ProductFo
             }
             toast.success("Product created successfully")
         }
-        // Trigger refetch, refresh SSR data, and close
-        await refetch()
-        router.refresh()
-        onSave?.()
+        // Trigger single refresh path and close
+        await onSave?.()
         onClose()
     } catch (error: unknown) {
         toast.error(error instanceof Error ? error.message : "Failed to save product")

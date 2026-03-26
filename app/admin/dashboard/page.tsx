@@ -1,6 +1,7 @@
 "use client"
 
 import { useOrders } from "@/hooks/useOrders"
+import { useProducts } from "@/hooks/useProducts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
@@ -22,9 +23,9 @@ type DateRange = 'today' | '7d' | '30d' | 'all'
 
 export default function AdminDashboardPage() {
   const { orders, isLoading: ordersLoading, error: ordersError } = useOrders('ALL')
+  const { products } = useProducts()
   const [dateRange, setDateRange] = useState<DateRange>('30d')
   const [loadingTimedOut, setLoadingTimedOut] = useState(false)
-  const [lowStockCount, setLowStockCount] = useState<number | null>(null)
   const [showCharts, setShowCharts] = useState(false)
 
   // Timeout: if data hasn't loaded in 10 seconds, show error state
@@ -63,44 +64,6 @@ export default function AdminDashboardPage() {
     }
   }, [])
 
-  useEffect(() => {
-    let mounted = true
-
-    const fetchLowStockCount = async () => {
-      try {
-        const response = await fetch('/api/admin/products/low-stock-count', {
-          method: 'GET',
-          credentials: 'include',
-          cache: 'no-store',
-        })
-
-        if (!response.ok) {
-          return
-        }
-
-        const payload = await response.json()
-        if (mounted && typeof payload?.count === 'number') {
-          setLowStockCount(payload.count)
-        }
-      } catch {
-        // Keep previous count to avoid UI jumps.
-      }
-    }
-
-    fetchLowStockCount()
-
-    const poller = window.setInterval(() => {
-      if (document.visibilityState === 'visible') {
-        fetchLowStockCount()
-      }
-    }, 60000)
-
-    return () => {
-      mounted = false
-      window.clearInterval(poller)
-    }
-  }, [])
-
   const filteredOrders = useMemo(() => {
     const now = new Date()
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
@@ -128,7 +91,9 @@ export default function AdminDashboardPage() {
   const totalRevenue = filteredOrders
     .filter(o => o.status !== "Cancelled")
     .reduce((sum, o) => sum + o.total, 0)
-  const lowStockValue = lowStockCount ?? '—'
+  const lowStockValue = useMemo(() => {
+    return products.filter((product) => product.stock <= product.low_stock_threshold).length
+  }, [products])
 
   const revenueChartData = useMemo(() => {
     const dataMap = new Map<string, { date: string, timestamp: number, revenue: number }>()

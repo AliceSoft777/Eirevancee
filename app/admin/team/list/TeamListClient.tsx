@@ -21,7 +21,7 @@ interface TeamListClientProps {
 }
 
 export default function TeamListClient({ initialTeamMembers, serverError }: TeamListClientProps) {
-  const { teamMembers: currentTeamMembers, addTeamMember, updateTeamMember, deleteTeamMember, resetTeamMemberPassword, isLoading } = useTeamMembers()
+  const { teamMembers: currentTeamMembers, addTeamMember, updateTeamMember, deleteTeamMember, resetTeamMemberPassword, refetch, isLoading } = useTeamMembers()
   
   // Use server-fetched data initially, then switch to hook data once loaded
   const teamMembers = !isLoading ? currentTeamMembers : initialTeamMembers
@@ -257,14 +257,17 @@ export default function TeamListClient({ initialTeamMembers, serverError }: Team
       />
 
           {/* Team Member Modal */}
-          <TeamMemberModal
-            isOpen={isModalOpen}
-            onClose={() => {
-              setIsModalOpen(false)
-              setSelectedMember(null)
-            }}
-            member={selectedMember}
-          />
+          {isModalOpen && (
+            <TeamMemberModal
+              isOpen={isModalOpen}
+              onClose={() => {
+                setIsModalOpen(false)
+                setSelectedMember(null)
+              }}
+              onRefetch={refetch}
+              member={selectedMember}
+            />
+          )}
 
           {/* Reset Password Dialog */}
           {resetPasswordId && (
