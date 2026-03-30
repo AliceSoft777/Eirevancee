@@ -54,8 +54,10 @@ export function OrdersTable({ orders }: OrdersTableProps) {
               >
                 <td className="py-3 px-4">
                   <button
+                    type="button"
                     onClick={() => handleViewOrder(order)}
                     className="text-primary hover:underline font-semibold cursor-pointer"
+                    suppressHydrationWarning
                   >
                     {order.orderNumber}
                   </button>

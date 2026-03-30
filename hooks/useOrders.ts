@@ -50,6 +50,9 @@ export interface StatusHistoryEntry {
   timestamp: string
 }
 
+const ORDER_SELECT_FIELDS = 'id, order_number, user_id, customer_id, customer_name, customer_email, customer_phone, subtotal, tax, shipping_fee, discount, total, payment_method, payment_status, paid_amount, status, delivery_address, invoice_file_id, source, created_at, updated_at, items, status_history'
+const MAX_ORDERS_CACHE_ROWS = 120
+
 export function useOrders(userId?: string | null | 'ALL') {
   const [orders, setOrders] = useState<Order[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -59,14 +62,23 @@ export function useOrders(userId?: string | null | 'ALL') {
   const isFetchingRef = useRef(false)
   const orderCountRef = useRef(0)
   const isAdminMode = userId === 'ALL' || userId === undefined
+  const enableAdminCache = false
   const cacheKey = 'admin_orders_cache_v1'
-  const realtimeEnabled = typeof userId === 'string' || isAdminMode
+  const realtimeEnabled = typeof userId === 'string' && userId !== 'ALL'
+
+  const persistOrdersCache = useCallback((rows: Order[]) => {
+    if (!enableAdminCache) return
+    if (typeof window === 'undefined' || !isAdminMode) return
+    if (rows.length > MAX_ORDERS_CACHE_ROWS) return
+    sessionStorage.setItem(cacheKey, JSON.stringify(rows))
+  }, [cacheKey, enableAdminCache, isAdminMode])
 
   useEffect(() => {
     orderCountRef.current = orders.length
   }, [orders.length])
 
   useEffect(() => {
+    if (!enableAdminCache) return
     if (typeof window === 'undefined' || !isAdminMode) return
 
     const raw = sessionStorage.getItem(cacheKey)
@@ -82,7 +94,7 @@ export function useOrders(userId?: string | null | 'ALL') {
     } catch {
       sessionStorage.removeItem(cacheKey)
     }
-  }, [cacheKey, isAdminMode])
+  }, [cacheKey, enableAdminCache, isAdminMode])
 
   const withTimeout = useCallback(async <T,>(promise: Promise<T>, timeoutMs: number, errorMessage: string): Promise<T> => {
     let timeoutId: ReturnType<typeof setTimeout> | undefined
@@ -140,8 +152,10 @@ export function useOrders(userId?: string | null | 'ALL') {
     return transformOrder(dbOrder, orderItems, history)
   }, [])
 
-  const fetchAdminOrdersFromServer = useCallback(async (): Promise<any[] | null> => {
-    if (typeof window === 'undefined' || !isAdminMode) return null
+  const fetchAdminOrdersFromServer = useCallback(async (): Promise<{ rows: any[] | null; status: number | null }> => {
+    if (typeof window === 'undefined' || !isAdminMode) {
+      return { rows: null, status: null }
+    }
 
     try {
       const response = await withTimeout(
@@ -156,16 +170,16 @@ export function useOrders(userId?: string | null | 'ALL') {
 
       if (!response.ok) {
         console.error('[useOrders] admin fallback response not ok', { status: response.status })
-        return null
+        return { rows: null, status: response.status }
       }
 
       const payload = await response.json()
       const rows = Array.isArray(payload?.orders) ? payload.orders : null
       console.info('[useOrders] admin fallback response', { count: rows?.length ?? 0 })
-      return rows
+      return { rows, status: response.status }
     } catch (fallbackErr) {
       console.error('[useOrders] admin fallback failed', fallbackErr)
-      return null
+      return { rows: null, status: null }
     }
   }, [isAdminMode, withTimeout])
 
@@ -190,6 +204,26 @@ export function useOrders(userId?: string | null | 'ALL') {
           route: typeof window !== 'undefined' ? window.location.pathname : 'server',
           cachedRows: orderCountRef.current,
         })
+
+        // Admin path: single source of truth is server API live endpoint.
+        const adminResult = await fetchAdminOrdersFromServer()
+        if (adminResult.rows) {
+          const transformedAdminRows = transformDbOrders(adminResult.rows)
+          rowCount = transformedAdminRows.length
+          if (mountedRef.current) setOrders(transformedAdminRows)
+          return
+        }
+
+        if (adminResult.status === 401 || adminResult.status === 403) {
+          setOrders([])
+          setError('Admin session expired or unauthorized. Please sign in again.')
+          return
+        }
+
+        // Non-auth failure: keep state explicit and deterministic (no fallback sources).
+        setOrders([])
+        setError('Failed to fetch live admin orders. Please retry.')
+        return
       }
       
       if (!isAdminMode && !userId) {
@@ -202,7 +236,7 @@ export function useOrders(userId?: string | null | 'ALL') {
       // Build query - conditionally filter by user_id
       let query = (supabase as any)
         .from('orders')
-        .select('*')
+        .select(ORDER_SELECT_FIELDS)
       
       // Only filter by user_id if not in admin mode
       if (!isAdminMode && userId) {
@@ -234,14 +268,12 @@ export function useOrders(userId?: string | null | 'ALL') {
       }
 
       if (orderError) {
-        const fallbackRows = await fetchAdminOrdersFromServer()
-        if (fallbackRows && fallbackRows.length > 0) {
-          const transformedFromFallback = transformDbOrders(fallbackRows)
+        const fallbackResult = await fetchAdminOrdersFromServer()
+        if (fallbackResult?.rows && fallbackResult.rows.length > 0) {
+          const transformedFromFallback = transformDbOrders(fallbackResult.rows)
           rowCount = transformedFromFallback.length
           if (mountedRef.current) setOrders(transformedFromFallback)
-          if (typeof window !== 'undefined' && isAdminMode) {
-            sessionStorage.setItem(cacheKey, JSON.stringify(transformedFromFallback))
-          }
+          persistOrdersCache(transformedFromFallback)
           console.warn('[useOrders] recovered using admin fallback after browser error')
           return
         }
@@ -256,14 +288,12 @@ export function useOrders(userId?: string | null | 'ALL') {
 
       if (!dbOrders || dbOrders.length === 0) {
         if (isAdminMode) {
-          const fallbackRows = await fetchAdminOrdersFromServer()
-          if (fallbackRows && fallbackRows.length > 0) {
-            const transformedFromFallback = transformDbOrders(fallbackRows)
+          const fallbackResult = await fetchAdminOrdersFromServer()
+          if (fallbackResult?.rows && fallbackResult.rows.length > 0) {
+            const transformedFromFallback = transformDbOrders(fallbackResult.rows)
             rowCount = transformedFromFallback.length
             if (mountedRef.current) setOrders(transformedFromFallback)
-            if (typeof window !== 'undefined') {
-              sessionStorage.setItem(cacheKey, JSON.stringify(transformedFromFallback))
-            }
+            persistOrdersCache(transformedFromFallback)
             console.warn('[useOrders] browser returned empty; restored data from admin fallback')
             return
           }
@@ -276,10 +306,7 @@ export function useOrders(userId?: string | null | 'ALL') {
       rowCount = transformedOrders.length
 
       if (mountedRef.current) setOrders(transformedOrders)
-
-      if (typeof window !== 'undefined' && isAdminMode) {
-        sessionStorage.setItem(cacheKey, JSON.stringify(transformedOrders))
-      }
+      persistOrdersCache(transformedOrders)
     } catch (err: unknown) {
       const normalizedError = normalizeClientError(err, 'Failed to fetch orders')
       const message = normalizedError.message.toLowerCase()
@@ -298,23 +325,6 @@ export function useOrders(userId?: string | null | 'ALL') {
         return
       }
 
-      if (typeof window !== 'undefined' && isAdminMode && orderCountRef.current === 0) {
-        const raw = sessionStorage.getItem(cacheKey)
-        if (raw) {
-          try {
-            const cachedOrders = JSON.parse(raw) as Order[]
-            if (Array.isArray(cachedOrders) && cachedOrders.length > 0) {
-              setOrders(cachedOrders)
-              setError(null)
-              hasLoadedOnceRef.current = true
-              return
-            }
-          } catch {
-            sessionStorage.removeItem(cacheKey)
-          }
-        }
-      }
-
       if (!normalizedError.isAbortLike) {
         console.warn('[useOrders] fetchOrders failed', {
           message: normalizedError.message,
@@ -330,7 +340,7 @@ export function useOrders(userId?: string | null | 'ALL') {
       isFetchingRef.current = false
       logClientTiming('useOrders.fetchOrders', startedAt, { rowCount })
     }
-  }, [cacheKey, fetchAdminOrdersFromServer, isAdminMode, transformDbOrders, userId, withTimeout])
+  }, [cacheKey, fetchAdminOrdersFromServer, isAdminMode, persistOrdersCache, transformDbOrders, userId, withTimeout])
 
   useEffect(() => {
     mountedRef.current = true
@@ -360,11 +370,6 @@ export function useOrders(userId?: string | null | 'ALL') {
       setOrders((prev) => prev.filter((order) => order.id !== row.id))
     },
   })
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || !isAdminMode) return
-    sessionStorage.setItem(cacheKey, JSON.stringify(orders))
-  }, [cacheKey, isAdminMode, orders])
 
   function transformOrder(dbOrder: any, items: OrderItem[], statusHistory: StatusHistoryEntry[]): Order {
     return {
@@ -396,10 +401,48 @@ export function useOrders(userId?: string | null | 'ALL') {
   }
 
   async function getOrderById(id: string) {
+    if (isAdminMode) {
+      const response = await fetch(`/api/admin/orders/${id}`, {
+        method: 'GET',
+        credentials: 'include',
+        cache: 'no-store',
+      })
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}))
+        throw new Error(payload?.error || 'Failed to fetch order details')
+      }
+
+      const payload = await response.json()
+      const dbOrder = payload?.order
+      if (!dbOrder) {
+        throw new Error('Order not found')
+      }
+
+      const orderItems = (dbOrder.items || []).map((item: any) => ({
+        productId: item.product_id,
+        productName: item.product_name,
+        sku: item.sku || '',
+        quantity: item.quantity,
+        unitPrice: item.unit_price,
+        subtotal: item.subtotal,
+        image: item.image,
+      }))
+
+      const history = (dbOrder.status_history || []).map((entry: any) => ({
+        status: entry.status,
+        note: entry.note || entry.notes || '',
+        updatedBy: entry.updated_by || entry.updatedBy || 'system',
+        timestamp: entry.timestamp || entry.created_at || new Date().toISOString(),
+      }))
+
+      return transformOrder(dbOrder, orderItems, history)
+    }
+
     const supabase = getSupabaseBrowserClient()
     const result = await (supabase as any)
       .from('orders')
-      .select('*')
+      .select(ORDER_SELECT_FIELDS)
       .eq('id', id)
       .single()
 
@@ -438,6 +481,25 @@ export function useOrders(userId?: string | null | 'ALL') {
     note: string,
     updatedBy: string
   ) {
+    if (isAdminMode) {
+      const response = await fetch(`/api/admin/orders/${orderId}/status`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status, note, updatedBy }),
+      })
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}))
+        throw new Error(payload?.error || 'Failed to update order status')
+      }
+
+      await fetchOrders()
+      return
+    }
+
     try {
 
       const supabase = getSupabaseBrowserClient()

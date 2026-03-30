@@ -26,6 +26,8 @@ export interface AddToCartInput {
   quantity?: number
 }
 
+const CART_ITEM_SELECT_FIELDS = 'id, user_id, product_id, variant_id, product_name, product_price, product_image, quantity, reserved_until, created_at, updated_at'
+
 /**
  * Fetch all cart items for the current user
  */
@@ -43,7 +45,7 @@ export async function fetchCartAction(): Promise<{ data: CartItem[] | null; erro
     // Fetch cart items
     const { data, error } = await supabase
       .from('cart_items')
-      .select('*')
+      .select(CART_ITEM_SELECT_FIELDS)
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
 
@@ -77,7 +79,7 @@ export async function addToCartAction(input: AddToCartInput): Promise<{ data: Ca
     const variantId = input.variant_id || null
     let existingQuery = supabase
       .from('cart_items')
-      .select('*')
+      .select('id, quantity')
       .eq('user_id', user.id)
       .eq('product_id', input.product_id)
 

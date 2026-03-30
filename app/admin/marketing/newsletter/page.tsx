@@ -20,7 +20,7 @@ export default function NewsletterSubscribersPage() {
       setLoading(true)
       const { data, error } = await supabase
         .from('newsletter_subscriptions')
-        .select('*')
+        .select('id, email, name, status, subscribed_at, unsubscribed_at')
         .order('subscribed_at', { ascending: false })
 
       if (error) {

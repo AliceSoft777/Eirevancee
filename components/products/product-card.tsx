@@ -18,6 +18,22 @@ interface ProductCardProps {
     product: Product
 }
 
+function withImageWidth(url: string | null | undefined, width = 300): string {
+    if (!url) return '/images/placeholder.jpg'
+    if (!/^https?:\/\//i.test(url)) return url
+
+    try {
+        const parsed = new URL(url)
+        if (!parsed.searchParams.has('width')) {
+            parsed.searchParams.set('width', width.toString())
+        }
+        return parsed.toString()
+    } catch {
+        const sep = url.includes('?') ? '&' : '?'
+        return `${url}${sep}width=${width}`
+    }
+}
+
 export const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
 
     const { isInWishlist, user } = useStore()
@@ -166,11 +182,12 @@ export const ProductCard = memo(function ProductCard({ product }: ProductCardPro
             <Link href={`/product/${product.slug}`} prefetch={false} className="block relative aspect-square overflow-hidden p-2">
                 <div className="relative w-full h-full overflow-hidden rounded-[1.5rem]">
                     <Image
-                        src={product.image || '/images/placeholder.jpg'}
+                        src={withImageWidth(product.image)}
                         alt={product.name}
                         fill
                         className="object-cover transition-transform duration-500 group-hover:scale-110"
                         sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
+                        loading="lazy"
                         unoptimized
                     />
                     <div className="absolute top-2 right-2">

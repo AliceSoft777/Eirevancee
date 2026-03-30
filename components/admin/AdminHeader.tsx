@@ -73,8 +73,8 @@ export function AdminHeader({ session }: AdminHeaderProps) {
   }
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border bg-gray-50 shadow-sm">
-      <div className="container mx-auto max-w-[1400px] px-4">
+    <header className="hidden lg:block sticky top-0 z-50 w-full border-b border-border bg-gray-50 shadow-sm">
+      <div className="w-full px-4 sm:px-5 lg:px-6">
         <div className="flex h-16 items-center justify-between gap-4">
           {/* Logo - Links to admin dashboard */}
           <Link
@@ -86,7 +86,7 @@ export function AdminHeader({ session }: AdminHeaderProps) {
               alt="Celtic Tiles Logo"
               width={200}
               height={60}
-              className="h-12 w-auto"
+              className="h-10 xl:h-12 w-auto"
               priority
             />
             <span className="hidden sm:inline-block text-sm font-semibold text-primary border-l border-gray-300 pl-3 ml-1">

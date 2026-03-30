@@ -3,7 +3,6 @@ import { getNavData, type CategoryWithChildren } from "@/lib/loaders"
 import { ProductCard } from "@/components/products/product-card"
 import { CategoryFilters, type FilterGroup } from "@/components/products/category-filters"
 import { Product } from "@/lib/supabase-types"
-import { Button } from "@/components/ui/button"
 import Link from "next/link"
 
 export const revalidate = 60
@@ -27,7 +26,10 @@ function findCategoryById(categories: CategoryWithChildren[], id: string): Categ
   return null
 }
 
-const PRODUCTS_PER_PAGE = 24
+const PRODUCTS_PER_PAGE = 20
+
+const PRODUCT_CARD_SELECT = 'id, name, slug, price, image, stock, material'
+const FILTER_FIELDS_SELECT = 'material, finish, size, thickness, application_area, brand, is_clearance'
 
 const PRICE_OPTIONS = [
   { label: "Under €20", value: "0-20" },
@@ -50,7 +52,8 @@ export default async function AllProductsPage(props: Props) {
     if (v) params[k] = v
   }
 
-  const currentPage = parseInt(params.page || '1', 10)
+  const requestedPage = parseInt(params.page || '1', 10)
+  const currentPage = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1
   const offset = (currentPage - 1) * PRODUCTS_PER_PAGE
 
   // Get categories for hierarchical filtering
@@ -59,7 +62,7 @@ export default async function AllProductsPage(props: Props) {
   // Build query with filters
   let query = supabase
     .from('products')
-    .select('*', { count: 'exact' })
+    .select(PRODUCT_CARD_SELECT, { count: 'exact' })
     .eq('status', 'active')
 
   // Status filter: clearance vs regular
@@ -114,7 +117,7 @@ export default async function AllProductsPage(props: Props) {
   // Build filter groups from ALL products (unfiltered)
   const { data: allProductsRaw } = await supabase
     .from('products')
-    .select('material, finish, size, thickness, application_area, brand, category_id, is_clearance')
+    .select(FILTER_FIELDS_SELECT)
     .eq('status', 'active')
 
   const allProds = allProductsRaw ?? []
@@ -245,50 +248,104 @@ export default async function AllProductsPage(props: Props) {
 
               {/* Pagination */}
               {totalPages > 1 && (
-                <div className="mt-12 flex justify-center items-center gap-2">
-                  {currentPage > 1 && (
-                    <Button variant="outline" asChild>
-                      <Link href={buildPageUrl(currentPage - 1)} prefetch={false}>Previous</Link>
-                    </Button>
-                  )}
-
-                  <div className="flex gap-2">
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
-                      const showPage =
-                        pageNum === 1 ||
-                        pageNum === totalPages ||
-                        Math.abs(pageNum - currentPage) <= 1
-
-                      if (!showPage) {
-                        if (pageNum === currentPage - 2 || pageNum === currentPage + 2) {
-                          return <span key={pageNum} className="px-3 py-2">...</span>
-                        }
-                        return null
-                      }
-
-                      return (
-                        <Button
-                          key={pageNum}
-                          variant={pageNum === currentPage ? "default" : "outline"}
-                          asChild={pageNum !== currentPage}
-                          disabled={pageNum === currentPage}
-                          className={pageNum === currentPage ? "bg-primary text-white" : ""}
+                <div className="mt-12 rounded-2xl bg-[#edf1f7] p-4 shadow-[-8px_-8px_16px_#ffffff,8px_8px_16px_#c8d0dd]">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="flex flex-wrap items-center justify-center gap-2 lg:justify-start">
+                      {currentPage > 1 && (
+                        <Link
+                          href={buildPageUrl(currentPage - 1)}
+                          prefetch={false}
+                          className="rounded-xl px-4 py-2 text-sm font-medium text-slate-700 shadow-[-4px_-4px_8px_#ffffff,4px_4px_8px_#c8d0dd] transition hover:shadow-[-2px_-2px_6px_#ffffff,2px_2px_6px_#c8d0dd]"
                         >
-                          {pageNum === currentPage ? (
-                            <span>{pageNum}</span>
-                          ) : (
-                            <Link href={buildPageUrl(pageNum)} prefetch={false}>{pageNum}</Link>
-                          )}
-                        </Button>
-                      )
-                    })}
-                  </div>
+                          Previous
+                        </Link>
+                      )}
 
-                  {currentPage < totalPages && (
-                    <Button variant="outline" asChild>
-                      <Link href={buildPageUrl(currentPage + 1)} prefetch={false}>Next</Link>
-                    </Button>
-                  )}
+                      <div className="flex flex-wrap items-center gap-2">
+                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
+                          const showPage =
+                            pageNum === 1 ||
+                            pageNum === totalPages ||
+                            Math.abs(pageNum - currentPage) <= 1
+
+                          if (!showPage) {
+                            if (pageNum === currentPage - 2 || pageNum === currentPage + 2) {
+                              return (
+                                <span
+                                  key={pageNum}
+                                  className="rounded-xl px-3 py-2 text-sm text-slate-500 shadow-[inset_-3px_-3px_6px_#ffffff,inset_3px_3px_6px_#c8d0dd]"
+                                >
+                                  ...
+                                </span>
+                              )
+                            }
+                            return null
+                          }
+
+                          if (pageNum === currentPage) {
+                            return (
+                              <span
+                                key={pageNum}
+                                className="rounded-xl px-4 py-2 text-sm font-semibold text-slate-800 shadow-[inset_-4px_-4px_8px_#ffffff,inset_4px_4px_8px_#c8d0dd]"
+                                aria-current="page"
+                              >
+                                {pageNum}
+                              </span>
+                            )
+                          }
+
+                          return (
+                            <Link
+                              key={pageNum}
+                              href={buildPageUrl(pageNum)}
+                              prefetch={false}
+                              className="rounded-xl px-4 py-2 text-sm font-medium text-slate-700 shadow-[-4px_-4px_8px_#ffffff,4px_4px_8px_#c8d0dd] transition hover:shadow-[-2px_-2px_6px_#ffffff,2px_2px_6px_#c8d0dd]"
+                            >
+                              {pageNum}
+                            </Link>
+                          )
+                        })}
+                      </div>
+
+                      {currentPage < totalPages && (
+                        <Link
+                          href={buildPageUrl(currentPage + 1)}
+                          prefetch={false}
+                          className="rounded-xl px-4 py-2 text-sm font-medium text-slate-700 shadow-[-4px_-4px_8px_#ffffff,4px_4px_8px_#c8d0dd] transition hover:shadow-[-2px_-2px_6px_#ffffff,2px_2px_6px_#c8d0dd]"
+                        >
+                          Next
+                        </Link>
+                      )}
+                    </div>
+
+                    <div className="flex flex-col items-center gap-2 sm:flex-row sm:justify-end">
+                      <span className="rounded-xl px-3 py-2 text-sm font-medium text-slate-700 shadow-[inset_-3px_-3px_6px_#ffffff,inset_3px_3px_6px_#c8d0dd]">
+                        Page {currentPage} of {totalPages}
+                      </span>
+                      <form action="/products" method="get" className="flex items-center gap-2">
+                        {Object.entries(params)
+                          .filter(([k]) => k !== 'page')
+                          .map(([k, v]) => (
+                            <input key={k} type="hidden" name={k} value={v} />
+                          ))}
+                        <input
+                          type="text"
+                          name="page"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          defaultValue={currentPage}
+                          aria-label="Jump to page"
+                          className="w-20 rounded-xl border-0 bg-[#edf1f7] px-3 py-2 text-sm text-slate-700 shadow-[inset_-4px_-4px_8px_#ffffff,inset_4px_4px_8px_#c8d0dd] focus:outline-none"
+                        />
+                        <button
+                          type="submit"
+                          className="rounded-xl px-4 py-2 text-sm font-medium text-slate-700 shadow-[-4px_-4px_8px_#ffffff,4px_4px_8px_#c8d0dd] transition hover:shadow-[-2px_-2px_6px_#ffffff,2px_2px_6px_#c8d0dd]"
+                        >
+                          Go
+                        </button>
+                      </form>
+                    </div>
+                  </div>
                 </div>
               )}
             </>

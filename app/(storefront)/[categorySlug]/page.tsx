@@ -20,6 +20,10 @@ const PRICE_OPTIONS = [
   { label: "Over €60", value: "60-5000" },
 ]
 
+const PRODUCTS_PER_PAGE = 20
+const PRODUCT_CARD_SELECT = 'id, name, slug, price, image, stock, material'
+const FILTER_FIELDS_SELECT = 'material, finish, size, thickness, application_area, brand'
+
 function buildFilterGroups(
   products: Product[],
   childCategories: { id: string; name: string; slug: string }[]
@@ -107,10 +111,14 @@ export default async function CategoryPage(props: Props) {
     if (v) params[k] = v
   }
 
+  const requestedPage = parseInt(params.page || '1', 10)
+  const currentPage = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1
+  const offset = (currentPage - 1) * PRODUCTS_PER_PAGE
+
   // 5. Build filtered query
   let query = supabase
     .from('products')
-    .select('*')
+    .select(PRODUCT_CARD_SELECT, { count: 'exact' })
     .eq('status', 'active')
 
   if (params.subcategory) {
@@ -138,13 +146,17 @@ export default async function CategoryPage(props: Props) {
     default: query = query.order('created_at', { ascending: false })
   }
 
-  const { data: categoryProductsRaw } = await query
+  query = query.range(offset, offset + PRODUCTS_PER_PAGE - 1)
+
+  const { data: categoryProductsRaw, count } = await query
   const categoryProducts: Product[] = categoryProductsRaw ?? []
+  const totalProducts = count ?? 0
+  const totalPages = Math.ceil(totalProducts / PRODUCTS_PER_PAGE)
 
   // 6. Get ALL unfiltered products (for building filter option lists)
   const { data: allCategoryProductsRaw } = await supabase
     .from('products')
-    .select('*')
+    .select(FILTER_FIELDS_SELECT)
     .in('category_id', categoryIds)
     .eq('status', 'active')
 
@@ -152,6 +164,16 @@ export default async function CategoryPage(props: Props) {
 
   // 7. Build filter groups from unfiltered products
   const filterGroups = buildFilterGroups(allCategoryProducts, childCategories)
+
+  const buildPageUrl = (pageNum: number) => {
+    const p = new URLSearchParams()
+    for (const [k, v] of Object.entries(params)) {
+      if (k !== 'page') p.set(k, v)
+    }
+    if (pageNum > 1) p.set('page', pageNum.toString())
+    const qs = p.toString()
+    return `/${categorySlug}${qs ? `?${qs}` : ''}`
+  }
 
 
 
@@ -170,7 +192,7 @@ export default async function CategoryPage(props: Props) {
             pathname={`/${categorySlug}`}
             currentParams={params}
             filterGroups={filterGroups}
-            totalProducts={categoryProducts.length}
+            totalProducts={totalProducts}
           />
 
           {categoryProducts.length === 0 ? (
@@ -179,11 +201,115 @@ export default async function CategoryPage(props: Props) {
               <p className="text-sm text-muted-foreground mt-2">Try adjusting or clearing your filters.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {categoryProducts.map((product: Product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </div>
+            <>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                {categoryProducts.map((product: Product) => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
+              </div>
+
+              {totalPages > 1 && (
+                <div className="mt-12 rounded-2xl bg-[#edf1f7] p-4 shadow-[-8px_-8px_16px_#ffffff,8px_8px_16px_#c8d0dd]">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="flex flex-wrap items-center justify-center gap-2 lg:justify-start">
+                      {currentPage > 1 && (
+                        <a
+                          href={buildPageUrl(currentPage - 1)}
+                          className="rounded-xl px-4 py-2 text-sm font-medium text-slate-700 shadow-[-4px_-4px_8px_#ffffff,4px_4px_8px_#c8d0dd] transition hover:shadow-[-2px_-2px_6px_#ffffff,2px_2px_6px_#c8d0dd]"
+                          aria-label="Previous page"
+                        >
+                          Previous
+                        </a>
+                      )}
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
+                          const showPage =
+                            pageNum === 1 ||
+                            pageNum === totalPages ||
+                            Math.abs(pageNum - currentPage) <= 1
+
+                          if (!showPage) {
+                            if (pageNum === currentPage - 2 || pageNum === currentPage + 2) {
+                              return (
+                                <span
+                                  key={pageNum}
+                                  className="rounded-xl px-3 py-2 text-sm text-slate-500 shadow-[inset_-3px_-3px_6px_#ffffff,inset_3px_3px_6px_#c8d0dd]"
+                                >
+                                  ...
+                                </span>
+                              )
+                            }
+                            return null
+                          }
+
+                          if (pageNum === currentPage) {
+                            return (
+                              <span
+                                key={pageNum}
+                                className="rounded-xl px-4 py-2 text-sm font-semibold text-slate-800 shadow-[inset_-4px_-4px_8px_#ffffff,inset_4px_4px_8px_#c8d0dd]"
+                                aria-current="page"
+                              >
+                                {pageNum}
+                              </span>
+                            )
+                          }
+
+                          return (
+                            <a
+                              key={pageNum}
+                              href={buildPageUrl(pageNum)}
+                              className="rounded-xl px-4 py-2 text-sm font-medium text-slate-700 shadow-[-4px_-4px_8px_#ffffff,4px_4px_8px_#c8d0dd] transition hover:shadow-[-2px_-2px_6px_#ffffff,2px_2px_6px_#c8d0dd]"
+                              aria-label={`Page ${pageNum}`}
+                            >
+                              {pageNum}
+                            </a>
+                          )
+                        })}
+                      </div>
+
+                      {currentPage < totalPages && (
+                        <a
+                          href={buildPageUrl(currentPage + 1)}
+                          className="rounded-xl px-4 py-2 text-sm font-medium text-slate-700 shadow-[-4px_-4px_8px_#ffffff,4px_4px_8px_#c8d0dd] transition hover:shadow-[-2px_-2px_6px_#ffffff,2px_2px_6px_#c8d0dd]"
+                          aria-label="Next page"
+                        >
+                          Next
+                        </a>
+                      )}
+                    </div>
+
+                    <div className="flex flex-col items-center gap-2 sm:flex-row sm:justify-end">
+                      <span className="rounded-xl px-3 py-2 text-sm font-medium text-slate-700 shadow-[inset_-3px_-3px_6px_#ffffff,inset_3px_3px_6px_#c8d0dd]">
+                        Page {currentPage} of {totalPages}
+                      </span>
+                      <form action={`/${categorySlug}`} method="get" className="flex items-center gap-2">
+                        {Object.entries(params)
+                          .filter(([k]) => k !== 'page')
+                          .map(([k, v]) => (
+                            <input key={k} type="hidden" name={k} value={v} />
+                          ))}
+                        <input
+                          type="text"
+                          name="page"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          defaultValue={currentPage}
+                          aria-label="Jump to page"
+                          className="w-20 rounded-xl border-0 bg-[#edf1f7] px-3 py-2 text-sm text-slate-700 shadow-[inset_-4px_-4px_8px_#ffffff,inset_4px_4px_8px_#c8d0dd] focus:outline-none"
+                        />
+                        <button
+                          type="submit"
+                          className="rounded-xl px-4 py-2 text-sm font-medium text-slate-700 shadow-[-4px_-4px_8px_#ffffff,4px_4px_8px_#c8d0dd] transition hover:shadow-[-2px_-2px_6px_#ffffff,2px_2px_6px_#c8d0dd]"
+                        >
+                          Go
+                        </button>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       </main>

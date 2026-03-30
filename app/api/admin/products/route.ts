@@ -1,0 +1,30 @@
+import { NextResponse } from "next/server"
+import { createServerSupabase } from "@/lib/supabase/server"
+import { getServerSession } from "@/lib/loaders"
+
+export const dynamic = "force-dynamic"
+
+export async function POST(request: Request) {
+  try {
+    const session = await getServerSession()
+    if (!session.userId || (session.userRole !== "admin" && session.userRole !== "sales")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const payload = await request.json()
+    const supabase = await createServerSupabase()
+    const { data, error } = await supabase
+      .from("products")
+      .insert([payload])
+      .select("*")
+      .single()
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    return NextResponse.json({ product: data }, { status: 201 })
+  } catch {
+    return NextResponse.json({ error: "Failed to create product" }, { status: 500 })
+  }
+}

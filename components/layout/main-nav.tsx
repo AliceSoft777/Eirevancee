@@ -19,6 +19,8 @@ export function MainNav({ categories, products }: MainNavProps) {
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [megaTop, setMegaTop] = useState(0);
   const navRef = useRef<HTMLElement | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const lastBottomRef = useRef<number>(0);
   const pathname = usePathname();
 
   // Close mega-menu on route change
@@ -31,16 +33,30 @@ export function MainNav({ categories, products }: MainNavProps) {
     const updatePosition = () => {
       if (!navRef.current) return;
       const rect = navRef.current.getBoundingClientRect();
-      setMegaTop(rect.bottom);
+      if (Math.abs(rect.bottom - lastBottomRef.current) >= 1) {
+        lastBottomRef.current = rect.bottom;
+        setMegaTop(rect.bottom);
+      }
+    };
+
+    const scheduleUpdate = () => {
+      if (rafRef.current !== null) return;
+      rafRef.current = window.requestAnimationFrame(() => {
+        rafRef.current = null;
+        updatePosition();
+      });
     };
 
     updatePosition();
-    window.addEventListener("resize", updatePosition);
-    window.addEventListener("scroll", updatePosition);
+    window.addEventListener("resize", scheduleUpdate);
+    window.addEventListener("scroll", scheduleUpdate, { passive: true });
 
     return () => {
-      window.removeEventListener("resize", updatePosition);
-      window.removeEventListener("scroll", updatePosition);
+      if (rafRef.current !== null) {
+        window.cancelAnimationFrame(rafRef.current);
+      }
+      window.removeEventListener("resize", scheduleUpdate);
+      window.removeEventListener("scroll", scheduleUpdate);
     };
   }, []);
 

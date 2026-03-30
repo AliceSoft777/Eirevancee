@@ -28,32 +28,30 @@ export function useTeamMembers() {
       inFlightRef.current = true
       setIsLoading(true)
       setError(null)
-      
-      const result = await (supabase
-        .from('profiles') as any)
-        .select(`
-          id,
-          email,
-          full_name,
-          role_id,
-          permissions,
-          created_at,
-          role:roles(name)
-        `)
-        .not('role_id', 'is', null)
-        .order('created_at', { ascending: false })
-      const { data, error: fetchError } = result || {}
+
+      const response = await fetch('/api/admin/team/live', {
+        method: 'GET',
+        credentials: 'include',
+        cache: 'no-store',
+      })
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}))
+        throw new Error(payload?.error || `Failed to fetch team members (${response.status})`)
+      }
+
+      const payload = await response.json()
+      const data = Array.isArray(payload?.teamMembers) ? payload.teamMembers : []
 
       if (!mountedRef.current) return
-      if (fetchError) throw fetchError
       
       // Transform to expected format with role name
-      const transformed = (data || []).map((member: any) => ({
+      const transformed = data.map((member: any) => ({
         id: member.id,
         email: member.email,
         full_name: member.full_name,
         name: member.full_name || '',
-        role: (member.role?.name || 'customer') as any,
+        role: (member.role || 'customer') as any,
         permissions: member.permissions,
         created_at: member.created_at
       }))

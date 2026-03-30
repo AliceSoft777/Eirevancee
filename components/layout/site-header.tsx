@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { 
   Search, 
@@ -82,6 +82,7 @@ export function SiteHeader({
   products = []
 }: SiteHeaderProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const { wishlist, logout, _hasHydrated } = useStore();
 
   
@@ -117,6 +118,11 @@ export function SiteHeader({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // Close profile dropdown on route changes to prevent stale open state after navigation.
+  useEffect(() => {
+    setIsProfileOpen(false);
+  }, [pathname]);
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -209,16 +215,16 @@ export function SiteHeader({
                       </div>
                       <div className="py-2">
                         {canAccessDashboard() && (
-                          <Link href="/admin/dashboard" className="flex items-center gap-3 px-5 py-2 hover:bg-white/40 transition-colors text-sm text-slate-700 font-bold">
+                          <Link href="/admin/dashboard" onClick={() => setIsProfileOpen(false)} className="flex items-center gap-3 px-5 py-2 hover:bg-white/40 transition-colors text-sm text-slate-700 font-bold">
                             <LayoutDashboard className="h-4 w-4 text-primary" /> Dashboard
                           </Link>
                         )}
                         {!canAccessDashboard() && (
                           <>
-                            <Link href="/account" className="flex items-center gap-3 px-5 py-2 hover:bg-white/40 transition-colors text-sm text-slate-700">
+                            <Link href="/account" onClick={() => setIsProfileOpen(false)} className="flex items-center gap-3 px-5 py-2 hover:bg-white/40 transition-colors text-sm text-slate-700">
                               <User className="h-4 w-4" /> My Profile
                             </Link>
-                            <Link href="/account/orders" className="flex items-center gap-3 px-5 py-2 hover:bg-white/40 transition-colors text-sm text-slate-700">
+                            <Link href="/account/orders" onClick={() => setIsProfileOpen(false)} className="flex items-center gap-3 px-5 py-2 hover:bg-white/40 transition-colors text-sm text-slate-700">
                               <Package className="h-4 w-4" /> My Orders
                             </Link>
                           </>

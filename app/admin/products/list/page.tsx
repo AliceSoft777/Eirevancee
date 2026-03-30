@@ -17,7 +17,6 @@ export interface ProductData {
   low_stock_threshold: number
   is_clearance: boolean
   assigned_code: string | null
-  model: string | null
   material: string | null
   size: string | null
   finish: string | null

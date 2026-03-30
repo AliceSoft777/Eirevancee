@@ -34,7 +34,6 @@ const CATEGORY_IMAGES: Record<string, string> = {
     'slat-panelling':         '/images/categories/slat-panelling.png',
     'slat-wall-panelling':    '/images/categories/slat-panelling.png',
     'wall-panels':            '/images/categories/slat-panelling.png',
-    'mirrors':                '/images/placeholder.jpg',
     'vanity-units':           '/images/categories/vanity-unit.png',
     'vanity-unit':            '/images/categories/vanity-unit.png',
     'walk-in-shower':         '/images/categories/walk-in-shower.png',
@@ -78,7 +77,7 @@ export default function HomeClient({
                     items.push({
                         name: child.name.toUpperCase(),
                         href: `/${child.slug}`,
-                        image: CATEGORY_IMAGES[child.slug] || child.image || '/images/placeholder.jpg',
+                        image: child.image || CATEGORY_IMAGES[child.slug] || '/images/placeholder.jpg',
                     })
                 }
             }
@@ -119,7 +118,7 @@ export default function HomeClient({
                     items.push({
                         name: cat.name.toUpperCase(),
                         href,
-                        image: CATEGORY_IMAGES[cat.slug] || cat.image || '/images/placeholder.jpg',
+                        image: cat.image || CATEGORY_IMAGES[cat.slug] || '/images/placeholder.jpg',
                     })
                     seen.add(href)
                 }

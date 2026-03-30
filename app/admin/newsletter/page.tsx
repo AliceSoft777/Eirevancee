@@ -8,7 +8,6 @@ import { Badge } from "@/components/ui/badge"
 import { EmptyState } from "@/components/admin/EmptyState"
 import { Pagination } from "@/components/admin/Pagination"
 import { usePagination } from "@/hooks/usePagination"
-import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { Mail, Download, Search } from "lucide-react"
 import { toast } from "sonner"
 import { NewsletterSkeleton } from "@/components/admin/AdminSkeletons"
@@ -23,48 +22,40 @@ interface Subscriber {
 }
 
 export default function NewsletterPage() {
-  const supabase = getSupabaseBrowserClient()
   const [subscribers, setSubscribers] = useState<Subscriber[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
 
   const fetchSubscribers = useCallback(async () => {
     setIsLoading(true)
+    setError(null)
     try {
-      const result = await (supabase
-        .from("newsletter_subscriptions") as any)
-        .select("*")
-        .order("subscribed_at", { ascending: false })
+      const response = await fetch('/api/admin/newsletter', {
+        method: 'GET',
+        credentials: 'include',
+        cache: 'no-store',
+      })
 
-      if (!result || result.error) {
-        throw result?.error || new Error('Failed to fetch subscribers')
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}))
+        throw new Error(payload?.error || `Failed to fetch subscribers (${response.status})`)
       }
-      setSubscribers((result.data as Subscriber[]) || [])
+
+      const payload = await response.json()
+      const data = Array.isArray(payload?.subscribers) ? payload.subscribers : []
+      setSubscribers(data as Subscriber[])
     } catch (err: any) {
-      toast.error("Failed to load subscribers: " + (err?.message || 'Unknown error'))
+      const message = err?.message || 'Unknown error'
+      setError(message)
+      toast.error("Failed to load subscribers: " + message)
     } finally {
       setIsLoading(false)
     }
-  }, [supabase])
+  }, [])
 
   useEffect(() => {
     fetchSubscribers()
-  }, [fetchSubscribers])
-
-  useEffect(() => {
-    if (typeof window === "undefined") return
-
-    const isAdminRoute = window.location.pathname.startsWith("/admin")
-    if (!isAdminRoute) return
-
-    const POLL_INTERVAL_MS = 15000
-    const timer = window.setInterval(() => {
-      if (document.visibilityState === "visible") {
-        fetchSubscribers()
-      }
-    }, POLL_INTERVAL_MS)
-
-    return () => window.clearInterval(timer)
   }, [fetchSubscribers])
 
   const filtered = subscribers.filter(
@@ -159,6 +150,14 @@ export default function NewsletterPage() {
             <CardContent>
               {isLoading ? (
                 <NewsletterSkeleton />
+                ) : error ? (
+                  <div className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-red-900">
+                    <p className="font-semibold">Failed to load newsletter subscribers</p>
+                    <p className="text-sm mt-1">{error}</p>
+                    <Button className="mt-3" size="sm" variant="outline" onClick={fetchSubscribers}>
+                      Retry
+                    </Button>
+                  </div>
               ) : filtered.length === 0 ? (
                 <EmptyState
                   icon={Mail}

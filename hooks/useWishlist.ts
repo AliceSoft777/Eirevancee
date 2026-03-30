@@ -44,7 +44,7 @@ export function useWishlist() {
       // Filter by current user's ID only
       const result = await (supabase
         .from('wishlist_items') as any)
-        .select('*')
+        .select('id, user_id, product_id, created_at')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
       const { data, error: fetchError } = result || {}

@@ -42,7 +42,6 @@ export function ProductFormModal({ isOpen, onClose, onSave, onCreateProduct, onU
     status: "active",
     environment: "Indoor", // Default
     description: "",
-    model: "", // ✅ NEW: Model field
     material: "",
     finish: "",
     thickness: "",
@@ -72,17 +71,30 @@ export function ProductFormModal({ isOpen, onClose, onSave, onCreateProduct, onU
     async function fetchProductImages() {
       if (product?.id) {
         setIsLoadingProduct(true)
-        const result = await (supabase
-          .from('product_images') as any)
-          .select('*')
-          .eq('product_id', product.id)
-          .order('display_order', { ascending: true })
-        const { data, error } = result || {}
-        
-        if (!error && data) {
-          setProductImages(data)
+        try {
+          const result = await Promise.race([
+            (supabase
+              .from('product_images') as any)
+              .select('*')
+              .eq('product_id', product.id)
+              .order('display_order', { ascending: true }),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000)),
+          ]) as any
+          const { data, error } = result || {}
+
+          if (error) {
+            toast.error(`Failed to load product images: ${error.message}`)
+            setProductImages([])
+            return
+          }
+
+          setProductImages(data || [])
+        } catch {
+          toast.error("Failed to load product images")
+          setProductImages([])
+        } finally {
+          setIsLoadingProduct(false)
         }
-        setIsLoadingProduct(false)
       } else {
         setProductImages([])
         setIsLoadingProduct(false)
@@ -108,7 +120,6 @@ export function ProductFormModal({ isOpen, onClose, onSave, onCreateProduct, onU
             status: product.status || "active",
             environment: product.application_area || "Indoor",
             description: product.description || "",
-            model: product.model || "",
             material: product.material || "",
             finish: product.finish || "",
             thickness: product.thickness || "",
@@ -133,7 +144,6 @@ export function ProductFormModal({ isOpen, onClose, onSave, onCreateProduct, onU
             status: "active",
             environment: "Indoor",
             description: "",
-            model: "",
             material: "",
             finish: "",
             thickness: "",
@@ -170,7 +180,6 @@ export function ProductFormModal({ isOpen, onClose, onSave, onCreateProduct, onU
             status: formData.status,
             application_area: formData.environment, // Map environment to application_area column
             description: formData.description,
-            // Note: 'model' field is in UI but NOT in database - excluded from payload
             material: formData.material,
             finish: formData.finish,
             thickness: formData.thickness,
@@ -309,15 +318,6 @@ export function ProductFormModal({ isOpen, onClose, onSave, onCreateProduct, onU
                 value={formData.subtitle} 
                 onChange={(e) => handleChange("subtitle", e.target.value)} 
                 placeholder="Product summary or subtitle"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="model">Model / Size</Label>
-              <Input 
-                id="model" 
-                value={formData.model} 
-                onChange={(e) => handleChange("model", e.target.value)} 
-                placeholder="e.g. M1636 or 60x60cm"
               />
             </div>
           </div>

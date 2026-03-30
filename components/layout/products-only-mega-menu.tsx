@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import Image from "next/image"
+import { memo, useMemo } from "react"
 import { formatPrice } from "@/lib/utils"
 import type { CategoryWithChildren } from "@/lib/loaders"
 import type { Product } from "@/lib/supabase-types"
@@ -11,24 +12,38 @@ interface ProductsOnlyMegaMenuProps {
     products: Product[]
 }
 
+function withImageWidth(url: string | null | undefined, width = 300): string {
+    if (!url) return '/images/placeholder.jpg'
+    if (!/^https?:\/\//i.test(url)) return url
+
+    try {
+        const parsed = new URL(url)
+        if (!parsed.searchParams.has('width')) {
+            parsed.searchParams.set('width', width.toString())
+        }
+        return parsed.toString()
+    } catch {
+        const sep = url.includes('?') ? '&' : '?'
+        return `${url}${sep}width=${width}`
+    }
+}
+
 /**
  * Mega Menu for categories WITHOUT subcategories
  * Shows products directly instead of subcategory cards
  * Layout: Left sidebar (category name + View All + Trending Now) + Right (4 product cards)
  */
-export function ProductsOnlyMegaMenu({ category, products }: ProductsOnlyMegaMenuProps) {
-    // Filter active products for this category (exclude clearance)
-    const categoryProducts = products.filter(
-        p => p.category_id === category.id && 
-             p.status === 'active' &&
-             p.is_clearance !== true
-    )
+export const ProductsOnlyMegaMenu = memo(function ProductsOnlyMegaMenu({ category, products }: ProductsOnlyMegaMenuProps) {
+    const categoryProducts = useMemo(() => {
+        return products.filter(
+            p => p.category_id === category.id &&
+                 p.status === 'active' &&
+                 p.is_clearance !== true
+        )
+    }, [category.id, products])
 
-    // Get featured products for right grid (4 products)
-    const featuredProducts = categoryProducts.slice(0, 4)
-    
-    // Get trending now products for left sidebar (3 products, offset to avoid duplicates)
-    const trendingProducts = categoryProducts.slice(4, 7)
+    const featuredProducts = useMemo(() => categoryProducts.slice(0, 4), [categoryProducts])
+    const trendingProducts = useMemo(() => categoryProducts.slice(4, 7), [categoryProducts])
     return (
         <div className="w-full bg-[#E5E9F0] border-t border-gray-200 py-8" style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}>
             <div className="container mx-auto max-w-[1400px] px-4">
@@ -68,11 +83,12 @@ export function ProductsOnlyMegaMenu({ category, products }: ProductsOnlyMegaMen
                                             <div className="relative w-16 h-16 flex-shrink-0 rounded border border-gray-100 overflow-hidden bg-gray-50">
                                                 {product.image ? (
                                                     <Image
-                                                        src={product.image}
+                                                        src={withImageWidth(product.image)}
                                                         alt={product.name}
                                                         fill
                                                         className="object-cover group-hover:scale-110 transition-transform duration-300"
                                                         sizes="64px"
+                                                        loading="lazy"
                                                         unoptimized
                                                     />
                                                 ) : (
@@ -108,11 +124,12 @@ export function ProductsOnlyMegaMenu({ category, products }: ProductsOnlyMegaMen
                                     <div className="aspect-[4/3] w-full relative">
                                         {product.image ? (
                                             <Image
-                                                src={product.image}
+                                                src={withImageWidth(product.image)}
                                                 alt={product.name}
                                                 fill
                                                 className="object-cover group-hover:scale-105 transition-transform duration-500"
                                                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                                                loading="lazy"
                                                 unoptimized
                                             />
                                         ) : (
@@ -138,4 +155,4 @@ export function ProductsOnlyMegaMenu({ category, products }: ProductsOnlyMegaMen
             </div>
         </div>
     )
-}
+})

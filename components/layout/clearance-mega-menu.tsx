@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import Image from "next/image"
+import { memo, useMemo } from "react"
 import { formatPrice } from "@/lib/utils"
 import type { Product } from "@/lib/supabase-types"
 
@@ -10,20 +11,37 @@ interface ClearanceMegaMenuProps {
     categories: Array<{ id: string; name: string; slug: string }>
 }
 
-export function ClearanceMegaMenu({ products, categories }: ClearanceMegaMenuProps) {
-    // Filter only clearance products that are active
-    const clearanceProducts = products.filter(
-        p => (p.is_clearance === true || p.is_clearance === 'true') && p.status === 'active'
-    )
+function withImageWidth(url: string | null | undefined, width = 300): string {
+    if (!url) return '/images/placeholder.jpg'
+    if (!/^https?:\/\//i.test(url)) return url
 
-    // Group clearance products by category
-    const productsByCategory = categories.map(cat => ({
-        category: cat,
-        products: clearanceProducts.filter(p => p.category_id === cat.id)
-    })).filter(group => group.products.length > 0) // Only show categories with clearance products
+    try {
+        const parsed = new URL(url)
+        if (!parsed.searchParams.has('width')) {
+            parsed.searchParams.set('width', width.toString())
+        }
+        return parsed.toString()
+    } catch {
+        const sep = url.includes('?') ? '&' : '?'
+        return `${url}${sep}width=${width}`
+    }
+}
 
-    // Get top 6 clearance products overall for featured section
-    const featuredClearanceProducts = clearanceProducts.slice(0, 6)
+export const ClearanceMegaMenu = memo(function ClearanceMegaMenu({ products, categories }: ClearanceMegaMenuProps) {
+    const clearanceProducts = useMemo(() => {
+        return products.filter(
+            p => p.is_clearance === true && p.status === 'active'
+        )
+    }, [products])
+
+    const productsByCategory = useMemo(() => {
+        return categories.map(cat => ({
+            category: cat,
+            products: clearanceProducts.filter(p => p.category_id === cat.id)
+        })).filter(group => group.products.length > 0)
+    }, [categories, clearanceProducts])
+
+    const featuredClearanceProducts = useMemo(() => clearanceProducts.slice(0, 6), [clearanceProducts])
 
     // If no clearance products, show empty state
     if (clearanceProducts.length === 0) {
@@ -86,11 +104,12 @@ export function ClearanceMegaMenu({ products, categories }: ClearanceMegaMenuPro
                                             <div className="relative w-16 h-16 flex-shrink-0 rounded border border-red-200 overflow-hidden bg-red-50">
                                                 {product.image ? (
                                                     <Image
-                                                        src={product.image}
+                                                        src={withImageWidth(product.image)}
                                                         alt={product.name}
                                                         fill
                                                         className="object-cover group-hover:scale-110 transition-transform duration-300"
                                                         sizes="64px"
+                                                        loading="lazy"
                                                         unoptimized
                                                     />
                                                 ) : (
@@ -142,11 +161,12 @@ export function ClearanceMegaMenu({ products, categories }: ClearanceMegaMenuPro
                                                 <div className="relative aspect-square rounded-lg border border-gray-100 overflow-hidden bg-gray-50 mb-3">
                                                     {product.image ? (
                                                         <Image
-                                                            src={product.image}
+                                                            src={withImageWidth(product.image)}
                                                             alt={product.name}
                                                             fill
                                                             className="object-cover group-hover:scale-110 transition-transform duration-300"
                                                             sizes="(max-width: 1400px) 33vw"
+                                                            loading="lazy"
                                                             unoptimized
                                                         />
                                                     ) : (
@@ -176,4 +196,4 @@ export function ClearanceMegaMenu({ products, categories }: ClearanceMegaMenuPro
             </div>
         </div>
     )
-}
+})

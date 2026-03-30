@@ -1,7 +1,7 @@
 "use client"
 
-import { ProductsListSkeleton } from "@/components/admin/AdminSkeletons"
+import { IconSpinner } from "@/components/ui/icon-spinner"
 
 export default function ProductsListLoading() {
-  return <ProductsListSkeleton />
+  return <IconSpinner label="Loading products..." className="min-h-[60vh]" />
 }

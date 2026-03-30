@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import Image from "next/image"
+import { memo, useMemo } from "react"
 import { formatPrice } from "@/lib/utils"
 import type { CategoryWithChildren } from "@/lib/loaders"
 import type { Product } from "@/lib/supabase-types"
@@ -11,22 +12,35 @@ interface MegaMenuProps {
     products: Product[]
 }
 
-export function MegaMenu({ category, products }: MegaMenuProps) {
-    // Children are already embedded in the category object
-    const subcategories = category.children || []
-    
-    // Get all category IDs (parent + children) for product filtering
-    const categoryIds = [category.id, ...subcategories.map(s => s.id)]
-    
-    // ✅ NEW: Filter featured products - EXCLUDE clearance products from mega menu
-    // (Clearance products get their own dedicated section)
-    const featuredProducts = products
-        .filter(p => 
-            categoryIds.includes(p.category_id || '') && 
-            p.status === 'active' &&
-            p.is_clearance !== true // ✅ Exclude clearance products
-        )
-        .slice(0, 6)
+function withImageWidth(url: string | null | undefined, width = 300): string {
+    if (!url) return '/images/placeholder.jpg'
+    if (!/^https?:\/\//i.test(url)) return url
+
+    try {
+        const parsed = new URL(url)
+        if (!parsed.searchParams.has('width')) {
+            parsed.searchParams.set('width', width.toString())
+        }
+        return parsed.toString()
+    } catch {
+        const sep = url.includes('?') ? '&' : '?'
+        return `${url}${sep}width=${width}`
+    }
+}
+
+export const MegaMenu = memo(function MegaMenu({ category, products }: MegaMenuProps) {
+    const subcategories = useMemo(() => category.children || [], [category.children])
+    const categoryIds = useMemo(() => [category.id, ...subcategories.map(s => s.id)], [category.id, subcategories])
+    const featuredProducts = useMemo(() => {
+        return products
+            .filter(p =>
+                categoryIds.includes(p.category_id || '') &&
+                p.status === 'active' &&
+                p.is_clearance !== true
+            )
+            .slice(0, 6)
+    }, [categoryIds, products])
+    const trendingProducts = useMemo(() => featuredProducts.slice(0, 3), [featuredProducts])
 
     return (
         <div className="w-full bg-[#E5E9F0] border-t border-gray-200 py-8" style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}>
@@ -69,7 +83,7 @@ export function MegaMenu({ category, products }: MegaMenuProps) {
                                     Trending Now
                                 </h4>
                                 <div className="space-y-4">
-                                    {featuredProducts.slice(0, 3).map((product) => (
+                                    {trendingProducts.map((product) => (
                                         <Link
                                             key={product.id}
                                             href={`/product/${product.slug}`}
@@ -78,11 +92,12 @@ export function MegaMenu({ category, products }: MegaMenuProps) {
                                             <div className="relative w-16 h-16 flex-shrink-0 rounded border border-gray-100 overflow-hidden bg-gray-50">
                                                 {product.image ? (
                                                     <Image
-                                                        src={product.image}
+                                                        src={withImageWidth(product.image)}
                                                         alt={product.name}
                                                         fill
                                                         className="object-cover group-hover:scale-110 transition-transform duration-300"
                                                         sizes="64px"
+                                                        loading="lazy"
                                                         unoptimized
                                                     />
                                                 ) : (
@@ -118,11 +133,12 @@ export function MegaMenu({ category, products }: MegaMenuProps) {
                                     <div className="aspect-[4/3] w-full relative">
                                         {sub.image ? (
                                             <Image
-                                                src={sub.image}
+                                                src={withImageWidth(sub.image)}
                                                 alt={sub.name}
                                                 fill
                                                 className="object-cover group-hover:scale-105 transition-transform duration-500"
                                                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                                                loading="lazy"
                                                 unoptimized
                                             />
                                         ) : (
@@ -145,4 +161,4 @@ export function MegaMenu({ category, products }: MegaMenuProps) {
             </div>
         </div>
     )
-}
+})

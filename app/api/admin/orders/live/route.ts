@@ -4,6 +4,8 @@ import { createServerSupabase } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
 
+const ORDER_SELECT_FIELDS = 'id, order_number, user_id, customer_id, customer_name, customer_email, customer_phone, subtotal, tax, shipping_fee, discount, total, payment_method, payment_status, paid_amount, status, delivery_address, invoice_file_id, source, created_at, updated_at, items, status_history'
+
 export async function GET() {
   try {
     const session = await getServerSession()
@@ -16,7 +18,7 @@ export async function GET() {
 
     const { data, error } = await supabase
       .from("orders")
-      .select("*")
+      .select(ORDER_SELECT_FIELDS)
       .order("created_at", { ascending: false })
 
     if (error) {

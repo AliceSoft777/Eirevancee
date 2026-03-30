@@ -3,12 +3,17 @@
 import { useOrders } from "@/hooks/useOrders"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import dynamic from "next/dynamic"
 import { formatPrice } from "@/lib/utils"
 import { TrendingUp, Package, Users, Download, FileText } from "lucide-react"
 import { useState, useMemo, useEffect } from "react"
-import { LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import { toast } from "sonner"
 import { ReportsSkeleton } from "@/components/admin/AdminSkeletons"
+
+const SalesReportCharts = dynamic(
+  () => import("@/components/admin/SalesReportCharts").then((m) => ({ default: m.SalesReportCharts })),
+  { ssr: false }
+)
 
 type DateRange = 'today' | '7d' | '30d' | 'all'
 
@@ -29,7 +34,7 @@ type StatusBreakdownItem = {
 }
 
 export default function SalesReportPage() {
-  const { orders, isLoading: ordersLoading, error, refetch } = useOrders('ALL')
+  const { orders, isLoading: ordersLoading, error } = useOrders('ALL')
   const [dateRange, setDateRange] = useState<DateRange>('30d')
   const [loadingTimedOut, setLoadingTimedOut] = useState(false)
   const [showCharts, setShowCharts] = useState(false)
@@ -312,66 +317,33 @@ export default function SalesReportPage() {
             </Card>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Revenue Over Time</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {showCharts ? (
-                  <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={revenueChartData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="date" />
-                      <YAxis />
-                      <Tooltip formatter={(value) => formatPrice(value as number)} />
-                      <Line type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={2} isAnimationActive={false} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                ) : (
+          {showCharts ? (
+            <SalesReportCharts
+              revenueChartData={revenueChartData.map(({ date, revenue }) => ({ date, revenue }))}
+              statusBreakdown={statusBreakdown}
+              statusColors={STATUS_COLORS}
+            />
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Revenue Over Time</CardTitle>
+                </CardHeader>
+                <CardContent>
                   <div className="h-[300px] rounded-md bg-muted/20" />
-                )}
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Order Status Distribution</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {showCharts ? (
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie
-                        data={statusBreakdown}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={false}
-                        outerRadius={80}
-                        fill="#8884d8"
-                        dataKey="value"
-                        isAnimationActive={false}
-                      >
-                        {statusBreakdown.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={STATUS_COLORS[entry.name as keyof typeof STATUS_COLORS]} />
-                        ))}
-                      </Pie>
-                      <Tooltip formatter={(value) => `${value}`} />
-                      <Legend
-                        formatter={(value) => {
-                          const item = statusBreakdown.find((entry) => entry.name === String(value))
-                          return `${String(value)}: ${item?.value ?? 0}`
-                        }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                ) : (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Order Status Distribution</CardTitle>
+                </CardHeader>
+                <CardContent>
                   <div className="h-[300px] rounded-md bg-muted/20" />
-                )}
-              </CardContent>
-            </Card>
-          </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
 
           <Card>
             <CardHeader>

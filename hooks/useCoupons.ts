@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState, useRef } from 'react'
-import { getSupabaseBrowserClient } from '@/lib/supabase'
 import type { CouponFormData } from '@/components/admin/CouponDialog'
 
 export interface Coupon {
@@ -19,7 +18,6 @@ export interface Coupon {
 }
 
 export function useCoupons() {
-  const supabase = getSupabaseBrowserClient()
   const [coupons, setCoupons] = useState<Coupon[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -32,73 +30,30 @@ export function useCoupons() {
     return () => { mountedRef.current = false }
   }, [])
 
-  // Keep admin coupon screens fresh without requiring focus changes.
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-
-    const isAdminRoute = window.location.pathname.startsWith('/admin')
-    if (!isAdminRoute) return
-
-    const POLL_INTERVAL_MS = 15000
-    const timer = window.setInterval(() => {
-      if (document.visibilityState === 'visible' && !inFlightRef.current) {
-        fetchCoupons()
-      }
-    }, POLL_INTERVAL_MS)
-
-    return () => window.clearInterval(timer)
-  }, [])
-
   async function fetchCoupons() {
     if (inFlightRef.current) return
 
     try {
       inFlightRef.current = true
       setIsLoading(true)
-      const result = await (supabase
-        .from('coupons') as any)
-        .select('*')
-        .order('created_at', { ascending: false })
-      const { data, error } = result || {}
-
-      if (!mountedRef.current) return
-      if (error) throw error
-
-      const now = new Date()
-      const processed = (data || []).map((c: Coupon) => {
-        let effectiveStatus = c.status
-
-        // Check expiry
-        if (c.expires_at) {
-          let expiryDate = new Date(c.expires_at)
-          if (!c.expires_at.includes('T')) {
-            expiryDate = new Date(`${c.expires_at}T23:59:59.999Z`)
-          }
-          if (expiryDate < now) effectiveStatus = 'expired'
-        }
-
-        // Check usage limit
-        if (c.usage_limit && c.used_count >= c.usage_limit) {
-          effectiveStatus = 'expired'
-        }
-
-        return { ...c, status: effectiveStatus } as Coupon
+      setError(null)
+      const response = await fetch('/api/admin/coupons', {
+        method: 'GET',
+        credentials: 'include',
+        cache: 'no-store',
       })
 
-      // Lazily update DB for any coupons that just transitioned to expired
-      const newlyExpired = processed.filter(
-        (c: Coupon, i: number) => c.status === 'expired' && (data || [])[i]?.status === 'active'
-      )
-      if (newlyExpired.length > 0) {
-        const ids = newlyExpired.map((c: Coupon) => c.id)
-        ;(supabase.from('coupons') as any)
-          .update({ status: 'expired' })
-          .in('id', ids)
-          .then(() => {})
-          .catch(() => {})
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}))
+        throw new Error(payload?.error || `Failed to fetch coupons (${response.status})`)
       }
 
-      setCoupons(processed)
+      const payload = await response.json()
+      const data = Array.isArray(payload?.coupons) ? payload.coupons : []
+
+      if (!mountedRef.current) return
+
+      setCoupons(data)
     } catch (err: any) {
       if (mountedRef.current) setError(err.message)
     } finally {
@@ -108,38 +63,58 @@ export function useCoupons() {
   }
 
   async function addCoupon(coupon: CouponFormData) {
-    const { data, error } = await (supabase as any)
-      .from('coupons')
-      .insert([{ ...coupon, used_count: 0, status: 'active' }])
-      .select()
-      .single()
+    const response = await fetch('/api/admin/coupons', {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ ...coupon, used_count: 0, status: 'active' }),
+    })
 
-    if (error) throw error
-    setCoupons(prev => [data, ...prev])
-    return data
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}))
+      throw new Error(payload?.error || 'Failed to create coupon')
+    }
+
+    const payload = await response.json()
+    const created = payload?.coupon as Coupon
+    setCoupons(prev => [created, ...prev])
+    return created
   }
 
   async function updateCoupon(id: string, updates: Partial<CouponFormData>) {
-    const { data, error } = await (supabase as any)
-      .from('coupons')
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .single()
+    const response = await fetch(`/api/admin/coupons/${id}`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(updates),
+    })
 
-    if (error) throw error
-    setCoupons(prev => prev.map(c => c.id === id ? data : c))
-    return data
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}))
+      throw new Error(payload?.error || 'Failed to update coupon')
+    }
+
+    const payload = await response.json()
+    const updated = payload?.coupon as Coupon
+    setCoupons(prev => prev.map(c => c.id === id ? updated : c))
+    return updated
   }
 
   async function deleteCoupon(id: string) {
-    const result = await (supabase
-      .from('coupons') as any)
-      .delete()
-      .eq('id', id)
-    const { error } = result || {}
+    const response = await fetch(`/api/admin/coupons/${id}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    })
 
-    if (error) throw error
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}))
+      throw new Error(payload?.error || 'Failed to delete coupon')
+    }
+
     setCoupons(prev => prev.filter(c => c.id !== id))
   }
 

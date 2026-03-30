@@ -1,7 +1,7 @@
 "use client"
 
-import { TeamListSkeleton } from "@/components/admin/AdminSkeletons"
+import { IconSpinner } from "@/components/ui/icon-spinner"
 
 export default function TeamListLoading() {
-  return <TeamListSkeleton />
+  return <IconSpinner label="Loading team..." className="min-h-[60vh]" />
 }

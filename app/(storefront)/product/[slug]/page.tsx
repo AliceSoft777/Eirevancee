@@ -53,7 +53,6 @@ function transformProduct(dbProduct: Record<string, unknown>): Product {
     images: finalImages,
 
     assigned_code: (dbProduct.assigned_code as string) ?? null,
-    model: (dbProduct.model as string) ?? null,
     size: (dbProduct.size as string) ?? null,
     finish: (dbProduct.finish as string) ?? null,
     thickness: (dbProduct.thickness as string) ?? null,

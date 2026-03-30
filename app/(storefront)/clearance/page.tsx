@@ -8,7 +8,7 @@ export default async function ClearancePage() {
   // ✅ FIXED: Fetch only clearance products (is_clearance = true)
   const { data } = await supabase
     .from("products")
-    .select("*")
+    .select("id, name, slug, price, image, stock, material, status")
     .eq("status", "active")
     .eq("is_clearance", true) // ✅ Filter by boolean flag
     .order("price", { ascending: true });

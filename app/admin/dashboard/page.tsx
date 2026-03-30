@@ -5,6 +5,7 @@ import { useProducts } from "@/hooks/useProducts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
+import dynamic from "next/dynamic"
 import { formatPrice } from "@/lib/utils"
 import { StatusBadge } from "@/components/admin/StatusBadge"
 import { formatOrderDate } from "@/lib/order-utils"
@@ -16,8 +17,12 @@ import {
   Plus
 } from "lucide-react"
 import { useState, useMemo, useEffect } from "react"
-import { DashboardSkeleton } from "@/components/admin/AdminSkeletons"
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { IconSpinner } from "@/components/ui/icon-spinner"
+
+const DashboardCharts = dynamic(
+  () => import("@/components/admin/DashboardCharts").then((m) => ({ default: m.DashboardCharts })),
+  { ssr: false }
+)
 
 type DateRange = 'today' | '7d' | '30d' | 'all'
 
@@ -168,7 +173,7 @@ export default function AdminDashboardPage() {
   ]
 
   if (ordersLoading && !loadingTimedOut) {
-    return <DashboardSkeleton />
+    return <IconSpinner label="Loading dashboard..." className="min-h-[60vh]" />
   }
 
   return (
@@ -209,49 +214,32 @@ export default function AdminDashboardPage() {
             ))}
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Revenue Trend</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {showCharts ? (
-                  <ResponsiveContainer width="100%" height={250}>
-                    <LineChart data={revenueChartData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="date" />
-                      <YAxis />
-                      <Tooltip formatter={(value) => formatPrice(value as number)} />
-                      <Line type="monotone" dataKey="revenue" stroke="#8b5cf6" strokeWidth={2} isAnimationActive={false} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                ) : (
+          {showCharts ? (
+            <DashboardCharts
+              revenueChartData={revenueChartData}
+              ordersChartData={ordersChartData}
+            />
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Revenue Trend</CardTitle>
+                </CardHeader>
+                <CardContent>
                   <div className="h-[250px] rounded-md bg-muted/20" />
-                )}
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Orders Over Time</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {showCharts ? (
-                  <ResponsiveContainer width="100%" height={250}>
-                    <BarChart data={ordersChartData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="date" />
-                      <YAxis />
-                      <Tooltip />
-                      <Bar dataKey="count" fill="#8b5cf6" isAnimationActive={false} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Orders Over Time</CardTitle>
+                </CardHeader>
+                <CardContent>
                   <div className="h-[250px] rounded-md bg-muted/20" />
-                )}
-              </CardContent>
-            </Card>
-          </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">

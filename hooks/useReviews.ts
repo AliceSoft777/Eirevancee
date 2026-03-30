@@ -85,14 +85,21 @@ export function useReviews() {
     try {
       reviewsInFlightRef.current = true
       setIsLoading(true)
-      const result = await (supabase
-        .from('reviews') as any)
-        .select('*')
-        .order('created_at', { ascending: false })
-      const { data, error } = result || {}
+      const response = await fetch('/api/admin/reviews/live', {
+        method: 'GET',
+        credentials: 'include',
+        cache: 'no-store',
+      })
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}))
+        throw new Error(payload?.error || `Failed to fetch reviews (${response.status})`)
+      }
+
+      const payload = await response.json()
+      const data = Array.isArray(payload?.reviews) ? payload.reviews : []
 
       if (!mountedRef.current) return
-      if (error) throw error
       setReviews(data || [])
     } catch (err: any) {
       if (mountedRef.current) setError(err.message)
@@ -169,55 +176,23 @@ export function useFeedbacks() {
     try {
       feedbacksInFlightRef.current = true
       setIsLoading(true)
-      
-      // 1. Fetch Feedbacks
-      const feedbackResult = await (supabase
-        .from('feedbacks') as any)
-        .select('*')
-        .order('created_at', { ascending: false })
-      const { data: dbFeedbacks, error: feedbacksError } = feedbackResult || {}
 
-      if (!mountedRef.current) return
-      if (feedbacksError) throw feedbacksError
-      
-      if (!dbFeedbacks || dbFeedbacks.length === 0) {
-        if (mountedRef.current) { setFeedbacks([]); setIsLoading(false) }
-        return
-      }
-
-      // 2. Fetch Responses
-      const feedbackIds = dbFeedbacks.map((f: any) => f.id)
-      const responsesResult = await (supabase
-        .from('feedback_responses') as any)
-        .select('*')
-        .in('feedback_id', feedbackIds)
-        .order('created_at', { ascending: true })
-      const { data: dbResponses, error: responsesError } = responsesResult || {}
-      
-      if (!mountedRef.current) return
-      if (responsesError) {
-        console.error("Error fetching responses:", responsesError)
-      }
-
-      // 3. Merge
-      const mergedFeedbacks = dbFeedbacks.map((feedback: any) => {
-        const responses = (dbResponses || [])
-          .filter((r: any) => r.feedback_id === feedback.id)
-          .map((r: any) => ({
-            ...r,
-            timestamp: r.created_at
-          }))
-        
-        return {
-          ...feedback,
-          customerName: feedback.customer_name,
-          customerEmail: feedback.customer_email,
-          createdAt: feedback.created_at,
-          responses
-        }
+      const response = await fetch('/api/admin/feedback/live', {
+        method: 'GET',
+        credentials: 'include',
+        cache: 'no-store',
       })
 
-      if (mountedRef.current) setFeedbacks(mergedFeedbacks)
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}))
+        throw new Error(payload?.error || `Failed to fetch feedbacks (${response.status})`)
+      }
+
+      const payload = await response.json()
+      const feedbacks = Array.isArray(payload?.feedbacks) ? payload.feedbacks : []
+
+      if (!mountedRef.current) return
+      setFeedbacks(feedbacks)
     } catch (err: any) {
       if (mountedRef.current) setError(err.message)
     } finally {

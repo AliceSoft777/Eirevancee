@@ -171,8 +171,10 @@ export function AdminLayout({ children, userRole }: AdminLayoutProps) {
                 <span className="truncate">Back to Store</span>
               </Link>
               <button
+                type="button"
                 className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-muted-foreground hover:text-red-600 transition-all duration-200 rounded-xl cursor-pointer bg-transparent border-none text-left"
                 onClick={handleLogout}
+                suppressHydrationWarning
               >
                 <LogOut className="w-4 h-4 flex-shrink-0" />
                 <span className="truncate">Logout</span>

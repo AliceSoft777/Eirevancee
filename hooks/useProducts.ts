@@ -20,7 +20,6 @@ interface DbProduct {
   low_stock_threshold: number
   is_clearance: boolean // ✅ NEW: Boolean flag for clearance sale
   assigned_code: string | null
-  model: string | null
   material: string | null
   size: string | null
   finish: string | null
@@ -35,6 +34,24 @@ interface DbProduct {
   has_led: boolean | null
   created_at: string
   updated_at: string
+}
+
+const PRODUCT_BASE_SELECT_FIELDS = 'id, name, slug, subtitle, description, price, image, category_id, stock, status, low_stock_threshold, is_clearance, cost_price, assigned_code, material, size, finish, thickness, sqm_per_box, application_area, brand, availability, panel_length, panel_width, package_included, has_led, created_at, updated_at'
+
+function withImageWidth(url: string | null | undefined, width = 300): string | null {
+  if (!url) return null
+  if (!/^https?:\/\//i.test(url)) return url
+
+  try {
+    const parsed = new URL(url)
+    if (!parsed.searchParams.has('width')) {
+      parsed.searchParams.set('width', width.toString())
+    }
+    return parsed.toString()
+  } catch {
+    const sep = url.includes('?') ? '&' : '?'
+    return `${url}${sep}width=${width}`
+  }
 }
 
 // Transformed Product type for UI
@@ -54,7 +71,6 @@ export interface Product {
   is_clearance: boolean // ✅ NEW: Boolean flag for clearance sale
   cost_price?: number | null
   assigned_code: string | null
-  model: string | null
   material: string | null
   size: string | null
   finish: string | null
@@ -84,10 +100,10 @@ export interface Product {
 // Transform raw DB product to UI Product
 function transformProduct(dbProduct: any): Product {
   // Get primary image from product_images array
-  const primaryImageFromTable = dbProduct.product_images?.find((img: any) => img.is_primary)?.image_url
+  const primaryImageFromTable = withImageWidth(dbProduct.product_images?.find((img: any) => img.is_primary)?.image_url)
   
   // If no primary image in product_images, use first uploaded image
-  const firstUploadedImage = dbProduct.product_images?.[0]?.image_url
+  const firstUploadedImage = withImageWidth(dbProduct.product_images?.[0]?.image_url)
   
   // Fallback to image column, but STRIP timestamp query parameter if present
   let fallbackImage = dbProduct.image
@@ -95,12 +111,13 @@ function transformProduct(dbProduct: any): Product {
     // Remove the timestamp query parameter that causes 400 errors
     fallbackImage = fallbackImage.split('?t=')[0]
   }
+  fallbackImage = withImageWidth(fallbackImage)
   
   // Priority: primary image > first uploaded image > clean image column
   const primaryImage = primaryImageFromTable || firstUploadedImage || fallbackImage
   
   // All images: from product_images table OR from image column (cleaned)
-  const allImages = dbProduct.product_images?.map((img: any) => img.image_url).filter(Boolean) || 
+  const allImages = dbProduct.product_images?.map((img: any) => withImageWidth(img.image_url)).filter(Boolean) || 
                    (primaryImage ? [primaryImage] : [])
   
   return {
@@ -119,7 +136,6 @@ function transformProduct(dbProduct: any): Product {
     is_clearance: dbProduct.is_clearance,
     cost_price: dbProduct.cost_price,
     assigned_code: dbProduct.assigned_code,
-    model: dbProduct.model,
     material: dbProduct.material,
     size: dbProduct.size,
     finish: dbProduct.finish,
@@ -162,6 +178,7 @@ type UseProductsOptions = {
 export function useProducts(options: UseProductsOptions = {}) {
   const { initialData = [], autoFetch = true, enableLiveSync = true } = options
   const supabase = getSupabaseBrowserClient()
+  const isAdminPath = typeof window !== 'undefined' && window.location.pathname.startsWith('/admin')
   const [products, setProducts] = useState<Product[]>(initialData)
   const [isLoading, setIsLoading] = useState(autoFetch && initialData.length === 0)
   const [error, setError] = useState<string | null>(null)
@@ -206,16 +223,40 @@ export function useProducts(options: UseProductsOptions = {}) {
       setError(null)
 
       // Fetch products with category info and images
-      const result: any = await withTimeout(
-        (supabase
-          .from('products') as any)
-          .select('*, categories!category_id(name, parent_id, categories!parent_id(name)), product_images!left(id, image_url, is_primary, display_order)')
-          .order('created_at', { ascending: false })
-          .limit(100),
-        25000,
-        'Products request timed out. Please retry.'
-      )
-      const { data, error: fetchError } = result || {}
+      let data: any[] | null = null
+      let fetchError: any = null
+
+      if (isAdminPath) {
+        const response = await withTimeout(
+          fetch('/api/admin/products/live', {
+            method: 'GET',
+            credentials: 'include',
+            cache: 'no-store',
+          }),
+          25000,
+          'Products request timed out. Please retry.'
+        )
+
+        if (!response.ok) {
+          const payload = await response.json().catch(() => ({}))
+          fetchError = { message: payload?.error || `HTTP ${response.status}` }
+        } else {
+          const payload = await response.json()
+          data = Array.isArray(payload?.products) ? payload.products : []
+        }
+      } else {
+        const result: any = await withTimeout(
+          (supabase
+            .from('products') as any)
+            .select(`${PRODUCT_BASE_SELECT_FIELDS}, categories!category_id(name, parent_id, categories!parent_id(name)), product_images!left(id, image_url, is_primary, display_order)`)
+            .order('created_at', { ascending: false })
+            .limit(100),
+          25000,
+          'Products request timed out. Please retry.'
+        )
+        data = result?.data || []
+        fetchError = result?.error || null
+      }
 
       if (!mountedRef.current) return productsRef.current // Don't setState if unmounted
 
@@ -271,7 +312,7 @@ export function useProducts(options: UseProductsOptions = {}) {
       isFetchingRef.current = false
       logClientTiming('useProducts.fetchProducts', startedAt, { rowCount })
     }
-  }, [supabase, withTimeout])
+  }, [isAdminPath, supabase, withTimeout])
 
   useEffect(() => {
     mountedRef.current = true
@@ -288,7 +329,7 @@ export function useProducts(options: UseProductsOptions = {}) {
 
   useRealtimeTable({
     table: 'products',
-    enabled: enableLiveSync,
+    enabled: enableLiveSync && !isAdminPath,
     onInsert: (row) => {
       const mapped = transformProduct(row)
       setProducts((prev) => {
@@ -328,7 +369,6 @@ export function useProducts(options: UseProductsOptions = {}) {
       thickness: product.thickness,
       sqm_per_box: product.sqm_per_box,
       application_area: product.application_area,
-      model: product.model,
       brand: product.brand,
       availability: product.availability,
       panel_length: product.panel_length,
@@ -338,6 +378,25 @@ export function useProducts(options: UseProductsOptions = {}) {
       is_clearance: product.is_clearance,
     }
     
+    if (isAdminPath) {
+      const response = await fetch('/api/admin/products', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(dbProduct),
+      })
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}))
+        throw new Error(payload?.error || 'Failed to create product')
+      }
+
+      const payload = await response.json()
+      return payload?.product || null
+    }
+
     const { data: newProduct, error: productError} = await supabase
       .from('products')
       .insert([dbProduct] as any)
@@ -356,7 +415,7 @@ export function useProducts(options: UseProductsOptions = {}) {
       'name', 'slug', 'subtitle', 'description', 'price', 'image',
       'category_id', 'stock', 'status', 'low_stock_threshold',
       'assigned_code', 'material', 'size', 'finish', 'thickness',
-      'sqm_per_box', 'application_area', 'is_clearance', 'model',
+      'sqm_per_box', 'application_area', 'is_clearance',
       'brand', 'availability', 'panel_length', 'panel_width',
       'package_included', 'has_led'
     ]
@@ -374,6 +433,25 @@ export function useProducts(options: UseProductsOptions = {}) {
       throw new Error('No valid fields to update')
     }
     
+    if (isAdminPath) {
+      const response = await fetch(`/api/admin/products/${id}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(dbUpdates),
+      })
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}))
+        throw new Error(payload?.error || 'Failed to update product')
+      }
+
+      const payload = await response.json()
+      return payload?.product
+    }
+
     const { data, error: updateError } = await (supabase as any)
       .from('products')
       .update(dbUpdates)
@@ -393,6 +471,21 @@ export function useProducts(options: UseProductsOptions = {}) {
   }
 
   async function deleteProduct(id: string) {
+    if (isAdminPath) {
+      const response = await fetch(`/api/admin/products/${id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      })
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}))
+        throw new Error(payload?.error || 'Failed to delete product')
+      }
+
+      setProducts(prev => prev.filter(p => p.id !== id))
+      return
+    }
+
     const result = await (supabase
       .from('products') as any)
       .delete()
