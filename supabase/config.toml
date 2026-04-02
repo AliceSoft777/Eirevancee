@@ -1,3 +1,0 @@
-[functions.stripe-webhook]
-# ✅ Stripe cannot send a Supabase JWT — verify signature via webhook secret instead
-verify_jwt = false

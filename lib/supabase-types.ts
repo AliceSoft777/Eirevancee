@@ -472,6 +472,74 @@ export interface Database {
           unsubscribed_at?: string | null
         }
       }
+
+      quotations: {
+        Row: {
+          id: string
+          quote_number: string
+          customer_name: string
+          customer_email: string | null
+          customer_phone: string | null
+          quote_type: string
+          quote_date: string
+          valid_until: string | null
+          delivery_collection: string
+          customer_order_no: string | null
+          sales_rep_name: string | null
+          items: Record<string, unknown>[]
+          subtotal: number
+          vat_total: number
+          total: number
+          instructions: string | null
+          status: 'draft' | 'sent' | 'accepted' | 'declined' | 'expired'
+          pdf_url: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          quote_number: string
+          customer_name: string
+          customer_email?: string | null
+          customer_phone?: string | null
+          quote_type?: string
+          quote_date?: string
+          delivery_collection?: string
+          customer_order_no?: string | null
+          sales_rep_name?: string | null
+          items?: Record<string, unknown>[]
+          subtotal?: number
+          vat_total?: number
+          total?: number
+          instructions?: string | null
+          status?: 'draft' | 'sent' | 'accepted' | 'declined' | 'expired'
+          pdf_url?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          quote_number?: string
+          customer_name?: string
+          customer_email?: string | null
+          customer_phone?: string | null
+          quote_type?: string
+          quote_date?: string
+          delivery_collection?: string
+          customer_order_no?: string | null
+          sales_rep_name?: string | null
+          items?: Record<string, unknown>[]
+          subtotal?: number
+          vat_total?: number
+          total?: number
+          instructions?: string | null
+          status?: 'draft' | 'sent' | 'accepted' | 'declined' | 'expired'
+          pdf_url?: string | null
+          created_by?: string | null
+          updated_at?: string
+        }
+      }
     }
   }
 }
@@ -486,3 +554,33 @@ export type Coupon = Database['public']['Tables']['coupons']['Row']
 export type Profile = Database['public']['Tables']['profiles']['Row']
 export type Review = Database['public']['Tables']['reviews']['Row']
 export type NewsletterSubscription = Database['public']['Tables']['newsletter_subscriptions']['Row']
+
+// Quotation helper types
+export interface QuotationProductItem {
+  id: string
+  type: 'product'
+  sort_order: number
+  product_id: string | null
+  code: string
+  description: string
+  quantity: number
+  unit_price: number
+  discount_percentage: number
+  amount: number
+  vat_rate: number
+  vat_amount: number
+}
+
+export interface QuotationSectionHeader {
+  id: string
+  type: 'section_header'
+  sort_order: number
+  label: string
+}
+
+export type QuotationItem = QuotationProductItem | QuotationSectionHeader
+
+// Frontend-friendly quotation type with strong item typing
+export type Quotation = Omit<Database['public']['Tables']['quotations']['Row'], 'items'> & {
+  items: QuotationItem[]
+}

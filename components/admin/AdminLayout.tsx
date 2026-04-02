@@ -19,6 +19,7 @@ import {
   Home,
   Menu,
   X,
+  FileText,
   LucideIcon
 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -41,6 +42,7 @@ interface NavItem {
 const allNavigation: NavItem[] = [
   { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
   { name: "Orders", href: "/admin/orders/list", icon: ShoppingBag },
+  { name: "Quotations", href: "/admin/quotations", icon: FileText },
   { name: "Products", href: "/admin/products/list", icon: Package },
   { name: "Reviews", href: "/admin/reviews/pending", icon: Star },
   { name: "Customers", href: "/admin/customers/list", icon: Users },

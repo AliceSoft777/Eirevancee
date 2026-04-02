@@ -151,5 +151,5 @@ STRIPE_WEBHOOK_SETUP.md
 TROUBLESHOOTING.md
 deploy-edge-function.md
 
-# Supabase CLI temp files
-supabase/.temp/
+# Supabase directory
+supabase/
