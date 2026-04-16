@@ -6,27 +6,43 @@ import { Input } from "@/components/ui/input"
 import Link from "next/link"
 import { Package, Heart, Bell, Loader2 } from "lucide-react"
 import { useStore } from "@/hooks/useStore"
-import { useOrders } from "@/hooks/useOrders"
 import { useWishlist } from "@/hooks/useWishlist"
 import { getSupabaseBrowserClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
-import { useMemo, useState } from "react"
+import { useState } from "react"
 import { formatPrice } from "@/lib/utils"
 import { formatOrderDate } from "@/lib/order-utils"
 import { StatusBadge } from "@/components/admin/StatusBadge"
 import { toast } from "sonner"
 import type { ServerSession } from "@/lib/loaders"
+import type { Database } from "@/lib/supabase-types"
 
 interface AccountClientProps {
     session: ServerSession
     initialFullName: string
     initialPhone: string
+    orderCount: number
+    recentOrders: Array<{
+        id: string
+        orderNumber: string
+        order_number?: string
+        status: string
+        total: number
+        createdAt?: string
+        created_at?: string
+    }>
 }
 
-export default function AccountClient({ session, initialFullName, initialPhone }: AccountClientProps) {
+type ProfileUpdate = Database["public"]["Tables"]["profiles"]["Update"]
+
+function getErrorMessage(error: unknown, fallback: string): string {
+    if (error instanceof Error && error.message) return error.message
+    return fallback
+}
+
+export default function AccountClient({ session, initialFullName, initialPhone, orderCount, recentOrders }: AccountClientProps) {
     const { logout } = useStore()
     const router = useRouter()
-    const { orders, isLoading: ordersLoading } = useOrders(session.userId)
     const { wishlistItems, isLoading: wishlistLoading } = useWishlist()
 
     const [isEditing, setIsEditing] = useState(false)
@@ -41,18 +57,23 @@ export default function AccountClient({ session, initialFullName, initialPhone }
         setIsSaving(true)
         try {
             const supabase = getSupabaseBrowserClient()
-            const result = await (supabase as any)
+            const profileUpdate: ProfileUpdate = {
+                full_name: editFullName.trim() || null,
+                phone: editPhone.trim() || null,
+            }
+
+            const { error } = await supabase
                 .from('profiles')
-                .update({ full_name: editFullName, phone: editPhone })
+                .update(profileUpdate)
                 .eq('id', session.userId)
-            const { error } = result || {}
+
             if (error) throw error
             setFullName(editFullName)
             setPhone(editPhone)
             setIsEditing(false)
             toast.success('Profile updated successfully')
-        } catch (err: any) {
-            toast.error(err.message || 'Failed to update profile')
+        } catch (err: unknown) {
+            toast.error(getErrorMessage(err, 'Failed to update profile'))
         } finally {
             setIsSaving(false)
         }
@@ -64,20 +85,8 @@ export default function AccountClient({ session, initialFullName, initialPhone }
         setIsEditing(false)
     }
 
-    // Filter orders for current user
-    const userOrders = useMemo(() => {
-        if (!session.userEmail) return []
-        return orders.filter(o => o.customerEmail === session.userEmail)
-    }, [orders, session.userEmail])
 
-    // Get recent 3 orders
-    const recentOrders = useMemo(() => {
-        return userOrders
-            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-            .slice(0, 3)
-    }, [userOrders])
-
-    const isLoading = ordersLoading || wishlistLoading
+    const isLoading = wishlistLoading
 
     return (
         <div className="space-y-10">
@@ -97,7 +106,7 @@ export default function AccountClient({ session, initialFullName, initialPhone }
                         {isLoading ? (
                             <div className="h-10 w-24 bg-white/20 animate-pulse rounded-lg" />
                         ) : (
-                            <p className="text-4xl font-bold text-slate-800">{userOrders.length}</p>
+                            <p className="text-4xl font-bold text-slate-800">{orderCount}</p>
                         )}
                     </CardContent>
                 </Card>
@@ -136,7 +145,7 @@ export default function AccountClient({ session, initialFullName, initialPhone }
                         </div>
                     </CardHeader>
                     <CardContent className="px-8 pb-8">
-                        {ordersLoading ? (
+                        {false ? (
                             <div className="space-y-4">
                                 {[1, 2, 3].map((i) => (
                                     <div key={i} className="h-20 bg-white/20 animate-pulse rounded-2xl" />

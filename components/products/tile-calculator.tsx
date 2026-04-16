@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { Product } from "@/hooks/useProducts";
+import type { Product } from "@/types";
 import { formatPrice } from "@/lib/utils";
 
 // ============================================================================

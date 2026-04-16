@@ -13,6 +13,7 @@ import { toast } from "sonner"
 import { Loader2, Tag } from "lucide-react"
 import Link from "next/link"
 import type { UserAddress } from "@/hooks/useAddresses"
+import type { Database } from "@/lib/supabase-types"
 
 interface AppliedCoupon {
     code: string
@@ -34,6 +35,9 @@ interface CheckoutClientProps {
     userId: string | null
     siteSettings: SiteSettings
 }
+
+type CustomerAddressInsert = Database["public"]["Tables"]["customer_addresses"]["Insert"]
+type CreatedOrder = Pick<Database["public"]["Tables"]["orders"]["Row"], "order_number">
 
 export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses, initialProfile, userId, siteSettings }: CheckoutClientProps) {
     const supabase = getSupabaseBrowserClient()
@@ -63,51 +67,6 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
     }
 
     const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(null)
-
-    // Re-validate and increment coupon at checkout time
-    const validateAndIncrementCoupon = async (): Promise<boolean> => {
-        if (!appliedCoupon) return true
-        try {
-            const { data, error } = await (supabase.from('coupons') as any)
-                .select('*').eq('code', appliedCoupon.code).single()
-            if (error || !data) {
-                toast.error('Coupon is no longer valid')
-                setAppliedCoupon(null)
-                sessionStorage.removeItem('appliedCoupon')
-                return false
-            }
-            // Check expiry
-            if (data.expires_at) {
-                let expiryDate = new Date(data.expires_at)
-                if (!data.expires_at.includes('T')) {
-                    expiryDate = new Date(`${data.expires_at}T23:59:59.999Z`)
-                }
-                if (expiryDate < new Date()) {
-                    toast.error('This coupon has expired since you added it')
-                    setAppliedCoupon(null)
-                    sessionStorage.removeItem('appliedCoupon')
-                    return false
-                }
-            }
-            // Check usage limit
-            if (data.usage_limit && data.used_count >= data.usage_limit) {
-                toast.error('This coupon has reached its usage limit')
-                setAppliedCoupon(null)
-                sessionStorage.removeItem('appliedCoupon')
-                return false
-            }
-            // Increment used_count
-            await (supabase.from('coupons') as any)
-                .update({ used_count: (data.used_count || 0) + 1 })
-                .eq('code', appliedCoupon.code)
-            sessionStorage.removeItem('appliedCoupon')
-            return true
-        } catch {
-            // Non-blocking — let the order proceed
-            sessionStorage.removeItem('appliedCoupon')
-            return true
-        }
-    }
 
     const subtotal = getCartTotal()
     const taxRate = (siteSettings.tax_rate ?? 0) / 100 // from DB (0 = inclusive/no extra tax)
@@ -227,7 +186,7 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
             }
 
             // ✅ STEP 0: Save address to customer_addresses table (non-blocking)
-            const addressPayload = {
+            const addressPayload: CustomerAddressInsert = {
                 user_id: userId,
                 full_name: full_name,
                 street: street,
@@ -243,7 +202,7 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
             // ✅ Check if this address already exists before inserting
             try {
                 const checkResult = await (supabase
-                    .from('customer_addresses') as any)
+                    .from('customer_addresses'))
                     .select('id')
                     .eq('user_id', userId)
                     .eq('street', street)
@@ -254,7 +213,7 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
                 const existingAddresses = checkResult?.data ?? []
                 if (existingAddresses.length === 0) {
                     const insertResult = await (supabase
-                        .from('customer_addresses') as any)
+                        .from('customer_addresses'))
                         .insert([addressPayload])
                         .select()
                     if (insertResult?.error) {
@@ -265,58 +224,31 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
                 console.warn('[Checkout] Address save failed (non-blocking):', addrErr)
             }
 
-            // Build order items array for JSONB storage
-            const orderItemsArray = cartItems.map(item => ({
-                product_id: item.product_id,
-                product_name: item.product_name,
-                quantity: item.quantity,
-                unit_price: item.product_price,
-                subtotal: item.product_price * item.quantity
-            }))
-
-            // Build status history for audit trail
-            const statusHistoryArray = [
-                {
-                    status: "Pending",
-                    timestamp: new Date().toISOString(),
-                    notes: paymentMethod === 'offline_cash' ? 'Cash payment - awaiting store receipt' : 'Card payment - awaiting verification'
-                }
-            ]
-
-            // Build order payload (shared between card and offline)
-            const orderPayload = {
-                user_id: userId,
-                customer_id: userId,
-                customer_name: full_name,
-                customer_email: email,
-                customer_phone: phone,
-                subtotal: Number(subtotal.toFixed(2)),
-                tax: Number(tax.toFixed(2)),
-                shipping_fee: Number(shippingFee.toFixed(2)),
-                discount: Number(couponDiscount.toFixed(2)),
-                coupon_code: appliedCoupon?.code ?? null,
-                total: Number(total.toFixed(2)),
-                status: 'Pending',
-                payment_method: paymentMethod,
-                payment_status: 'Pending',
-                delivery_address: deliveryAddressObj as any,
-                items: orderItemsArray as any,
-                status_history: statusHistoryArray as any,
-                order_number: `ORD-${Date.now()}`,
-                source: 'web'
+            const checkoutPayload = {
+                paymentMethod,
+                couponCode: appliedCoupon?.code ?? null,
+                customer: {
+                    full_name,
+                    email,
+                    phone,
+                },
+                deliveryAddress: {
+                    street,
+                    city,
+                    state,
+                    pincode,
+                    country: "Ireland",
+                },
             }
 
-            // ✅ CARD PAYMENT: Create Stripe session FIRST, then create order only on success
+            // Card payment: create Stripe session first, then persist server-calculated order.
             if (paymentMethod === 'card') {
                 try {
-                    // Step 1: Create Stripe session first (validates currency = EUR)
                     const stripeResponse = await fetch('/api/create-stripe-session', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            orderId: orderPayload.order_number,
-                            amount: total,
-                            customerEmail: email
+                            couponCode: appliedCoupon?.code ?? null,
                         })
                     })
 
@@ -324,138 +256,85 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
                         const errorData = await stripeResponse.json().catch(() => ({ error: 'Payment service unavailable' }))
                         clearTimeout(timeoutId)
                         console.error('[Checkout] Stripe session failed:', errorData)
-                        toast.error("Payment could not be initialized: " + (errorData.error || "Please try again."))
+                        toast.error('Payment could not be initialized: ' + (errorData.error || 'Please try again.'))
                         setIsProcessing(false)
                         return
                     }
 
                     const { url, sessionId } = await stripeResponse.json()
 
-                    if (!url) {
+                    if (!url || !sessionId) {
                         clearTimeout(timeoutId)
-                        toast.error("Payment gateway returned an invalid response. Please try again.")
+                        toast.error('Payment gateway returned an invalid response. Please try again.')
                         setIsProcessing(false)
                         return
                     }
 
-                    // Step 2: Stripe session created — create order via server API
                     const orderRes = await fetch('/api/checkout/create-order', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ orderPayload, stripeSessionId: sessionId })
+                        body: JSON.stringify({
+                            ...checkoutPayload,
+                            stripeSessionId: sessionId,
+                        })
                     })
 
                     if (!orderRes.ok) {
                         const errData = await orderRes.json().catch(() => ({}))
                         clearTimeout(timeoutId)
                         console.error('[Checkout] Order creation failed after Stripe:', errData)
-                        toast.error("Order could not be saved. Please contact support.")
+                        toast.error('Order could not be saved. Please contact support.')
                         setIsProcessing(false)
                         return
                     }
 
-                    const { order: orderData } = await orderRes.json()
-
-                    if (!orderData) {
-                        clearTimeout(timeoutId)
-                        toast.error("Order could not be saved. Please contact support.")
-                        setIsProcessing(false)
-                        return
-                    }
-
-                    // ✅ Stock deduction for card payments is handled by the Supabase Edge Function
-                    // after Stripe confirms payment (checkout.session.completed event)
-
-                    // Step 3: Re-validate & increment coupon, then redirect to Stripe
-                    const couponValid = await validateAndIncrementCoupon()
-                    if (!couponValid) {
-                        clearTimeout(timeoutId)
-                        setIsProcessing(false)
-                        return
-                    }
                     clearTimeout(timeoutId)
-                    toast.success("Redirecting to payment...")
+                    sessionStorage.removeItem('appliedCoupon')
+                    toast.success('Redirecting to payment...')
                     window.location.href = url
                     return
-                } catch (stripeError: any) {
+                } catch (stripeError: unknown) {
                     clearTimeout(timeoutId)
-                    console.error('[Checkout] Stripe error:', stripeError.message)
-                    toast.error("Payment failed. Please check your connection and try again.")
+                    const message = stripeError instanceof Error ? stripeError.message : 'Unknown Stripe error'
+                    console.error('[Checkout] Stripe error:', message)
+                    toast.error('Payment failed. Please check your connection and try again.')
                     setIsProcessing(false)
                     return
                 }
             }
 
-            // ✅ OFFLINE PAYMENT (admin/sales only): Create order via server API
+            // Offline payment (admin/sales only): server validates permissions and performs stock deduction.
             const offlineOrderRes = await fetch('/api/checkout/create-order', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ orderPayload })
+                body: JSON.stringify(checkoutPayload)
             })
 
             if (!offlineOrderRes.ok) {
                 const errData = await offlineOrderRes.json().catch(() => ({}))
                 clearTimeout(timeoutId)
                 console.error('Order creation error:', errData)
-                toast.error("Failed to create order: " + (errData.error || "Unknown error"))
+                toast.error('Failed to create order: ' + (errData.error || 'Unknown error'))
                 setIsProcessing(false)
                 return
             }
 
-            const { order: orderData } = await offlineOrderRes.json()
+            const payload = await offlineOrderRes.json()
+            const orderData = payload?.order as CreatedOrder | undefined
 
             if (!orderData) {
                 clearTimeout(timeoutId)
-                toast.error("Failed to create order. Please try again.")
+                toast.error('Failed to create order. Please try again.')
                 setIsProcessing(false)
                 return
             }
 
-            // 2. Reduce stock for each product via server API (offline payment only)
-            try {
-                const stockResponse = await fetch('/api/orders/deduct-stock', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        orderId: (orderData as any).id,
-                        items: cartItems.map(item => ({
-                            product_id: item.product_id,
-                            quantity: item.quantity,
-                            product_name: item.product_name
-                        }))
-                    })
-                })
-
-                if (!stockResponse.ok) {
-                    console.warn('⚠️ Stock reduction API failed:', stockResponse.status)
-                } else {
-                    const stockResult = await stockResponse.json()
-                    
-                    if (!stockResult.success) {
-                        console.warn('⚠️ Some stock deductions failed:', stockResult.results)
-                    }
-                }
-            } catch (stockErr) {
-                console.warn('⚠️ Stock reduction request failed:', stockErr)
-            }
-
-            // 3. Clear cart
+            // Clear cart after successful offline order creation.
             try {
                 await clearCart()
             } catch (cartError) {
-                console.warn('⚠️ Cart clear failed but order was created:', cartError)
+                console.warn('[Checkout] Cart clear failed but order was created:', cartError)
             }
-
-            // 4. Re-validate & increment coupon used_count
-            const couponValid = await validateAndIncrementCoupon()
-            if (!couponValid) {
-                clearTimeout(timeoutId)
-                // Order was already created, so just warn — don't block
-                toast.warning('Coupon could not be applied but your order has been placed.')
-            }
-
             // 5. Clear timeout and show success
             clearTimeout(timeoutId)
             toast.success("Order placed successfully! 🎉")
@@ -463,7 +342,7 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
 
             // Small delay before redirect to allow success message to display
             setTimeout(() => {
-                router.push(`/order/success?orderId=${(orderData as any).order_number}`)
+                router.push(`/order/success?orderId=${orderData.order_number}`)
             }, 1500)
         } catch (err) {
             clearTimeout(timeoutId)
@@ -793,3 +672,4 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
         </>
     )
 }
+

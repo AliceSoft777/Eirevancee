@@ -6,9 +6,6 @@ import Link from "next/link"
 import { AccountSidebar } from "@/components/account/AccountSidebar"
 import { Card, CardContent } from "@/components/ui/card"
 import WishlistClient, { WishlistProduct } from "./WishlistClient"
-
-export const dynamic = 'force-dynamic'
-
 export default async function WishlistPage() {
     // SERVER-SIDE: Single source of truth for session
     const session = await getServerSession()
@@ -101,3 +98,4 @@ if (typedWishlistItems && typedWishlistItems.length > 0) {
         </>
     )
 }
+

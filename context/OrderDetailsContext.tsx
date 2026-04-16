@@ -1,7 +1,13 @@
 "use client"
 
 import React, { createContext, useContext, useState, ReactNode, useCallback } from "react"
-import type { Order } from "@/hooks/useOrders"
+// Minimal Order type used by the context — defined inline so we have no hook dependency
+export type Order = {
+  id: string
+  orderNumber: string
+  status: string
+  [key: string]: unknown
+}
 
 interface OrderDetailsContextType {
   selectedOrderId: string | null

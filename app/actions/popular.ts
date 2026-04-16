@@ -1,12 +1,20 @@
 "use server"
 
 import { createServerSupabase } from "@/lib/supabase/server"
-import type { Product } from "@/lib/supabase-types"
+import type { Database, Product } from "@/lib/supabase-types"
 
 interface OrderItem {
     product_id: string
     quantity: number
     product_name: string
+}
+
+type OrderItemsRow = Pick<Database["public"]["Tables"]["orders"]["Row"], "items">
+
+function isOrderItem(value: unknown): value is OrderItem {
+    if (!value || typeof value !== "object") return false
+    const item = value as Partial<OrderItem>
+    return typeof item.product_id === "string" && typeof item.quantity === "number"
 }
 
 /**
@@ -28,7 +36,7 @@ export async function getPopularProductsAction(options?: {
         const supabase = await createServerSupabase()
 
         // Step 1: Fetch all orders and extract product frequency from items JSON
-        const { data: orders, error: ordersError } = await (supabase as any)
+        const { data: orders, error: ordersError } = await supabase
             .from("orders")
             .select("items")
 
@@ -40,17 +48,18 @@ export async function getPopularProductsAction(options?: {
         const frequencyMap = new Map<string, number>()
 
         if (orders && orders.length > 0) {
-            for (const order of orders) {
+            for (const order of orders as OrderItemsRow[]) {
                 // items is stored as JSON string or array
                 let items: OrderItem[] = []
                 if (typeof order.items === "string") {
                     try {
-                        items = JSON.parse(order.items)
+                        const parsed = JSON.parse(order.items)
+                        items = Array.isArray(parsed) ? parsed.filter(isOrderItem) : []
                     } catch {
                         continue
                     }
                 } else if (Array.isArray(order.items)) {
-                    items = order.items as OrderItem[]
+                    items = (order.items as unknown[]).filter(isOrderItem)
                 }
 
                 for (const item of items) {
@@ -63,7 +72,7 @@ export async function getPopularProductsAction(options?: {
         }
 
         // Step 2: Fetch active products
-        let query = (supabase as any)
+        let query = supabase
             .from("products")
             .select(`
                 *,
@@ -109,7 +118,10 @@ export async function getPopularProductsAction(options?: {
         // If no orders exist, products keep their default order (newest first from query)
 
         return { data: filtered.slice(0, limit), error: null }
-    } catch (err) {
+    } catch (err: any) {
+        if (err?.digest === 'DYNAMIC_SERVER_USAGE' || err?.message?.includes('Dynamic server usage')) {
+            throw err;
+        }
         console.error("[getPopularProductsAction] Exception:", err)
         return { data: [], error: "Failed to fetch popular products" }
     }

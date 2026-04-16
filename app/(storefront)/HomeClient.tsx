@@ -4,13 +4,11 @@
 import { HeroBanner } from "@/components/home/hero-banner"
 import { ProductCard } from "@/components/products/product-card"
 import { Button } from "@/components/ui/button"
-import { lazy, Suspense, useEffect, useRef, useMemo, useState } from "react"
+import { lazy, Suspense, useEffect, useRef, useMemo } from "react"
 import { MapPin } from "lucide-react"
-import { motion } from "framer-motion"
 import { useStore } from "@/hooks/useStore"
 import type { Product } from "@/lib/supabase-types"
 import type { ServerSession, CategoryWithChildren } from "@/lib/loaders"
-import { getPopularProductsAction } from "@/app/actions/popular"
 import { toast } from "sonner"
 
 // Lazy load heavy components
@@ -42,14 +40,14 @@ const CATEGORY_IMAGES: Record<string, string> = {
 
 interface HomeClientProps {
     session: ServerSession
-    products: Product[]
+    popularProducts: Product[]
     categories: CategoryWithChildren[]
     wishlistProductIds: string[]
 }
 
 export default function HomeClient({
     session,
-    products,
+    popularProducts,
     categories,
     wishlistProductIds
 }: HomeClientProps) {
@@ -160,26 +158,9 @@ export default function HomeClient({
         }
     }, [])
     
-    // Popular products: start with first 8 active, then replace with real order-based data
-    const fallbackProducts = useMemo(() =>
-        products.filter(p => p.status === 'active').slice(0, 8),
-        [products]
-    )
-    const [popularProducts, setPopularProducts] = useState<Product[]>(fallbackProducts)
-
-    useEffect(() => {
-        let cancelled = false
-        getPopularProductsAction({ limit: 8 }).then(({ data }) => {
-            if (!cancelled && data.length > 0) {
-                setPopularProducts(data)
-            }
-        })
-        return () => { cancelled = true }
-    }, [])
-
     return (
         <>
-            <main suppressHydrationWarning>
+            <main>
                 {/* Hero Section */}
                 <HeroBanner
                     title="ELEVATE YOUR SPACE WITH EXQUISITE TILES"

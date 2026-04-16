@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 
 interface UsePaginationProps {
   totalItems: number
@@ -15,22 +15,29 @@ export function usePagination({
 
   const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage))
 
-  // Reset to last valid page if current page exceeds total
-  const validCurrentPage = Math.min(currentPage, totalPages)
-  if (validCurrentPage !== currentPage) {
-    setCurrentPage(validCurrentPage)
-  }
+  // Keep page in bounds without setting state during render.
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages)
+      return
+    }
+    if (currentPage < 1) {
+      setCurrentPage(1)
+    }
+  }, [currentPage, totalPages])
+
+  const validCurrentPage = Math.min(Math.max(currentPage, 1), totalPages)
 
   const goToPage = useCallback((page: number) => {
-    setCurrentPage(page)
-  }, [])
+    setCurrentPage(Math.min(Math.max(page, 1), totalPages))
+  }, [totalPages])
 
   const nextPage = useCallback(() => {
-    setCurrentPage((prev) => prev + 1)
-  }, [])
+    setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+  }, [totalPages])
 
   const prevPage = useCallback(() => {
-    setCurrentPage((prev) => prev - 1)
+    setCurrentPage((prev) => Math.max(prev - 1, 1))
   }, [])
 
   const startIndex = (validCurrentPage - 1) * itemsPerPage

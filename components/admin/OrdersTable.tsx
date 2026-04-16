@@ -7,7 +7,8 @@ import { formatPrice } from "@/lib/utils"
 import { formatOrderDate } from "@/lib/order-utils"
 import { StatusBadge } from "./StatusBadge"
 import { Button } from "@/components/ui/button"
-import { Eye } from "lucide-react"
+import { Eye, Download } from "lucide-react"
+import { toast } from "sonner"
 
 interface OrdersTableProps {
   orders: OrderListItem[]
@@ -16,6 +17,22 @@ interface OrdersTableProps {
 export function OrdersTable({ orders }: OrdersTableProps) {
   const [selectedOrder, setSelectedOrder] = useState<OrderListItem | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
+
+  const handleDownloadInvoice = async (order: OrderListItem) => {
+    try {
+      const res = await fetch(`/api/orders/${order.id}/invoice`, { method: "GET" })
+      const payload = await res.json().catch(() => ({}))
+
+      if (!res.ok || !payload.url) {
+        throw new Error(payload.error || "Invoice is not available")
+      }
+
+      window.open(payload.url, "_blank", "noopener,noreferrer")
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to download invoice"
+      toast.error(message)
+    }
+  }
 
   const handleViewOrder = (order: OrderListItem) => {
     setSelectedOrder(order)
@@ -57,7 +74,6 @@ export function OrdersTable({ orders }: OrdersTableProps) {
                     type="button"
                     onClick={() => handleViewOrder(order)}
                     className="text-primary hover:underline font-semibold cursor-pointer"
-                    suppressHydrationWarning
                   >
                     {order.orderNumber}
                   </button>
@@ -78,13 +94,25 @@ export function OrdersTable({ orders }: OrdersTableProps) {
                   {formatOrderDate(order.createdAt)}
                 </td>
                 <td className="py-3 px-4 text-center">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleViewOrder(order)}
-                  >
-                    <Eye className="w-4 h-4" />
-                  </Button>
+                  <div className="flex items-center justify-center gap-2">
+                    {order.invoiceFileId && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleDownloadInvoice(order)}
+                        title="Download Invoice"
+                      >
+                        <Download className="w-4 h-4" />
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleViewOrder(order)}
+                    >
+                      <Eye className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </td>
               </tr>
             ))}

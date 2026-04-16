@@ -12,8 +12,8 @@ import { usePagination } from "@/hooks/usePagination"
 import { formatPrice } from "@/lib/utils"
 import type { CustomerData } from "./page"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { toast } from "sonner"
 import { DeleteConfirmDialog } from "@/components/admin/DeleteConfirmDialog"
 
@@ -22,16 +22,15 @@ interface CustomersListClientProps {
 }
 
 export default function CustomersListClient({ initialCustomers }: CustomersListClientProps) {
-  const supabase = getSupabaseBrowserClient()
   const [searchTerm, setSearchTerm] = useState("")
-  const [customers, setCustomers] = useState(initialCustomers)
+  const [customers] = useState(initialCustomers)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [deactivateId, setDeactivateId] = useState<string | null>(null)
   const [editCustomer, setEditCustomer] = useState<CustomerData | null>(null)
   const [editName, setEditName] = useState("")
   const [editPhone, setEditPhone] = useState("")
   const [isSaving, setIsSaving] = useState(false)
-
+  const router = useRouter()
   const filteredCustomers = useMemo(() => {
     return customers.filter(c => 
       c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -60,38 +59,38 @@ export default function CustomersListClient({ initialCustomers }: CustomersListC
   const currentCustomers = filteredCustomers.slice(startIndex, endIndex)
 
   const handleDeactivate = async (id: string) => {
-    try {
-      const { error } = await (supabase
-        .from('profiles') as any)
-        .update({ is_active: false })
-        .eq('id', id)
+  try {
+    await fetch("/api/admin/customers", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, is_active: false }),
+    })
 
-      if (error) throw error
-      
-      setCustomers(prev => prev.map(c => c.id === id ? { ...c, is_active: false } : c))
-      toast.success('Customer deactivated')
-      setDeactivateId(null)
-    } catch (err: any) {
-      toast.error('Failed to deactivate: ' + err.message)
-    }
+    router.refresh()
+    setDeactivateId(null)
+    toast.success("Customer deactivated")
+  } catch (err: any) {
+    toast.error("Failed to deactivate: " + err.message)
   }
+}
 
-  const handleDelete = async (id: string) => {
-    try {
-      const { error } = await supabase
-        .from('profiles')
-        .delete()
-        .eq('id', id)
+const handleDelete = async (id: string) => {
+  try {
+    const res = await fetch("/api/admin/customers", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    })
 
-      if (error) throw error
+    if (!res.ok) throw new Error("Delete failed")
 
-      setCustomers(prev => prev.filter(c => c.id !== id))
-      toast.success('Customer deleted permanently')
-      setDeleteId(null)
-    } catch (err: any) {
-      toast.error('Failed to delete: ' + err.message)
-    }
+    router.refresh()
+    setDeleteId(null)
+    toast.success("Customer deleted permanently")
+  } catch (err: any) {
+    toast.error("Failed to delete: " + err.message)
   }
+}
 
   const openEdit = (customer: CustomerData) => {
     setEditCustomer(customer)
@@ -103,18 +102,21 @@ export default function CustomersListClient({ initialCustomers }: CustomersListC
     if (!editCustomer) return
     setIsSaving(true)
     try {
-      const { error } = await (supabase
-        .from('profiles') as any)
-        .update({ full_name: editName, phone: editPhone })
-        .eq('id', editCustomer.id)
+    const res = await fetch("/api/admin/customers", {
+  method: "PATCH",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    id: editCustomer.id,
+    full_name: editName,
+    phone: editPhone,
+  }),
+})
 
-      if (error) throw error
+if (!res.ok) throw new Error("Update failed")
 
-      setCustomers(prev => prev.map(c =>
-        c.id === editCustomer.id ? { ...c, name: editName || 'Unknown', phone: editPhone || null } : c
-      ))
-      toast.success('Customer updated')
-      setEditCustomer(null)
+router.refresh()
+setEditCustomer(null)
+toast.success("Customer updated")
     } catch (err: any) {
       toast.error('Failed to update: ' + err.message)
     } finally {

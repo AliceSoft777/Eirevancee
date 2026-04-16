@@ -1,8 +1,9 @@
 "use client"
 
-import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { getSupabaseBrowserClient } from '@/lib/supabase'
 import { useStore } from '@/hooks/useStore'
+import type { Database } from '@/lib/supabase-types'
 
 export interface WishlistItem {
   id: string
@@ -11,9 +12,10 @@ export interface WishlistItem {
   created_at: string
 }
 
+type WishlistItemInsert = Database["public"]["Tables"]["wishlist_items"]["Insert"]
+
 export function useWishlist() {
-  // Create supabase client inside hook to avoid stale references
-  const supabase = useMemo(() => getSupabaseBrowserClient(), [])
+  const supabase = getSupabaseBrowserClient()
   const [wishlistItems, setWishlistItems] = useState<WishlistItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -42,8 +44,8 @@ export function useWishlist() {
       }
 
       // Filter by current user's ID only
-      const result = await (supabase
-        .from('wishlist_items') as any)
+      const result = await supabase
+        .from('wishlist_items')
         .select('id, user_id, product_id, created_at')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
@@ -62,7 +64,7 @@ export function useWishlist() {
   // Sync wishlist IDs to Zustand store ONLY after hydration and when data changes
   useEffect(() => {
     // Wait for Zustand to hydrate first
-    if (!hasHydrated || !setWishlistInStore) return
+    if (!hasHydrated) return
     
     const productIds = wishlistItems.map(item => item.product_id)
     
@@ -100,12 +102,13 @@ export function useWishlist() {
     })
 
     try {
-        const { data, error } = await (supabase as any)
+        const payload: WishlistItemInsert = {
+          user_id: user.id,
+          product_id: productId
+        }
+        const { data, error } = await supabase
           .from('wishlist_items')
-          .insert([{
-            user_id: user.id,
-            product_id: productId
-          }])
+          .insert([payload])
           .select()
           .single()
 
@@ -134,8 +137,8 @@ export function useWishlist() {
     setWishlistItems(prev => prev.filter(item => item.product_id !== productId))
 
     try {
-        const deleteResult = await (supabase
-          .from('wishlist_items') as any)
+        const deleteResult = await supabase
+          .from('wishlist_items')
           .delete()
           .eq('user_id', user.id)
           .eq('product_id', productId)

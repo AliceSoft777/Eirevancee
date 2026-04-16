@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useMemo, useCallback } from 'react'
 import { getSupabaseBrowserClient } from '@/lib/supabase'
 
 export interface Category {
@@ -14,28 +14,20 @@ export interface Category {
 }
 
 export function useCategories() {
-  const supabase = getSupabaseBrowserClient()
+  const supabase = useMemo(() => getSupabaseBrowserClient(), [])
   const [categories, setCategories] = useState<Category[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const mountedRef = useRef(true)
+  const inFlightRef = useRef(false)
 
-  useEffect(() => {
-    mountedRef.current = true
-    fetchCategories()
-    return () => { mountedRef.current = false }
-  }, [])
+  const fetchCategories = useCallback(async () => {
+    if (inFlightRef.current) return
 
-  // Auto-retry: if loading stays stuck for 5s, retry
-  useEffect(() => {
-    if (!isLoading) return
-    const t = setTimeout(() => { if (mountedRef.current && isLoading) fetchCategories() }, 5000)
-    return () => clearTimeout(t)
-  }, [isLoading])
-
-  async function fetchCategories() {
     try {
+      inFlightRef.current = true
       setIsLoading(true)
+      setError(null)
       const result = await (supabase
         .from('categories') as any)
         .select('*')
@@ -48,9 +40,23 @@ export function useCategories() {
     } catch (err: any) {
       if (mountedRef.current) setError(err.message)
     } finally {
+      inFlightRef.current = false
       if (mountedRef.current) setIsLoading(false)
     }
-  }
+  }, [supabase])
+
+  useEffect(() => {
+    mountedRef.current = true
+    fetchCategories()
+    return () => { mountedRef.current = false }
+  }, [fetchCategories])
+
+  // Auto-retry: if loading stays stuck for 5s, retry
+  useEffect(() => {
+    if (!isLoading) return
+    const t = setTimeout(() => { if (mountedRef.current && isLoading) fetchCategories() }, 5000)
+    return () => clearTimeout(t)
+  }, [fetchCategories, isLoading])
 
   async function addCategory(category: Omit<Category, 'id' | 'created_at'>) {
     const result = await (supabase

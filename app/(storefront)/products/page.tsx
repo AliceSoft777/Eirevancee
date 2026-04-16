@@ -1,8 +1,7 @@
 import { createServerSupabase } from "@/lib/supabase/server"
 import { getNavData, type CategoryWithChildren } from "@/lib/loaders"
-import { ProductCard } from "@/components/products/product-card"
+import { ProductCard, type ProductCardProduct } from "@/components/products/product-card"
 import { CategoryFilters, type FilterGroup } from "@/components/products/category-filters"
-import { Product } from "@/lib/supabase-types"
 import Link from "next/link"
 
 export const revalidate = 60
@@ -110,7 +109,7 @@ export default async function AllProductsPage(props: Props) {
   query = query.range(offset, offset + PRODUCTS_PER_PAGE - 1)
 
   const { data: productsRaw, count } = await query
-  const products: Product[] = productsRaw ?? []
+  const products: ProductCardProduct[] = productsRaw ?? []
   const totalProducts = count ?? 0
   const totalPages = Math.ceil(totalProducts / PRODUCTS_PER_PAGE)
 
@@ -241,7 +240,7 @@ export default async function AllProductsPage(props: Props) {
           {products.length > 0 ? (
             <>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                {products.map((product: Product) => (
+                {products.map((product: ProductCardProduct) => (
                   <ProductCard key={product.id} product={product} />
                 ))}
               </div>

@@ -1,73 +1,92 @@
-import { NextRequest, NextResponse } from 'next/server'
-import Stripe from 'stripe'
+import { NextRequest, NextResponse } from "next/server"
+import Stripe from "stripe"
+import { getServerSession } from "@/lib/loaders"
+import { createServerSupabase } from "@/lib/supabase/server"
+import { buildSecureCheckoutSnapshot, generateSecureOrderNumber } from "@/lib/secure-checkout"
+
+interface CreateStripeSessionBody {
+  couponCode?: string | null
+}
+
+function parseBody(body: unknown): CreateStripeSessionBody {
+  if (!body || typeof body !== "object") return {}
+  return body as CreateStripeSessionBody
+}
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback
+}
 
 export async function POST(req: NextRequest) {
   try {
+    const session = await getServerSession()
+    if (!session.userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
     const stripeSecretKey = process.env.STRIPE_SECRET_KEY
     if (!stripeSecretKey) {
-      return NextResponse.json(
-        { error: 'Stripe is not configured' },
-        { status: 500 }
-      )
+      return NextResponse.json({ error: "Stripe is not configured" }, { status: 500 })
     }
+
+    const body = parseBody(await req.json().catch(() => null))
+    const supabase = await createServerSupabase()
+    const snapshot = await buildSecureCheckoutSnapshot(supabase, session.userId, body?.couponCode)
+    const amount = snapshot.total
+    const orderNumber = generateSecureOrderNumber()
+
+    if (amount < 0.1 || amount > 50000) {
+      return NextResponse.json({ error: "Invalid order amount" }, { status: 400 })
+    }
+
     const stripe = new Stripe(stripeSecretKey)
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || req.nextUrl.origin
 
-    const { orderId, amount, customerEmail } = await req.json()
-
-    // ✅ Validate amount is in reasonable EUR range for tiles
-    if (amount < 0.10 || amount > 50000) {
-      console.error('[Stripe] Invalid amount:', amount)
-      return NextResponse.json(
-        { error: 'Invalid order amount' },
-        { status: 400 }
-      )
-    }
-
-    // Create Stripe Checkout Session
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
+    const checkoutSession = await stripe.checkout.sessions.create({
+      payment_method_types: ["card"],
       line_items: [
         {
           price_data: {
-            currency: 'eur',
+            currency: "eur",
             product_data: {
-              name: 'Celtic Tiles Order',
-              description: `Order #${orderId}`,
+              name: "Celtic Tiles Order",
+              description: `Order #${orderNumber}`,
             },
-            unit_amount: Math.round(amount * 100), // Convert to cents
+            unit_amount: Math.round(amount * 100),
           },
           quantity: 1,
         },
       ],
-      mode: 'payment',
-      success_url: `${req.headers.get('origin')}/order/success?orderId=${orderId}`,
-      cancel_url: `${req.headers.get('origin')}/checkout`,
-      customer_email: customerEmail,
-      locale: 'auto', // Auto-detect customer's locale
-      billing_address_collection: 'required',
-      // ✅ Explicitly set shipping to Ireland only
+      mode: "payment",
+      success_url: `${baseUrl}/order/success?orderId=${orderNumber}`,
+      cancel_url: `${baseUrl}/checkout`,
+      customer_email: session.userEmail ?? undefined,
+      locale: "auto",
+      billing_address_collection: "required",
       shipping_address_collection: {
-        allowed_countries: ['IE'], // Only Ireland
+        allowed_countries: ["IE"],
       },
       metadata: {
-        orderId: orderId,
+        orderId: orderNumber,
+        userId: session.userId,
+        couponCode: snapshot.coupon_code ?? "",
       },
-      // ✅ Pass orderId to PaymentIntent too — needed for payment_intent.payment_failed events
-      // Stripe does NOT auto-copy session metadata to the PaymentIntent
       payment_intent_data: {
         metadata: {
-          orderId: orderId,
+          orderId: orderNumber,
+          userId: session.userId,
         },
       },
     })
 
-
-    return NextResponse.json({ sessionId: session.id, url: session.url })
-  } catch (error: any) {
-    console.error('Stripe session creation error:', error)
-    return NextResponse.json(
-      { error: error.message },
-      { status: 500 }
-    )
+    return NextResponse.json({
+      sessionId: checkoutSession.id,
+      url: checkoutSession.url,
+      orderNumber,
+      total: amount,
+    })
+  } catch (error: unknown) {
+    console.error("Stripe session creation error:", error)
+    return NextResponse.json({ error: getErrorMessage(error, "Failed to create payment session") }, { status: 500 })
   }
 }

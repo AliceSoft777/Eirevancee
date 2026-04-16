@@ -1,8 +1,30 @@
 import { NextResponse } from "next/server"
 import { createServerSupabase } from "@/lib/supabase/server"
 import { getServerSession } from "@/lib/loaders"
+import type { Database } from "@/supabase/database.types"
 
-export const dynamic = "force-dynamic"
+type UpdateStatusBody = {
+  status?: string
+  note?: string
+  updatedBy?: string
+}
+
+type StatusHistoryEntry = {
+  status: string
+  note: string
+  timestamp: string
+  updated_by: string
+}
+
+type OrderStatusHistoryRow = Pick<Database["public"]["Tables"]["orders"]["Row"], "status_history">
+type OrderStatusUpdatePayload = Database["public"]["Tables"]["orders"]["Update"] & {
+  status_history: StatusHistoryEntry[]
+}
+
+function parseBody(body: unknown): UpdateStatusBody {
+  if (!body || typeof body !== "object") return {}
+  return body as UpdateStatusBody
+}
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
@@ -13,7 +35,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const body = await request.json()
+    const body = parseBody(await request.json().catch(() => null))
     const status = String(body?.status || "")
     const note = String(body?.note || "")
     const updatedBy = String(body?.updatedBy || session.userName || "admin")
@@ -23,7 +45,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     }
 
     const supabase = await createServerSupabase()
-    const { data: currentOrder, error: fetchError } = await (supabase as any)
+    const { data: currentOrder, error: fetchError } = await supabase
       .from("orders")
       .select("status_history")
       .eq("id", id)
@@ -33,7 +55,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       return NextResponse.json({ error: fetchError.message }, { status: 500 })
     }
 
-    const existingHistory = (((currentOrder as any) || {}).status_history || []) as any[]
+    const existingHistory = (Array.isArray((currentOrder as OrderStatusHistoryRow | null)?.status_history)
+      ? ((currentOrder as OrderStatusHistoryRow).status_history as StatusHistoryEntry[])
+      : [])
     const updatedHistory = [
       ...existingHistory,
       {
@@ -44,13 +68,15 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       },
     ]
 
-    const { error: updateError } = await (supabase as any)
+    const updatePayload: OrderStatusUpdatePayload = {
+      status,
+      status_history: updatedHistory,
+      updated_at: new Date().toISOString(),
+    }
+
+    const { error: updateError } = await supabase
       .from("orders")
-      .update({
-        status,
-        status_history: updatedHistory,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updatePayload)
       .eq("id", id)
 
     if (updateError) {
@@ -62,3 +88,5 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     return NextResponse.json({ error: "Failed to update order status" }, { status: 500 })
   }
 }
+
+

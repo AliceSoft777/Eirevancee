@@ -82,7 +82,7 @@ export function useStorage() {
     } finally {
       setIsUploading(false)
     }
-  }, [])
+  }, [supabase])
 
   /**
    * Upload multiple files
@@ -112,7 +112,7 @@ export function useStorage() {
     if (deleteError) {
       throw new Error(deleteError.message)
     }
-  }, [])
+  }, [supabase])
 
   /**
    * Get public URL for a file path
@@ -123,7 +123,7 @@ export function useStorage() {
       .getPublicUrl(filePath)
     
     return data.publicUrl
-  }, [])
+  }, [supabase])
 
   /**
    * Upload a product image and add to product_images table
@@ -159,7 +159,7 @@ export function useStorage() {
       imageUrl: result.publicUrl,
       imageRecord
     }
-  }, [uploadFile, deleteFile])
+  }, [deleteFile, supabase, uploadFile])
 
   return {
     uploadFile,

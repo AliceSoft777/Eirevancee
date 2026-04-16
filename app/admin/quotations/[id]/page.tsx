@@ -3,8 +3,6 @@ import { getStoreVatRate, getQuotationById } from "@/lib/quotation-actions"
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 import { QuotationHeaderActions } from "@/components/admin/QuotationHeaderActions"
-
-export const dynamic = "force-dynamic"
 export const revalidate = 0
 
 export const metadata = {
@@ -39,3 +37,4 @@ export default async function EditQuotationPage(props: { params: Promise<{ id: s
     </div>
   )
 }
+

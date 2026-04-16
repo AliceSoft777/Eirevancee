@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
+import type { Database } from "@/supabase/database.types"
 
 export default function TestSupabasePage() {
   const supabase = getSupabaseBrowserClient()
@@ -11,6 +12,7 @@ export default function TestSupabasePage() {
 
   useEffect(() => {
     testConnection()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   async function testConnection() {
@@ -28,7 +30,7 @@ export default function TestSupabasePage() {
       }
 
       // Test 2: Count all tables
-      const tables = ['products', 'orders', 'coupons', 'reviews', 'profiles']
+      const tables: Array<keyof Database["public"]["Tables"]> = ['products', 'orders', 'coupons', 'reviews', 'profiles']
       let count = 0
       
       for (const table of tables) {

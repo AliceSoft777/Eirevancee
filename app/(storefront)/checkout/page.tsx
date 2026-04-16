@@ -1,9 +1,11 @@
 import CheckoutClient from './CheckoutClient'
-import { getServerSession } from '@/lib/loaders'
+import { getServerSession, getSiteSettings } from '@/lib/loaders'
 import { createServerSupabase } from '@/lib/supabase/server'
 import type { UserAddress } from '@/hooks/useAddresses'
+import type { Database } from '@/supabase/database.types'
 
-export const dynamic = 'force-dynamic'
+type AddressRow = Database["public"]["Tables"]["customer_addresses"]["Row"]
+type ProfileContact = Pick<Database["public"]["Tables"]["profiles"]["Row"], "full_name" | "phone">
 
 export default async function CheckoutPage() {
     const session = await getServerSession()
@@ -11,32 +13,14 @@ export default async function CheckoutPage() {
 
     let initialAddresses: UserAddress[] = []
     let initialProfile: { full_name: string | null; phone: string | null } | null = null
-    let siteSettings = { tax_rate: 0, free_shipping_threshold: 1000, shipping_fee: 10 }
+    const siteSettings = await getSiteSettings()
 
     const supabase = await createServerSupabase()
-
-    // Fetch site settings for dynamic tax & shipping
-    try {
-        const { data: settingsData } = await (supabase as any)
-            .from('site_settings')
-            .select('tax_rate, free_shipping_threshold')
-            .single()
-        if (settingsData) {
-            const dbThreshold = Number(settingsData.free_shipping_threshold ?? 1000)
-            siteSettings = {
-                tax_rate: settingsData.tax_rate ?? 0,
-                free_shipping_threshold: Math.max(dbThreshold, 1000),
-                shipping_fee: 10,
-            }
-        }
-    } catch (err) {
-        console.warn('[Checkout] Failed to fetch site_settings, using defaults:', err)
-    }
 
     if (session.userId) {
         // Fetch saved addresses server-side (bypasses browser auth timing + RLS)
         const { data: addressData } = await supabase
-            .from('customer_addresses' as any)
+            .from('customer_addresses')
             .select('*')
             .eq('user_id', session.userId)
             .order('is_default', { ascending: false })
@@ -45,7 +29,12 @@ export default async function CheckoutPage() {
         if (addressData) {
             // Deduplicate by street+city+pincode (keep newest)
             const seen = new Set<string>()
-            initialAddresses = (addressData as UserAddress[]).filter(addr => {
+            initialAddresses = (addressData as AddressRow[])
+                .map((addr) => ({
+                    ...addr,
+                    is_default: addr.is_default ?? false,
+                }))
+                .filter(addr => {
                 const key = `${addr.street.toLowerCase().trim()}|${addr.city.toLowerCase().trim()}|${addr.pincode.toLowerCase().trim()}`
                 if (seen.has(key)) return false
                 seen.add(key)
@@ -61,9 +50,10 @@ export default async function CheckoutPage() {
             .single()
 
         if (profileData) {
+            const typedProfile = profileData as ProfileContact
             initialProfile = {
-                full_name: (profileData as any).full_name ?? null,
-                phone: (profileData as any).phone ?? null,
+                full_name: typedProfile.full_name ?? null,
+                phone: typedProfile.phone ?? null,
             }
         }
     }

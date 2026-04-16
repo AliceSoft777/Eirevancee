@@ -14,8 +14,10 @@ import { Button } from "@/components/ui/button"
 import type { Product } from "@/lib/supabase-types"
 import { toast } from "sonner"
 
+export type ProductCardProduct = Pick<Product, "id" | "name" | "slug" | "price" | "image" | "stock" | "material">
+
 interface ProductCardProps {
-    product: Product
+    product: ProductCardProduct
 }
 
 function withImageWidth(url: string | null | undefined, width = 300): string {
@@ -201,7 +203,7 @@ export const ProductCard = memo(function ProductCard({ product }: ProductCardPro
                             {isTogglingWishlist ? (
                                 <Loader2 className="h-4 w-4 animate-spin" />
                             ) : (
-                                <Heart className={`h-4 w-4 ${isWishlisted ? 'fill-current' : ''}`} suppressHydrationWarning />
+                                <Heart className={`h-4 w-4 ${isWishlisted ? 'fill-current' : ''}`} />
                             )}
                         </Button>
                     </div>

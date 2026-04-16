@@ -83,7 +83,9 @@ export function SiteHeader({
 }: SiteHeaderProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { wishlist, logout, _hasHydrated } = useStore();
+  const logout = useStore((state) => state.logout);
+  const hasHydrated = useStore((state) => state._hasHydrated);
+  const wishlistCountState = useStore((state) => state.wishlist.length);
 
   
   // Use server-provided session for auth (single source of truth)
@@ -100,7 +102,7 @@ export function SiteHeader({
   
   // ✅ Use reactive subscription to cart count from Zustand store
   const cartCount = useStore((state) => state.cartCount);
-  const wishlistCount = _hasHydrated ? wishlist.length : initialWishlistCount;
+  const wishlistCount = hasHydrated ? wishlistCountState : initialWishlistCount;
   
   const [isDimensionsModalOpen, setIsDimensionsModalOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -138,7 +140,7 @@ export function SiteHeader({
   return (
     <>
       {/* Top Bar - Original High-Contrast Promo Bar */}
-      <div className="bg-tm-red text-white py-2 px-4 text-center z-[60] relative overflow-hidden" suppressHydrationWarning>
+      <div className="bg-tm-red text-white py-2 px-4 text-center z-[60] relative overflow-hidden">
         <div className="container mx-auto max-w-[1400px] flex items-center justify-center gap-6 text-[10px] md:text-xs font-bold uppercase tracking-widest whitespace-nowrap overflow-hidden">
           <span className="flex items-center gap-2">
             <Package className="h-3 w-3" />
@@ -158,7 +160,7 @@ export function SiteHeader({
         </div>
       </div>
 
-      <header className="sticky top-0 z-50 w-full transition-all duration-300" suppressHydrationWarning>
+      <header className="sticky top-0 z-50 w-full transition-all duration-300">
         {/* Main Header Area */}
         <div className="bg-[#E5E9F0] border-b border-white/20 shadow-sm">
           <div className="container mx-auto max-w-[1400px] px-4 md:px-8">

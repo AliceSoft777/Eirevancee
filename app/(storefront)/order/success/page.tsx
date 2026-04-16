@@ -2,14 +2,19 @@ import { CheckCircle } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { createServerSupabase } from "@/lib/supabase/server"
+import { getServerSession } from "@/lib/loaders"
 import { ClearCartOnSuccess } from "./ClearCartOnSuccess"
 import { ConfirmOrderEmail } from "./ConfirmOrderEmail"
-
-export const dynamic = 'force-dynamic'
-
+import { redirect } from "next/navigation"
+import type { Database } from "@/lib/supabase-types"
 interface Props {
   searchParams: Promise<{ orderId?: string }>
 }
+
+type SuccessOrderRow = Pick<
+  Database["public"]["Tables"]["orders"]["Row"],
+  "order_number" | "total" | "payment_method" | "created_at" | "customer_name" | "customer_email"
+>
 
 function formatPrice(price: number) {
   return new Intl.NumberFormat('en-IE', {
@@ -26,38 +31,38 @@ function formatPaymentMethod(method: string | null | undefined) {
 }
 
 export default async function OrderSuccessPage({ searchParams }: Props) {
+  const session = await getServerSession()
+  if (!session.userId) {
+    redirect("/login")
+  }
+
   const { orderId } = await searchParams
 
-  let order: {
-    order_number: string
-    total: number
-    payment_method: string
-    created_at: string
-    customer_name: string
-    customer_email: string
-  } | null = null
+  let order: SuccessOrderRow | null = null
 
   if (orderId) {
     const supabase = await createServerSupabase()
     const cols = 'order_number, total, payment_method, created_at, customer_name, customer_email'
 
     // Try by order_number first (ORD-... format used in success URL)
-    const byNumber = await (supabase as any)
+    const byNumber = await supabase
       .from('orders')
       .select(cols)
       .eq('order_number', orderId)
+      .eq('user_id', session.userId)
       .maybeSingle()
 
     if (byNumber.data) {
-      order = byNumber.data
+      order = byNumber.data as SuccessOrderRow
     } else {
       // Fallback: try by primary key id (UUID or legacy ORD-... id)
-      const byId = await (supabase as any)
+      const byId = await supabase
         .from('orders')
         .select(cols)
         .eq('id', orderId)
+        .eq('user_id', session.userId)
         .maybeSingle()
-      if (byId.data) order = byId.data
+      if (byId.data) order = byId.data as SuccessOrderRow
     }
   }
 
@@ -129,3 +134,4 @@ export default async function OrderSuccessPage({ searchParams }: Props) {
     </div>
   )
 }
+

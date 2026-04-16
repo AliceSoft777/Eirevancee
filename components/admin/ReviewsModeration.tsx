@@ -5,9 +5,8 @@ import { Check, X, MessageSquare } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
-import { getSupabaseBrowserClient } from '@/lib/supabase'
 import { formatDistanceToNow } from 'date-fns'
-import { ReviewsSkeleton } from '@/components/admin/AdminSkeletons'
+import { useRouter } from "next/navigation"
 
 interface PendingReview {
     id: string
@@ -25,54 +24,16 @@ interface PendingReview {
     }
 }
 
-export function ReviewsModeration() {
-    const supabase = getSupabaseBrowserClient()
-    const [reviews, setReviews] = useState<PendingReview[]>([])
-    const [isLoading, setIsLoading] = useState(true)
+export function ReviewsModeration({ initialReviews }: { initialReviews: PendingReview[] }) {
+    
+    const reviews = initialReviews
+    const [response, setResponse] = useState("")
+    const router = useRouter()
     const [selectedReview, setSelectedReview] = useState<PendingReview | null>(null)
-    const [response, setResponse] = useState('')
     const [isSubmitting, setIsSubmitting] = useState(false)
 
-    useEffect(() => {
-        loadPendingReviews()
-    }, [])
-
-    const loadPendingReviews = async () => {
-        setIsLoading(true)
-        try {
-            const result = await (supabase
-                .from('reviews') as any)
-                .select(
-                    `
-                    id,
-                    product_id,
-                    customer_id,
-                    customer_name,
-                    customer_email,
-                    rating,
-                    comment,
-                    created_at,
-                    admin_response,
-                      products (
-                        name,
-                        slug
-                    )
-                    `
-                )
-                .eq('status', 'pending')
-                .order('created_at', { ascending: true })
-
-            if (!result || result.error) {
-                throw result?.error || new Error('Failed to fetch reviews')
-            }
-            setReviews((result.data || []) as PendingReview[])
-        } catch (err) {
-            console.error('Error loading reviews:', err)
-            toast.error('Failed to load pending reviews')
-        } finally {
-            setIsLoading(false)
-        }
-    }
+    
+    
 
     const renderStars = (rating: number) => {
         return (
@@ -98,21 +59,21 @@ export function ReviewsModeration() {
 
         setIsSubmitting(true)
         try {
-            // @ts-ignore - reviews table is not recognized in type definitions
-            const { error } = await (supabase as any)
-                .from('reviews')
-                .update({
-                    status: 'published',
-                    admin_response: response || null,
-                })
-                .eq('id', selectedReview.id)
+            const res = await fetch("/api/admin/reviews", {
+  method: "PATCH",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    id: selectedReview.id,
+    status: "published", // or rejected
+    admin_response: response || null,
+  }),
+})
 
-            if (error) throw error
+if (!res.ok) throw new Error("Failed")
+    router.refresh()
+setSelectedReview(null)
+setResponse("")
 
-            toast.success('Review published!')
-            setSelectedReview(null)
-            setResponse('')
-            loadPendingReviews()
         } catch (err) {
             console.error('Error approving review:', err)
             toast.error('Failed to approve review')
@@ -126,18 +87,21 @@ export function ReviewsModeration() {
 
         setIsSubmitting(true)
         try {
-            // @ts-ignore - reviews table is not recognized in type definitions
-            const { error } = await (supabase as any)
-                .from('reviews')
-                .update({ status: 'rejected' })
-                .eq('id', selectedReview.id)
+            const res = await fetch("/api/admin/reviews", {
+  method: "PATCH",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    id: selectedReview.id,
+    status: "rejected", // or 
+    admin_response: response || null,
+  }),
+})
 
-            if (error) throw error
 
-            toast.success('Review rejected')
-            setSelectedReview(null)
-            setResponse('')
-            loadPendingReviews()
+if (!res.ok) throw new Error("Failed")
+  router.refresh()
+setSelectedReview(null)
+setResponse("")      
         } catch (err) {
             console.error('Error rejecting review:', err)
             toast.error('Failed to reject review')
@@ -146,9 +110,7 @@ export function ReviewsModeration() {
         }
     }
 
-    if (isLoading) {
-        return <ReviewsSkeleton />
-    }
+    
 
     if (reviews.length === 0) {
         return (

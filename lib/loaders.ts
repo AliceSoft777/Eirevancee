@@ -2,7 +2,8 @@ import { cache } from 'react'
 import { unstable_cache } from 'next/cache'
 import { createClient } from '@supabase/supabase-js'
 import { createServerSupabase } from '@/lib/supabase/server'
-import type { Category, Product, Database } from "@/lib/supabase-types"
+import type { Database } from "@/supabase/database.types"
+import type { Category, Product } from "@/lib/supabase-types"
 
 
 /**
@@ -30,6 +31,12 @@ export interface CartItemData {
 export interface WishlistItemData {
   id: string
   product_id: string
+}
+
+export interface SiteSettingsData {
+  tax_rate: number
+  free_shipping_threshold: number
+  shipping_fee: number
 }
 
 // Public server client for non-user-specific read-only data.
@@ -77,6 +84,29 @@ const getCachedNavProductsData = unstable_cache(
   },
   ['nav-products-v1'],
   { revalidate: 120 }
+)
+
+const getCachedSiteSettingsData = unstable_cache(
+  async () => {
+    const { data, error } = await publicSupabase
+      .from('site_settings')
+      .select('tax_rate, free_shipping_threshold')
+      .eq('id', 1)
+      .maybeSingle()
+
+    if (error) {
+      throw error
+    }
+
+    const dbThreshold = Number(data?.free_shipping_threshold ?? 1000)
+    return {
+      tax_rate: Number(data?.tax_rate ?? 0),
+      free_shipping_threshold: Math.max(dbThreshold, 1000),
+      shipping_fee: 10,
+    } as SiteSettingsData
+  },
+  ['site-settings-v1'],
+  { revalidate: 300 }
 )
 
 /**
@@ -240,6 +270,14 @@ export async function getNavProducts(): Promise<{ products: Product[] }> {
     return { products }
   } catch {
     return { products: [] }
+  }
+}
+
+export async function getSiteSettings(): Promise<SiteSettingsData> {
+  try {
+    return await getCachedSiteSettingsData()
+  } catch {
+    return { tax_rate: 0, free_shipping_threshold: 1000, shipping_fee: 10 }
   }
 }
 

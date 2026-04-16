@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Product } from "@/hooks/useProducts"
 import { useCategories } from "@/hooks/useCategories"
 import { Loader2 } from "lucide-react"
 import { toast } from "sonner"
@@ -18,12 +17,10 @@ interface ProductFormModalProps {
   isOpen: boolean
   onClose: () => void
   onSave?: () => Promise<void> | void // Called after successful save to trigger refetch
-  onCreateProduct: (product: Partial<Product>) => Promise<any>
-  onUpdateProduct: (id: string, updates: Partial<Product>) => Promise<any>
-  product?: Product | null // If null, we are in "Create" mode
+  product?: any | null // If null, we are in "Create" mode
 }
 
-export function ProductFormModal({ isOpen, onClose, onSave, onCreateProduct, onUpdateProduct, product }: ProductFormModalProps) {
+export function ProductFormModal({ isOpen, onClose, onSave, product }: ProductFormModalProps) {
   const supabase = getSupabaseBrowserClient()
   const { categories } = useCategories()
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -68,43 +65,47 @@ export function ProductFormModal({ isOpen, onClose, onSave, onCreateProduct, onU
 
   // Fetch existing images when editing a product
   useEffect(() => {
-    async function fetchProductImages() {
-      if (product?.id) {
-        setIsLoadingProduct(true)
-        try {
-          const result = await Promise.race([
-            (supabase
-              .from('product_images') as any)
-              .select('*')
-              .eq('product_id', product.id)
-              .order('display_order', { ascending: true }),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000)),
-          ]) as any
-          const { data, error } = result || {}
+  async function fetchProductImages() {
+    if (!product?.id) {
+      setProductImages([])
+      setIsLoadingProduct(false)
+      return
+    }
 
-          if (error) {
-            toast.error(`Failed to load product images: ${error.message}`)
-            setProductImages([])
-            return
-          }
+    setIsLoadingProduct(true)
 
-          setProductImages(data || [])
-        } catch {
-          toast.error("Failed to load product images")
-          setProductImages([])
-        } finally {
-          setIsLoadingProduct(false)
-        }
-      } else {
+    try {
+      const { data, error } = await supabase
+        .from('product_images')
+        .select('*')
+        .eq('product_id', product.id)
+        .order('display_order', { ascending: true })
+
+      if (error) {
+        toast.error(`Failed to load product images: ${error.message}`)
         setProductImages([])
-        setIsLoadingProduct(false)
+        return
       }
+
+      setProductImages(
+  (data || []).map((img: any) => ({
+    ...img,
+    display_order: img.display_order ?? 0
+  }))
+)
+    } catch {
+      toast.error("Failed to load product images")
+      setProductImages([])
+    } finally {
+      setIsLoadingProduct(false)
     }
-    
-    if (isOpen) {
-      fetchProductImages()
-    }
-  }, [product?.id, isOpen])
+  }
+
+  if (product?.id && isOpen) {
+    fetchProductImages()
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [product?.id, isOpen])
 
   // Initialize form when product changes
   useEffect(() => {
@@ -193,30 +194,35 @@ export function ProductFormModal({ isOpen, onClose, onSave, onCreateProduct, onU
             is_clearance: Boolean(formData.is_clearance)
         }
 
-        if (product) {
-            // Update the main product image from primary product_image FIRST
-            const primaryImage = productImages.find(img => img.is_primary)
-            const imageUrl = primaryImage?.image_url || null
-            
-            // Include image in the update payload
-            await onUpdateProduct(product.id, { ...payload, image: imageUrl })
-            
-            toast.success("Product updated successfully")
-        } else {
-            // For create, first create the product then allow image uploads
-            const newProduct = await onCreateProduct(payload)
-            if (newProduct?.id) {
-              setCreatedProductId(newProduct.id)
-              toast.success("Product created! You can now add images.")
-              // Don't close - let user add images
-              return
-            }
-            toast.success("Product created successfully")
-        }
-        // Trigger single refresh path and close
-        await onSave?.()
-        onClose()
-    } catch (error: unknown) {
+        const endpoint = product 
+  ? `/api/admin/products/${product.id}`
+  : `/api/admin/products`
+
+const method = product ? "PATCH" : "POST"
+
+const res = await fetch(endpoint, {
+  method,
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(payload),
+})
+
+if (!res.ok) {
+  throw new Error("Failed to save product")
+}
+
+if (!product) {
+  const newProduct = await res.json()
+  if (newProduct?.id) {
+    setCreatedProductId(newProduct.id)
+    toast.success("Product created! You can now add images.")
+    return
+  }
+}
+
+toast.success(product ? "Product updated successfully" : "Product created successfully")
+
+await onSave?.()
+  } catch (error: unknown) {
         toast.error(error instanceof Error ? error.message : "Failed to save product")
     } finally {
         setIsSubmitting(false)
@@ -234,71 +240,6 @@ export function ProductFormModal({ isOpen, onClose, onSave, onCreateProduct, onU
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6 py-4">
-          {isLoadingProduct ? (
-            /* ── Skeleton Loading State ── */
-            <div className="space-y-6 animate-in fade-in duration-200">
-              {/* Identity skeleton */}
-              <div className="grid grid-cols-2 gap-4">
-                {[1, 2, 3].map(i => (
-                  <div key={i} className="space-y-2">
-                    <Skeleton className="h-4 w-24" />
-                    <Skeleton className="h-10 w-full" />
-                  </div>
-                ))}
-              </div>
-              {/* Category / SKU skeleton */}
-              <div className="grid grid-cols-2 gap-4">
-                {[1, 2].map(i => (
-                  <div key={i} className="space-y-2">
-                    <Skeleton className="h-4 w-20" />
-                    <Skeleton className="h-10 w-full" />
-                  </div>
-                ))}
-              </div>
-              {/* Price / Stock / Status skeleton */}
-              <div className="grid grid-cols-3 gap-4">
-                {[1, 2, 3].map(i => (
-                  <div key={i} className="space-y-2">
-                    <Skeleton className="h-4 w-16" />
-                    <Skeleton className="h-10 w-full" />
-                  </div>
-                ))}
-              </div>
-              {/* Specifications skeleton */}
-              <div className="space-y-4 border-t pt-4">
-                <Skeleton className="h-5 w-28" />
-                <div className="grid grid-cols-3 gap-4">
-                  {[1, 2, 3, 4, 5, 6].map(i => (
-                    <div key={i} className="space-y-2">
-                      <Skeleton className="h-4 w-20" />
-                      <Skeleton className="h-10 w-full" />
-                    </div>
-                  ))}
-                </div>
-              </div>
-              {/* Description skeleton */}
-              <div className="space-y-2">
-                <Skeleton className="h-4 w-24" />
-                <Skeleton className="h-10 w-full" />
-              </div>
-              {/* Images skeleton */}
-              <div className="border-t pt-4">
-                <Skeleton className="h-4 w-32 mb-3" />
-                <div className="grid grid-cols-2 gap-4">
-                  {[1, 2].map(i => (
-                    <Skeleton key={i} className="aspect-square w-full rounded-lg" />
-                  ))}
-                </div>
-              </div>
-              {/* Footer skeleton */}
-              <div className="flex justify-end gap-3 pt-4">
-                <Skeleton className="h-10 w-20" />
-                <Skeleton className="h-10 w-28" />
-              </div>
-            </div>
-          ) : (
-          <>
-          
           {/* Section 1: Identity */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -586,8 +527,6 @@ export function ProductFormModal({ isOpen, onClose, onSave, onCreateProduct, onU
             </Button>
           )}
         </DialogFooter>
-        </>
-        )}
         </form>
       </DialogContent>
     </Dialog>

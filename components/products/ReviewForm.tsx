@@ -69,6 +69,7 @@ export function ReviewForm({ productId, productName, onReviewSubmitted }: Review
         }
 
         checkPurchase()
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user, productId])
 
     // Not logged in

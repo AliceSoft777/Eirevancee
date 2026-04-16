@@ -6,6 +6,7 @@ import { createServerSupabase } from "@/lib/supabase/server"
 type OrderRow = {
   id: string
   order_number: string
+  invoice_file_id: string | null
   customer_name: string
   customer_email: string
   customer_phone: string | null
@@ -15,8 +16,6 @@ type OrderRow = {
   delivery_address: Record<string, string> | null
   items: Array<{ product_id: string; product_name: string; quantity: number; unit_price: number; subtotal: number }> | null
 }
-
-export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 export default async function OrdersListPage() {
@@ -42,6 +41,7 @@ export default async function OrdersListPage() {
     .select(`
       id,
       order_number,
+      invoice_file_id,
       customer_name,
       customer_email,
       customer_phone,
@@ -76,6 +76,7 @@ export default async function OrdersListPage() {
   const mappedOrders: OrderListItem[] = (orders ?? []).map(o => ({
     id: o.id,
     orderNumber: o.order_number,
+    invoiceFileId: o.invoice_file_id,
     customerName: o.customer_name,
     customerEmail: o.customer_email,
     customerPhone: o.customer_phone ?? null,
@@ -88,3 +89,4 @@ export default async function OrdersListPage() {
 
   return <OrdersListClient orders={mappedOrders} />
 }
+

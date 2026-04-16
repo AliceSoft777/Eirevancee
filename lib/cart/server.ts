@@ -1,4 +1,5 @@
 import { createServerSupabase } from '@/lib/supabase/server'
+import type { Database } from '@/lib/supabase-types'
 
 export interface CartItem {
     id: string
@@ -10,6 +11,12 @@ export interface CartItem {
     product_slug: string
     quantity: number
 }
+
+type CartItemRow = Pick<
+  Database["public"]["Tables"]["cart_items"]["Row"],
+  "id" | "product_id" | "variant_id" | "product_name" | "product_price" | "product_image" | "quantity"
+>
+type ProductSlugRow = Pick<Database["public"]["Tables"]["products"]["Row"], "id" | "slug">
 
 /**
  * Get cart items for a user - server-side function.
@@ -41,7 +48,8 @@ export async function getCartForUser(): Promise<{ cart: CartItem[]; isLoggedIn: 
         }
 
         // Batch-lookup slugs from products table
-        const productIds = [...new Set((data || []).map((item: any) => item.product_id))]
+        const cartRows = (data || []) as CartItemRow[]
+        const productIds = [...new Set(cartRows.map((item) => item.product_id))]
         let slugMap: Record<string, string> = {}
         if (productIds.length > 0) {
             const { data: products } = await supabase
@@ -50,12 +58,12 @@ export async function getCartForUser(): Promise<{ cart: CartItem[]; isLoggedIn: 
                 .in('id', productIds)
             if (products) {
                 slugMap = Object.fromEntries(
-                    (products as any[]).map((p) => [p.id, p.slug])
+                    (products as ProductSlugRow[]).map((p) => [p.id, p.slug])
                 )
             }
         }
 
-        const cart: CartItem[] = (data || []).map((item: any) => ({
+        const cart: CartItem[] = cartRows.map((item) => ({
             id: item.id,
             product_id: item.product_id,
             variant_id: item.variant_id,
@@ -70,7 +78,10 @@ export async function getCartForUser(): Promise<{ cart: CartItem[]; isLoggedIn: 
             cart, 
             isLoggedIn: true 
         }
-    } catch (error) {
+    } catch (error: any) {
+        if (error?.digest === 'DYNAMIC_SERVER_USAGE' || error?.message?.includes('Dynamic server usage')) {
+            throw error;
+        }
         console.error('Error in getCartForUser:', error)
         return { cart: [], isLoggedIn: false }
     }

@@ -28,30 +28,32 @@ export function useTeamMembers() {
       inFlightRef.current = true
       setIsLoading(true)
       setError(null)
-
-      const response = await fetch('/api/admin/team/live', {
-        method: 'GET',
-        credentials: 'include',
-        cache: 'no-store',
-      })
-
-      if (!response.ok) {
-        const payload = await response.json().catch(() => ({}))
-        throw new Error(payload?.error || `Failed to fetch team members (${response.status})`)
-      }
-
-      const payload = await response.json()
-      const data = Array.isArray(payload?.teamMembers) ? payload.teamMembers : []
+      
+      const result = await (supabase
+        .from('profiles') as any)
+        .select(`
+          id,
+          email,
+          full_name,
+          role_id,
+          permissions,
+          created_at,
+          role:roles(name)
+        `)
+        .not('role_id', 'is', null)
+        .order('created_at', { ascending: false })
+      const { data, error: fetchError } = result || {}
 
       if (!mountedRef.current) return
+      if (fetchError) throw fetchError
       
       // Transform to expected format with role name
-      const transformed = data.map((member: any) => ({
+      const transformed = (data || []).map((member: any) => ({
         id: member.id,
         email: member.email,
         full_name: member.full_name,
         name: member.full_name || '',
-        role: (member.role || 'customer') as any,
+        role: (member.role?.name || 'customer') as any,
         permissions: member.permissions,
         created_at: member.created_at
       }))
@@ -76,22 +78,6 @@ export function useTeamMembers() {
     return () => { mountedRef.current = false }
   }, [fetchTeamMembers])
 
-  // Keep admin team pages fresh without requiring focus changes.
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-
-    const isAdminRoute = window.location.pathname.startsWith('/admin')
-    if (!isAdminRoute) return
-
-    const POLL_INTERVAL_MS = 15000
-    const timer = window.setInterval(() => {
-      if (document.visibilityState === 'visible' && !inFlightRef.current) {
-        fetchTeamMembers()
-      }
-    }, POLL_INTERVAL_MS)
-
-    return () => window.clearInterval(timer)
-  }, [fetchTeamMembers])
 
   async function addTeamMember(member: Omit<TeamMember, 'id' | 'created_at'> & { password: string }) {
     // Create Supabase Auth account first

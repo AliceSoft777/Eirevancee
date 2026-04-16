@@ -1,9 +1,6 @@
 import { redirect } from "next/navigation"
 import { getServerSession } from "@/lib/loaders"
 import RegisterClient from "./RegisterClient"
-
-export const dynamic = 'force-dynamic'
-
 export default async function RegisterPage() {
     const session = await getServerSession()
 
@@ -22,3 +19,4 @@ export default async function RegisterPage() {
         </>
     )
 }
+

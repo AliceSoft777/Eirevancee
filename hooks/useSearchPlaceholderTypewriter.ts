@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useMemo } from "react";
+import { useEffect, useRef } from "react";
 
 /**
  * Custom hook for animating a typewriter effect on an input placeholder.
@@ -13,29 +13,27 @@ export function useSearchPlaceholderTypewriter(
   selector: string,
   suffixes: string[]
 ): void {
-  // Stabilize suffixes to prevent re-renders from causing glitches
-  const stableSuffixes = useMemo(() => suffixes, [JSON.stringify(suffixes)]);
-  
   // Use ref to track animation state
   const animationRef = useRef<{
-    timeoutId: NodeJS.Timeout | null;
+    timeoutId: ReturnType<typeof setTimeout> | null;
     isRunning: boolean;
   }>({ timeoutId: null, isRunning: false });
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (stableSuffixes.length === 0) return;
+    if (suffixes.length === 0) return;
 
     const PREFIX = "Search For ";
     let currentSuffixIndex = 0;
     let currentCharIndex = 0;
     let isTyping = true;
+    const animationState = animationRef.current;
     
     // Prevent multiple animations
-    if (animationRef.current.isRunning) {
+    if (animationState.isRunning) {
       return;
     }
-    animationRef.current.isRunning = true;
+    animationState.isRunning = true;
 
     // Wait for DOM to be ready
     const initTimeout = setTimeout(() => {
@@ -43,25 +41,25 @@ export function useSearchPlaceholderTypewriter(
         selector
       ) as HTMLInputElement | null;
 
-      if (!inputElement) {
-        console.warn(
-          `useSearchPlaceholderTypewriter: Element "${selector}" not found`
-        );
-        animationRef.current.isRunning = false;
-        return;
-      }
+        if (!inputElement) {
+          console.warn(
+            `useSearchPlaceholderTypewriter: Element "${selector}" not found`
+          );
+          animationState.isRunning = false;
+          return;
+        }
 
       // Set initial placeholder
       inputElement.placeholder = PREFIX;
 
-      const animate = () => {
-        // Check if element still exists
-        if (!document.querySelector(selector)) {
-          animationRef.current.isRunning = false;
-          return;
-        }
+        const animate = () => {
+          // Check if element still exists
+          if (!document.querySelector(selector)) {
+            animationState.isRunning = false;
+            return;
+          }
 
-        const currentSuffix = stableSuffixes[currentSuffixIndex];
+          const currentSuffix = suffixes[currentSuffixIndex];
 
         if (isTyping) {
           // Typing phase
@@ -73,10 +71,10 @@ export function useSearchPlaceholderTypewriter(
             if (currentCharIndex > currentSuffix.length) {
               // Finished typing, pause before deleting
               isTyping = false;
-              animationRef.current.timeoutId = setTimeout(animate, 2000);
+              animationState.timeoutId = setTimeout(animate, 2000);
             } else {
               // Continue typing
-              animationRef.current.timeoutId = setTimeout(animate, 120);
+              animationState.timeoutId = setTimeout(animate, 120);
             }
           }
         } else {
@@ -85,28 +83,28 @@ export function useSearchPlaceholderTypewriter(
             currentCharIndex--;
             const displayText = PREFIX + currentSuffix.substring(0, currentCharIndex);
             inputElement.placeholder = displayText;
-            animationRef.current.timeoutId = setTimeout(animate, 60);
+            animationState.timeoutId = setTimeout(animate, 60);
           } else {
             // Move to next suffix
             isTyping = true;
-            currentSuffixIndex = (currentSuffixIndex + 1) % stableSuffixes.length;
-            animationRef.current.timeoutId = setTimeout(animate, 400);
+            currentSuffixIndex = (currentSuffixIndex + 1) % suffixes.length;
+            animationState.timeoutId = setTimeout(animate, 400);
           }
         }
       };
 
       // Start animation with delay
-      animationRef.current.timeoutId = setTimeout(animate, 800);
+      animationState.timeoutId = setTimeout(animate, 800);
     }, 150);
 
     // Cleanup
     return () => {
       clearTimeout(initTimeout);
-      if (animationRef.current.timeoutId) {
-        clearTimeout(animationRef.current.timeoutId);
-        animationRef.current.timeoutId = null;
+      if (animationState.timeoutId) {
+        clearTimeout(animationState.timeoutId);
+        animationState.timeoutId = null;
       }
-      animationRef.current.isRunning = false;
+      animationState.isRunning = false;
     };
-  }, [selector, stableSuffixes]);
+  }, [selector, suffixes]);
 }

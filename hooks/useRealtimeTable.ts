@@ -43,8 +43,7 @@ export function useRealtimeTable({
   }, [onDelete])
 
   const channelName = useMemo(() => {
-    channelCounter += 1
-    return `realtime:${schema}:${table}:${channelCounter}`
+    return `realtime:${schema}:${table}`
   }, [schema, table])
 
   useEffect(() => {

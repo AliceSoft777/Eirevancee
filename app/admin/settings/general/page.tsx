@@ -7,8 +7,7 @@ import { Save } from "lucide-react"
 import { useState, useEffect } from "react"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { toast } from "sonner"
-import { SettingsSkeleton } from "@/components/admin/AdminSkeletons"
-
+import { IconSpinner } from "@/components/ui/icon-spinner"
 export default function GeneralSettingsPage() {
   const supabase = getSupabaseBrowserClient()
   const [loading, setLoading] = useState(false)
@@ -32,6 +31,7 @@ export default function GeneralSettingsPage() {
 
   useEffect(() => {
     fetchSettings()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const fetchSettings = async () => {
@@ -133,7 +133,9 @@ export default function GeneralSettingsPage() {
   return (
     <div className="space-y-6">
       {isLoadingSettings ? (
-        <SettingsSkeleton />
+        <div className="flex min-h-[50vh] items-center justify-center">
+          <IconSpinner label="Loading settings..." />
+        </div>
       ) : (
         <>
           <div>

@@ -4,8 +4,6 @@ import { Plus, FileText } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { getQuotations } from "@/lib/quotation-actions"
 import { QuotationsTable } from "@/components/admin/QuotationsTable"
-
-export const dynamic = "force-dynamic"
 export const revalidate = 0
 
 export const metadata = {
@@ -44,3 +42,4 @@ export default async function QuotationsPage() {
     </div>
   )
 }
+

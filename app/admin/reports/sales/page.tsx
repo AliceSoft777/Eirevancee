@@ -1,6 +1,5 @@
 "use client"
 
-import { useOrders } from "@/hooks/useOrders"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import dynamic from "next/dynamic"
@@ -8,7 +7,7 @@ import { formatPrice } from "@/lib/utils"
 import { TrendingUp, Package, Users, Download, FileText } from "lucide-react"
 import { useState, useMemo, useEffect } from "react"
 import { toast } from "sonner"
-import { ReportsSkeleton } from "@/components/admin/AdminSkeletons"
+import { IconSpinner } from "@/components/ui/icon-spinner"
 
 const SalesReportCharts = dynamic(
   () => import("@/components/admin/SalesReportCharts").then((m) => ({ default: m.SalesReportCharts })),
@@ -34,7 +33,40 @@ type StatusBreakdownItem = {
 }
 
 export default function SalesReportPage() {
-  const { orders, isLoading: ordersLoading, error } = useOrders('ALL')
+  const [orders, setOrders] = useState<Array<{
+    id: string; orderNumber: string; customerName: string; customerEmail: string;
+    total: number; status: string; createdAt: string;
+    items: Array<{ productId: string; productName: string; quantity: number; subtotal: number }>
+  }>>([])
+  const [ordersLoading, setOrdersLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetch("/api/admin/orders", { credentials: "include" })
+      .then((r) => r.json())
+      .then((data) => {
+        const raw = data.orders ?? data ?? []
+        setOrders(
+          raw.map((o: Record<string, unknown>) => ({
+            id: o.id,
+            orderNumber: o.order_number ?? o.orderNumber ?? "",
+            customerName: o.customer_name ?? o.customerName ?? "",
+            customerEmail: o.customer_email ?? o.customerEmail ?? "",
+            total: Number(o.total ?? 0),
+            status: String(o.status ?? ""),
+            createdAt: String(o.created_at ?? o.createdAt ?? ""),
+            items: Array.isArray(o.items) ? o.items.map((i: Record<string,unknown>) => ({
+              productId: String(i.product_id ?? i.productId ?? ""),
+              productName: String(i.product_name ?? i.productName ?? ""),
+              quantity: Number(i.quantity ?? 0),
+              subtotal: Number(i.subtotal ?? 0),
+            })) : [],
+          }))
+        )
+      })
+      .catch((e) => setError(String(e)))
+      .finally(() => setOrdersLoading(false))
+  }, [])
   const [dateRange, setDateRange] = useState<DateRange>('30d')
   const [loadingTimedOut, setLoadingTimedOut] = useState(false)
   const [showCharts, setShowCharts] = useState(false)
@@ -220,7 +252,11 @@ export default function SalesReportPage() {
   }
 
   if (ordersLoading && !loadingTimedOut) {
-    return <ReportsSkeleton />
+    return (
+      <div className="flex min-h-[60vh] w-full items-center justify-center">
+        <IconSpinner label="Loading sales reports..." />
+      </div>
+    )
   }
 
   return (

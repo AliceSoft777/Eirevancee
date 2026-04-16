@@ -20,6 +20,7 @@ import {
   Menu,
   X,
   FileText,
+  Warehouse,
   LucideIcon
 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -46,6 +47,7 @@ const allNavigation: NavItem[] = [
   { name: "Products", href: "/admin/products/list", icon: Package },
   { name: "Reviews", href: "/admin/reviews/pending", icon: Star },
   { name: "Customers", href: "/admin/customers/list", icon: Users },
+  { name: "GRN", href: "/admin/inventory/grn", icon: Warehouse },
   // Admin-only items
   { name: "Team", href: "/admin/team/list", icon: UserRoundCog, adminOnly: true },
   { name: "Marketing", href: "/admin/marketing/coupons", icon: Tag, adminOnly: true },
@@ -84,7 +86,7 @@ export function AdminLayout({ children, userRole }: AdminLayoutProps) {
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-background">
       {/* Mobile Header */}
-      <header className="lg:hidden shrink-0 z-30 bg-card border-b border-border px-4 py-3 flex items-center justify-between" suppressHydrationWarning>
+      <header className="lg:hidden shrink-0 z-30 bg-card border-b border-border px-4 py-3 flex items-center justify-between">
         <h1 className="text-lg font-serif font-bold text-primary">
           Celtic Tiles <span className="text-xs font-sans text-muted-foreground">{isAdmin ? "Admin" : "Staff"}</span>
         </h1>
@@ -93,7 +95,6 @@ export function AdminLayout({ children, userRole }: AdminLayoutProps) {
           size="sm"
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
           aria-label={isSidebarOpen ? "Close navigation menu" : "Open navigation menu"}
-          suppressHydrationWarning
           className="hover:text-foreground"
         >
           {isSidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -134,7 +135,7 @@ export function AdminLayout({ children, userRole }: AdminLayoutProps) {
             borderBottom: '1px solid hsl(var(--border) / 0.3)'
           }}>
             <span className="font-medium text-foreground">Menu</span>
-            <Button variant="ghost" size="sm" onClick={() => setIsSidebarOpen(false)} suppressHydrationWarning
+            <Button variant="ghost" size="sm" onClick={() => setIsSidebarOpen(false)}
               aria-label="Close menu"
               className="hover:bg-transparent rounded-xl neu-raised"
             >
@@ -176,7 +177,6 @@ export function AdminLayout({ children, userRole }: AdminLayoutProps) {
                 type="button"
                 className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-muted-foreground hover:text-red-600 transition-all duration-200 rounded-xl cursor-pointer bg-transparent border-none text-left"
                 onClick={handleLogout}
-                suppressHydrationWarning
               >
                 <LogOut className="w-4 h-4 flex-shrink-0" />
                 <span className="truncate">Logout</span>

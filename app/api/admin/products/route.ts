@@ -1,8 +1,14 @@
 import { NextResponse } from "next/server"
 import { createServerSupabase } from "@/lib/supabase/server"
 import { getServerSession } from "@/lib/loaders"
+import type { Database } from "@/supabase/database.types"
 
-export const dynamic = "force-dynamic"
+type ProductInsertPayload = Database["public"]["Tables"]["products"]["Insert"]
+
+function parsePayload(body: unknown): ProductInsertPayload | null {
+  if (!body || typeof body !== "object") return null
+  return body as ProductInsertPayload
+}
 
 export async function POST(request: Request) {
   try {
@@ -11,7 +17,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const payload = await request.json()
+    const payload = parsePayload(await request.json().catch(() => null))
+    if (!payload) {
+      return NextResponse.json({ error: "Invalid payload" }, { status: 400 })
+    }
+
     const supabase = await createServerSupabase()
     const { data, error } = await supabase
       .from("products")
@@ -28,3 +38,4 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Failed to create product" }, { status: 500 })
   }
 }
+

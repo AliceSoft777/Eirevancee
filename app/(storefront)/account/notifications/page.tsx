@@ -1,14 +1,9 @@
 import { redirect } from "next/navigation"
-import { getServerSession, getNavData } from "@/lib/loaders"
+import { getServerSession } from "@/lib/loaders"
 import { CreditCard } from "lucide-react"
 
-export const dynamic = 'force-dynamic'
-
 export default async function NotificationsPage() {
-    const [session, { categories }] = await Promise.all([
-        getServerSession(),
-        getNavData()
-    ])
+    const session = await getServerSession()
 
     if (!session.userId) {
         redirect("/login")

@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server"
 import { createServerSupabase } from "@/lib/supabase/server"
 import { getServerSession } from "@/lib/loaders"
-
-export const dynamic = "force-dynamic"
-
 export async function GET() {
   try {
     const session = await getServerSession()
@@ -26,3 +23,4 @@ export async function GET() {
     return NextResponse.json({ error: "Failed to fetch subscribers" }, { status: 500 })
   }
 }
+

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { MegaMenu } from "./mega-menu";
 import { ClearanceMegaMenu } from "./clearance-mega-menu";
@@ -60,34 +60,35 @@ export function MainNav({ categories, products }: MainNavProps) {
     };
   }, []);
 
-  const hasClearanceProducts = products.some((p) => p.is_clearance === true);
+  const hasClearanceProducts = useMemo(
+    () => products.some((p) => p.is_clearance === true),
+    [products]
+  );
 
-  const navItems = categories.map((cat) => {
-    const hasSubcategories = cat.children && cat.children.length > 0;
+  const navItems = useMemo(
+    () =>
+      categories.map((cat) => {
+        const hasSubcategories = cat.children && cat.children.length > 0;
 
-    // Collect this category + all child IDs
-    const categoryIds = [
-      cat.id,
-      ...(cat.children?.map(child => child.id) || [])
-    ];
+        // Collect this category + all child IDs
+        const categoryIds = [cat.id, ...(cat.children?.map((child) => child.id) || [])];
 
-    // Check if ANY product belongs to this category tree
-    const hasProducts = products.some(
-      p =>
-        categoryIds.includes(p.category_id as string) &&
-        !p.is_clearance
-    );
+        // Check if ANY product belongs to this category tree
+        const hasProducts = products.some(
+          (p) => categoryIds.includes(p.category_id as string) && !p.is_clearance
+        );
 
-
-    return {
-      name: cat.name,
-      href: `/${cat.slug}`,
-      hasSubcategories,
-      hasProductsOnly: !hasSubcategories && hasProducts,
-      hasMegaMenu: hasSubcategories || (!hasSubcategories && hasProducts),
-      category: cat,
-    };
-  });
+        return {
+          name: cat.name,
+          href: `/${cat.slug}`,
+          hasSubcategories,
+          hasProductsOnly: !hasSubcategories && hasProducts,
+          hasMegaMenu: hasSubcategories || (!hasSubcategories && hasProducts),
+          category: cat,
+        };
+      }),
+    [categories, products]
+  );
 
   return (
     <nav

@@ -21,7 +21,7 @@ import { StatusBadge } from "./StatusBadge"
 import { StatusUpdateDialog } from "./StatusUpdateDialog"
 import { formatPrice } from "@/lib/utils"
 import { formatOrderDate, getValidNextStatuses } from "@/lib/order-utils"
-import { useOrders } from "@/hooks/useOrders"
+
 import { useStore } from "@/hooks/useStore"
 import { toast } from "sonner"
 import { Eye, X } from "lucide-react"
@@ -41,7 +41,7 @@ export function OrderDetailModal({
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null)
   const [showStatusDialog, setShowStatusDialog] = useState(false)
   const [isUpdating, setIsUpdating] = useState(false)
-  const { updateOrderStatus } = useOrders(null)
+
   const { user } = useStore()
 
   const validNextStatuses = getValidNextStatuses(order.status)
@@ -53,18 +53,30 @@ export function OrderDetailModal({
 
   const handleConfirmStatusChange = async () => {
     if (!selectedStatus || !user) return
-    
+
     setIsUpdating(true)
     try {
-      // Call actual database update
-      await updateOrderStatus(order.id, selectedStatus, `Status updated by ${user.name}`, user.name)
+      const res = await fetch(`/api/admin/orders/${order.id}/status`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: selectedStatus,
+          note: `Status updated by ${user.name}`,
+          updatedBy: user.name,
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Failed to update status")
+      }
       toast.success(`Order status updated to ${selectedStatus}`)
       setShowStatusDialog(false)
       setSelectedStatus(null)
-      onOpenChange(false) // Close the modal after successful update
+      onOpenChange(false)
     } catch (error) {
-      console.error('Error updating order status:', error)
-      toast.error('Failed to update order status')
+      console.error("Error updating order status:", error)
+      toast.error("Failed to update order status")
     } finally {
       setIsUpdating(false)
     }

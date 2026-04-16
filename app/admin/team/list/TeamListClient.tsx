@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Plus, Edit, Trash2, Search, AlertCircle, Mail, Users, Key } from 'lucide-react'
-import { Skeleton } from '@/components/ui/skeleton'
+import { IconSpinner } from '@/components/ui/icon-spinner'
 import { EmptyState } from '@/components/admin/EmptyState'
 import { DeleteConfirmDialog } from '@/components/admin/DeleteConfirmDialog'
 import { TeamMemberModal } from '@/components/admin/TeamMemberModal'
@@ -150,17 +150,8 @@ export default function TeamListClient({ initialTeamMembers, serverError }: Team
         </CardHeader>
         <CardContent>
           {isLoading && initialTeamMembers.length === 0 ? (
-            <div className="space-y-4">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="flex items-center gap-4 py-4 border-b border-border last:border-0">
-                  <Skeleton className="w-10 h-10 rounded-full" />
-                  <div className="flex-1 space-y-2">
-                    <Skeleton className="h-4 w-32" />
-                    <Skeleton className="h-3 w-48" />
-                  </div>
-                  <Skeleton className="h-8 w-20" />
-                </div>
-              ))}
+            <div className="flex min-h-[40vh] items-center justify-center">
+              <IconSpinner label="Loading team members..." />
             </div>
           ) : filteredMembers.length === 0 ? (
             <EmptyState

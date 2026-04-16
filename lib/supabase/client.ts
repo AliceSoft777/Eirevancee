@@ -3,7 +3,7 @@
 import "@/lib/suppress-abort-errors"
 // ✅ SINGLETON PATTERN: Create ONE instance for entire app lifecycle
 import { createBrowserClient } from "@supabase/ssr"
-import type { Database } from "@/lib/supabase-types"
+import type { Database } from "@/supabase/database.types"
 import type { SupportedStorage } from "@supabase/supabase-js"
 
 // ✅ Custom storage adapter that respects "remember me" preference
@@ -19,7 +19,7 @@ class ConditionalStorage implements SupportedStorage {
         removeItem: () => {},
         length: 0,
         clear: () => {},
-        key: () => null as any,
+        key: () => null,
       } as Storage
     }
     // Check if "remember me" preference exists and is false
@@ -79,3 +79,4 @@ export const supabaseBrowserClient = createBrowserClient<Database>(
 export function getSupabaseBrowserClient() {
   return supabaseBrowserClient
 }
+

@@ -2,20 +2,11 @@
 
 import { createServerSupabase } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
+import type { Database } from "@/lib/supabase-types"
 
-export interface CartItem {
-  id: string
-  user_id: string
-  product_id: string
-  variant_id: string | null
-  product_name: string
-  product_price: number
-  product_image: string | null
-  quantity: number
-  reserved_until: string | null
-  created_at: string
-  updated_at: string
-}
+export type CartItem = Database["public"]["Tables"]["cart_items"]["Row"]
+type CartItemInsert = Database["public"]["Tables"]["cart_items"]["Insert"]
+type CartItemExisting = Pick<CartItem, "id" | "quantity">
 
 export interface AddToCartInput {
   product_id: string
@@ -27,6 +18,10 @@ export interface AddToCartInput {
 }
 
 const CART_ITEM_SELECT_FIELDS = 'id, user_id, product_id, variant_id, product_name, product_price, product_image, quantity, reserved_until, created_at, updated_at'
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback
+}
 
 /**
  * Fetch all cart items for the current user
@@ -55,9 +50,9 @@ export async function fetchCartAction(): Promise<{ data: CartItem[] | null; erro
     }
 
     return { data: data as CartItem[], error: null }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[fetchCartAction] Exception:', error)
-    return { data: null, error: error.message || 'Failed to fetch cart' }
+    return { data: null, error: getErrorMessage(error, 'Failed to fetch cart') }
   }
 }
 
@@ -95,14 +90,14 @@ export async function addToCartAction(input: AddToCartInput): Promise<{ data: Ca
 
     // If exists, update quantity
     if (existingItems && existingItems.length > 0) {
-      const existingItem = existingItems[0] as CartItem
+      const existingItem = existingItems[0] as CartItemExisting
       const newQuantity = existingItem.quantity + (input.quantity || 1)
       
-      const { data: updatedData, error: updateError } = await (supabase as any)
+      const { data: updatedData, error: updateError } = await supabase
         .from('cart_items')
         .update({ quantity: newQuantity, updated_at: new Date().toISOString() })
         .eq('id', existingItem.id)
-        .select()
+        .select(CART_ITEM_SELECT_FIELDS)
         .single()
 
       if (updateError) {
@@ -115,7 +110,7 @@ export async function addToCartAction(input: AddToCartInput): Promise<{ data: Ca
     }
 
     // Insert new item
-    const payload = {
+    const payload: CartItemInsert = {
       user_id: user.id,
       product_id: input.product_id,
       variant_id: input.variant_id || null,
@@ -125,10 +120,10 @@ export async function addToCartAction(input: AddToCartInput): Promise<{ data: Ca
       quantity: input.quantity || 1
     }
 
-    const { data: insertData, error: insertError } = await (supabase as any)
+    const { data: insertData, error: insertError } = await supabase
       .from('cart_items')
       .insert([payload])
-      .select()
+      .select(CART_ITEM_SELECT_FIELDS)
       .single()
 
     if (insertError) {
@@ -138,9 +133,9 @@ export async function addToCartAction(input: AddToCartInput): Promise<{ data: Ca
 
     revalidatePath('/cart')
     return { data: insertData as CartItem, error: null }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[addToCartAction] Exception:', error)
-    return { data: null, error: error.message || 'Failed to add to cart' }
+    return { data: null, error: getErrorMessage(error, 'Failed to add to cart') }
   }
 }
 
@@ -176,12 +171,12 @@ export async function updateCartQuantityAction(cartItemId: string, quantity: num
     }
 
     // Update quantity
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from('cart_items')
       .update({ quantity, updated_at: new Date().toISOString() })
       .eq('id', cartItemId)
       .eq('user_id', user.id)
-      .select()
+      .select(CART_ITEM_SELECT_FIELDS)
       .single()
 
     if (error) {
@@ -191,9 +186,9 @@ export async function updateCartQuantityAction(cartItemId: string, quantity: num
 
     revalidatePath('/cart')
     return { data: data as CartItem, error: null }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[updateCartQuantityAction] Exception:', error)
-    return { data: null, error: error.message || 'Failed to update quantity' }
+    return { data: null, error: getErrorMessage(error, 'Failed to update quantity') }
   }
 }
 
@@ -224,9 +219,9 @@ export async function removeFromCartAction(cartItemId: string): Promise<{ succes
 
     revalidatePath('/cart')
     return { success: true, error: null }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[removeFromCartAction] Exception:', error)
-    return { success: false, error: error.message || 'Failed to remove from cart' }
+    return { success: false, error: getErrorMessage(error, 'Failed to remove from cart') }
   }
 }
 
@@ -256,8 +251,8 @@ export async function clearCartAction(): Promise<{ success: boolean; error: stri
 
     revalidatePath('/cart')
     return { success: true, error: null }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[clearCartAction] Exception:', error)
-    return { success: false, error: error.message || 'Failed to clear cart' }
+    return { success: false, error: getErrorMessage(error, 'Failed to clear cart') }
   }
 }

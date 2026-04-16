@@ -3,8 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardFooter } from "@/components/ui/card"
 import Link from "next/link"
-import { Package, ArrowLeft } from "lucide-react"
-import { useOrders } from "@/hooks/useOrders"
+import { Package, ArrowLeft, Download } from "lucide-react"
 import { useOrderDetails } from "@/context/OrderDetailsContext"
 import { useMemo } from "react"
 import * as React from "react"
@@ -12,19 +11,37 @@ import { formatPrice } from "@/lib/utils"
 import { formatOrderDate } from "@/lib/order-utils"
 import { StatusBadge } from "@/components/admin/StatusBadge"
 import type { ServerSession } from "@/lib/loaders"
+import { toast } from "sonner"
 
 interface OrdersClientProps {
-    session: ServerSession
+    orders: any[]
 }
 
-export default function OrdersClient({ session }: OrdersClientProps) {
-    const { orders, isLoading } = useOrders(session.userId)
+export default function OrdersClient({ orders }: OrdersClientProps) {
     const { openOrderDetails } = useOrderDetails()
+
+    const handleDownloadInvoice = async (orderId: string) => {
+        try {
+            const res = await fetch(`/api/orders/${orderId}/invoice`, { method: "GET" })
+            const payload = await res.json().catch(() => ({}))
+
+            if (!res.ok || !payload.url) {
+                throw new Error(payload.error || "Invoice is not available yet")
+            }
+
+            window.open(payload.url, "_blank", "noopener,noreferrer")
+        } catch (err) {
+            const message = err instanceof Error ? err.message : "Failed to download invoice"
+            toast.error(message)
+        }
+    }
 
 
     const userOrders = useMemo(() => {
-        return [...orders].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        return [...orders].sort((a, b) => new Date(b.createdAt ?? b.created_at ?? "").getTime() - new Date(a.createdAt ?? a.created_at ?? "").getTime())
     }, [orders])
+
+    const isLoading = false
 
     if (isLoading) {
         return (
@@ -71,11 +88,11 @@ export default function OrdersClient({ session }: OrdersClientProps) {
                             <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 items-center">
                                 <div>
                                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Order Placed</p>
-                                    <p className="font-bold text-slate-800">{formatOrderDate(order.createdAt)}</p>
+                                    <p className="font-bold text-slate-800">{formatOrderDate(order.createdAt ?? order.created_at)}</p>
                                 </div>
                                 <div>
                                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Order ID</p>
-                                    <p className="font-bold text-slate-600 text-sm">#{order.orderNumber}</p>
+                                    <p className="font-bold text-slate-600 text-sm">#{order.orderNumber ?? order.order_number}</p>
                                 </div>
                                 <div>
                                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total</p>
@@ -95,12 +112,12 @@ export default function OrdersClient({ session }: OrdersClientProps) {
                                                 <Package className="h-6 w-6 text-slate-400" />
                                             </div>
                                             <div>
-                                                <p className="font-bold text-slate-800 group-hover:text-primary transition-colors">{item.productName || `Product ID: ${item.productId}`}</p>
-                                                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-tight">Quantity: {item.quantity} × {formatPrice(item.unitPrice)}</p>
+                                                <p className="font-bold text-slate-800 group-hover:text-primary transition-colors">{(item.productName ?? item.product_name) || `Product ID: ${item.productId ?? item.product_id}`}</p>
+                                                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-tight">Quantity: {item.quantity} × {formatPrice(item.unitPrice ?? item.unit_price ?? 0)}</p>
                                             </div>
                                         </div>
                                         <div className="text-right">
-                                            <p className="font-bold text-slate-800">{formatPrice(item.unitPrice * item.quantity)}</p>
+                                            <p className="font-bold text-slate-800">{formatPrice((item.unitPrice ?? item.unit_price ?? 0) * item.quantity)}</p>
                                         </div>
                                     </div>
                                 ))}
@@ -108,14 +125,27 @@ export default function OrdersClient({ session }: OrdersClientProps) {
                         </CardContent>
                         <CardFooter className="bg-white/20 px-8 py-6 flex justify-between items-center border-t border-white/10">
                             <p className="text-xs font-bold text-slate-500 italic">Thank you for shopping with Celtic Tiles</p>
-                            <Button
-                                onClick={() => openOrderDetails(order)}
-                                variant="outline"
-                                size="sm"
-                                className="h-10 px-6 rounded-full neu-raised hover:neu-inset bg-[#E5E9F0] border-none font-bold text-primary"
-                            >
-                                View Details
-                            </Button>
+                            <div className="flex items-center gap-2">
+                                {order.invoice_file_id && (
+                                    <Button
+                                        onClick={() => handleDownloadInvoice(order.id)}
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-10 px-5 rounded-full neu-raised hover:neu-inset bg-[#E5E9F0] border-none font-bold text-primary"
+                                    >
+                                        <Download className="h-4 w-4 mr-2" />
+                                        Invoice
+                                    </Button>
+                                )}
+                                <Button
+                                    onClick={() => openOrderDetails(order as unknown as import("@/context/OrderDetailsContext").Order)}
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-10 px-6 rounded-full neu-raised hover:neu-inset bg-[#E5E9F0] border-none font-bold text-primary"
+                                >
+                                    View Details
+                                </Button>
+                            </div>
                         </CardFooter>
                     </Card>
                 ))}

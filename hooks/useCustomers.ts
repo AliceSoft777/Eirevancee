@@ -1,7 +1,8 @@
 "use client"
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { getSupabaseBrowserClient } from '@/lib/supabase'
+import type { Database } from '@/lib/supabase-types'
 
 export interface Customer {
   id: string
@@ -14,13 +15,18 @@ export interface Customer {
   lastOrderDate: string | null
 }
 
+type RoleRow = Pick<Database["public"]["Tables"]["roles"]["Row"], "id">
+type ProfileRow = Pick<Database["public"]["Tables"]["profiles"]["Row"], "id" | "email" | "full_name" | "phone" | "created_at">
+type OrderSummaryRow = Pick<Database["public"]["Tables"]["orders"]["Row"], "user_id" | "total" | "created_at" | "customer_phone">
+
 export function useCustomers() {
-  const supabase = getSupabaseBrowserClient()
+  const supabase = useMemo(() => getSupabaseBrowserClient(), [])
   const [customers, setCustomers] = useState<Customer[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const mountedRef = useRef(true)
   const inFlightRef = useRef(false)
+  const customerRoleIdRef = useRef<string | null>(null)
 
   const fetchCustomers = useCallback(async () => {
     if (inFlightRef.current) return
@@ -30,34 +36,40 @@ export function useCustomers() {
       setIsLoading(true)
       setError(null)
       
-      // 1. Get Customer Role ID
-      const roleResult = await (supabase
-        .from('roles') as any)
-        .select('id')
-        .eq('name', 'customer')
-        .single()
-      
-      if (!mountedRef.current) return
-      if (!roleResult || roleResult.error) throw roleResult?.error || new Error('Failed to fetch roles')
-      const customerRoleId = roleResult.data.id
+      // 1. Resolve Customer Role ID once and reuse during polling/refetches.
+      if (!customerRoleIdRef.current) {
+        const roleResult = await supabase
+          .from('roles')
+          .select('id')
+          .eq('name', 'customer')
+          .single()
+
+        if (!mountedRef.current) return
+        if (!roleResult || roleResult.error) throw roleResult?.error || new Error('Failed to fetch roles')
+        customerRoleIdRef.current = (roleResult.data as RoleRow).id
+      }
+      const customerRoleId = customerRoleIdRef.current
+      if (!customerRoleId) {
+        throw new Error('Customer role is unavailable')
+      }
 
       // 2. Fetch Profiles and Orders in parallel for better performance
       const [profilesResult, ordersResult] = await Promise.all([
-        (supabase
-          .from('profiles') as any)
+        supabase
+          .from('profiles')
           .select('id, email, full_name, phone, created_at')
           .eq('role_id', customerRoleId)
           .order('created_at', { ascending: false }),
-        (supabase
-          .from('orders') as any)
+        supabase
+          .from('orders')
           .select('user_id, total, created_at, customer_phone')
       ])
 
       if (!mountedRef.current) return
       if (!profilesResult || profilesResult.error) throw profilesResult?.error || new Error('Failed to fetch profiles')
       
-      const profiles = profilesResult.data
-      const orders = ordersResult?.data || []
+      const profiles = (profilesResult.data || []) as ProfileRow[]
+      const orders = (ordersResult?.data || []) as OrderSummaryRow[]
 
       if (!profiles || profiles.length === 0) {
         if (mountedRef.current) { setCustomers([]); setIsLoading(false) }
@@ -65,11 +77,11 @@ export function useCustomers() {
       }
 
       // 3. Aggregate Data (client-side - fast since data is already loaded)
-      const customerData = profiles.map((profile: any) => {
-        const userOrders = orders.filter((o: any) => o.user_id === profile.id)
+      const customerData = profiles.map((profile) => {
+        const userOrders = orders.filter((o) => o.user_id === profile.id)
         
         const totalOrders = userOrders.length
-        const totalSpent = userOrders.reduce((sum: number, o: any) => sum + (o.total || 0), 0)
+        const totalSpent = userOrders.reduce((sum: number, o) => sum + (o.total || 0), 0)
         
         // Find phone
         let phone = profile.phone || null
@@ -77,7 +89,7 @@ export function useCustomers() {
           phone = userOrders[0].customer_phone
         }
 
-        const lastOrder = userOrders.sort((a: any, b: any) => 
+        const lastOrder = userOrders.sort((a, b) => 
           new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         )[0]
 
@@ -94,8 +106,9 @@ export function useCustomers() {
       })
 
       if (mountedRef.current) setCustomers(customerData)
-    } catch (err: any) {
-      if (mountedRef.current) setError(err.message || 'Failed to fetch customers')
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to fetch customers'
+      if (mountedRef.current) setError(message)
     } finally {
       inFlightRef.current = false
       if (mountedRef.current) setIsLoading(false)

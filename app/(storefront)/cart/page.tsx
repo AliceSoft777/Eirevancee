@@ -1,36 +1,12 @@
 import CartClient from './CartClient'
 import { getCartForUser } from '@/lib/cart/server'
-import { getServerSession, getWishlistData } from '@/lib/loaders'
-import { createServerSupabase } from '@/lib/supabase/server'
-
-export const dynamic = 'force-dynamic'
+import { getSiteSettings } from '@/lib/loaders'
 
 export default async function CartPage() {
-    const [{ cart, isLoggedIn }, session] = await Promise.all([
+    const [{ cart, isLoggedIn }, siteSettings] = await Promise.all([
         getCartForUser(),
-        getServerSession()
+        getSiteSettings(),
     ])
-    const { wishlistCount } = await getWishlistData(session.userId)
-
-    // Fetch site settings for dynamic tax & shipping
-    let siteSettings = { tax_rate: 0, free_shipping_threshold: 1000, shipping_fee: 10 }
-    try {
-        const supabase = await createServerSupabase()
-        const { data } = await (supabase as any)
-            .from('site_settings')
-            .select('tax_rate, free_shipping_threshold')
-            .single()
-        if (data) {
-            const dbThreshold = Number(data.free_shipping_threshold ?? 1000)
-            siteSettings = {
-                tax_rate: data.tax_rate ?? 0,
-                free_shipping_threshold: Math.max(dbThreshold, 1000),
-                shipping_fee: 10,
-            }
-        }
-    } catch (err) {
-        console.warn('[Cart] Failed to fetch site_settings, using defaults:', err)
-    }
 
     return (
         <>

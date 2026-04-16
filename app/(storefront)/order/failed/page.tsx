@@ -1,15 +1,15 @@
-'use client'
-
 import { XCircle } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { useSearchParams } from "next/navigation"
-import { Suspense } from "react"
 
-function OrderFailedContent() {
-  const searchParams = useSearchParams()
-  const orderId = searchParams.get('orderId')
-  const reason = searchParams.get('reason') || 'Payment processing failed'
+type Props = {
+  searchParams: Promise<{ orderId?: string; reason?: string }>
+}
+
+export default async function OrderFailedPage({ searchParams }: Props) {
+  const params = await searchParams
+  const orderId = params.orderId
+  const reason = params.reason || "Payment processing failed"
 
   return (
     <div className="min-h-screen bg-neutral-light flex items-center justify-center p-4">
@@ -21,9 +21,7 @@ function OrderFailedContent() {
         <h1 className="text-3xl font-bold text-foreground mb-2">
           Payment Failed
         </h1>
-        <p className="text-muted-foreground mb-8">
-          {reason}
-        </p>
+        <p className="text-muted-foreground mb-8">{reason}</p>
 
         <div className="bg-red-50 border border-red-200 rounded-md p-6 mb-8 text-left">
           <h2 className="text-sm font-semibold text-red-800 uppercase tracking-wide mb-3">
@@ -37,7 +35,9 @@ function OrderFailedContent() {
         </div>
 
         <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mb-8 text-left">
-          <h3 className="text-sm font-semibold text-blue-800 mb-2">Common reasons:</h3>
+          <h3 className="text-sm font-semibold text-blue-800 mb-2">
+            Common reasons:
+          </h3>
           <ul className="text-xs text-blue-700 space-y-1 list-disc list-inside">
             <li>Insufficient funds</li>
             <li>Incorrect card details</li>
@@ -59,19 +59,9 @@ function OrderFailedContent() {
         </div>
 
         {orderId && (
-          <p className="text-xs text-muted-foreground mt-6">
-            Reference: {orderId}
-          </p>
+          <p className="text-xs text-muted-foreground mt-6">Reference: {orderId}</p>
         )}
       </div>
     </div>
-  )
-}
-
-export default function OrderFailedPage() {
-  return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
-      <OrderFailedContent />
-    </Suspense>
   )
 }

@@ -10,7 +10,7 @@ import { Pagination } from "@/components/admin/Pagination"
 import { usePagination } from "@/hooks/usePagination"
 import { Mail, Download, Search } from "lucide-react"
 import { toast } from "sonner"
-import { NewsletterSkeleton } from "@/components/admin/AdminSkeletons"
+import { IconSpinner } from "@/components/ui/icon-spinner"
 
 interface Subscriber {
   id: string
@@ -149,7 +149,9 @@ export default function NewsletterPage() {
             </CardHeader>
             <CardContent>
               {isLoading ? (
-                <NewsletterSkeleton />
+                <div className="flex min-h-[40vh] items-center justify-center">
+                  <IconSpinner label="Loading subscribers..." />
+                </div>
                 ) : error ? (
                   <div className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-red-900">
                     <p className="font-semibold">Failed to load newsletter subscribers</p>

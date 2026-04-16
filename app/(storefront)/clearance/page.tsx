@@ -2,6 +2,8 @@ import { ProductCard } from "@/components/products/product-card";
 import { createServerSupabase } from "@/lib/supabase/server";
 import type { Product } from "@/lib/supabase-types";
 
+export const revalidate = 60
+
 export default async function ClearancePage() {
   const supabase = await createServerSupabase();
 

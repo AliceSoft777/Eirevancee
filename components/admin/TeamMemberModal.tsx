@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import {
   Dialog,
   DialogContent,
@@ -21,7 +22,7 @@ import {
 } from "@/components/ui/select"
 import { Loader2, Eye, EyeOff } from "lucide-react"
 import { toast } from "sonner"
-import { TeamMember } from "@/hooks/useTeamMembers"
+import { type TeamMember } from "@/types"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 
 interface TeamMemberModalProps {
@@ -50,6 +51,7 @@ const INITIAL_FORM_STATE: TeamMemberFormState = {
 }
 
 export function TeamMemberModal({ isOpen, onClose, onRefetch, member }: TeamMemberModalProps) {
+  const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [formData, setFormData] = useState<TeamMemberFormState>(INITIAL_FORM_STATE)
@@ -146,8 +148,8 @@ export function TeamMemberModal({ isOpen, onClose, onRefetch, member }: TeamMemb
           : "Team member created successfully"
       )
 
-      // Refetch team members and close
-      await onRefetch()
+      // Refresh server data without full reload
+      router.refresh()
       setFormData(INITIAL_FORM_STATE)
       onClose()
     } catch (err: any) {

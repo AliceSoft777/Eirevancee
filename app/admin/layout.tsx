@@ -5,8 +5,6 @@ import { AdminHeader } from "@/components/admin/AdminHeader"
 import { AdminLayout as AdminShell } from "@/components/admin/AdminLayout"
 
 // Prevent Next.js from caching any admin page — always fetch fresh data
-export const dynamic = 'force-dynamic'
-
 export default async function AdminLayout({
   children,
 }: {
@@ -38,3 +36,4 @@ export default async function AdminLayout({
   </>
 )
 }
+

@@ -8,57 +8,43 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { CouponDialog, type CouponFormData } from "@/components/admin/CouponDialog"
 import { DeleteConfirmDialog } from "@/components/admin/DeleteConfirmDialog"
-import { EmptyState } from "@/components/admin/EmptyState"
 import { formatPrice } from "@/lib/utils"
 import { Plus, Tag } from "lucide-react"
-import { NewsletterSkeleton } from "@/components/admin/AdminSkeletons"
 
 type EditingCoupon = {
   id: string
 } & Partial<CouponFormData>
 
 export default function CouponsPage() {
-  const { coupons, isLoading, error, addCoupon, updateCoupon, deleteCoupon, refetch } = useCoupons()
+  const { coupons, addCoupon, updateCoupon, deleteCoupon } = useCoupons()
 
   const [isCreating, setIsCreating] = useState(false)
   const [editingCoupon, setEditingCoupon] = useState<EditingCoupon | null>(null)
   const [deletingCoupon, setDeletingCoupon] = useState<EditingCoupon | null>(null)
 
-  const handleCreate = async (data: CouponFormData) => {
-    try {
-      await addCoupon(data)
-      toast.success(`Coupon "${data.code}" created`, {
-        description:
-          data.discount_type === "percentage"
-            ? `${data.discount_value}% off`
-            : `${formatPrice(data.discount_value)} off`,
-      })
-      setIsCreating(false)
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to create coupon")
-    }
+  const handleCreate = (data: CouponFormData) => {
+    addCoupon(data)
+    toast.success(`Coupon "${data.code}" created`, {
+      description:
+        data.discount_type === "percentage"
+          ? `${data.discount_value}% off`
+          : `${formatPrice(data.discount_value)} off`,
+    })
+    setIsCreating(false)
   }
 
-  const handleEdit = async (data: Partial<CouponFormData>) => {
+  const handleEdit = (data: Partial<CouponFormData>) => {
     if (!editingCoupon) return
-    try {
-      await updateCoupon(editingCoupon.id, data)
-      toast.success(`Coupon "${data.code ?? editingCoupon.code}" updated`)
-      setEditingCoupon(null)
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to update coupon")
-    }
+    updateCoupon(editingCoupon.id, data)
+    toast.success(`Coupon "${data.code ?? editingCoupon.code}" updated`)
+    setEditingCoupon(null)
   }
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!deletingCoupon) return
-    try {
-      await deleteCoupon(deletingCoupon.id)
-      toast.error(`Coupon "${deletingCoupon.code}" deleted`)
-      setDeletingCoupon(null)
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to delete coupon")
-    }
+    deleteCoupon(deletingCoupon.id)
+    toast.error(`Coupon "${deletingCoupon.code}" deleted`)
+    setDeletingCoupon(null)
   }
 
   return (
@@ -69,10 +55,10 @@ export default function CouponsPage() {
                 Coupons & Discounts
               </h1>
               <p className="text-muted-foreground mt-1">
-                {isLoading ? "Loading..." : `${coupons.length} total coupon(s)`}
+                Create and manage discount codes
               </p>
             </div>
-            <Button onClick={() => setIsCreating(true)} disabled={isLoading}>
+            <Button onClick={() => setIsCreating(true)}>
               <Plus className="w-4 h-4 mr-2" />
               Create Coupon
             </Button>
@@ -83,25 +69,6 @@ export default function CouponsPage() {
               <CardTitle>All Coupons ({coupons.length})</CardTitle>
             </CardHeader>
             <CardContent>
-              {isLoading ? (
-                <NewsletterSkeleton />
-              ) : error ? (
-                <div className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-red-900">
-                  <p className="font-semibold">Failed to load coupons</p>
-                  <p className="text-sm mt-1">{error}</p>
-                  <Button className="mt-3" size="sm" variant="outline" onClick={() => refetch()}>
-                    Retry
-                  </Button>
-                </div>
-              ) : coupons.length === 0 ? (
-                <EmptyState
-                  icon={Tag}
-                  title="No coupons available"
-                  description="Create your first coupon to start running discounts."
-                  actionLabel="Create Coupon"
-                  onAction={() => setIsCreating(true)}
-                />
-              ) : (
               <div className="space-y-3">
                 {coupons.map((coupon) => (
                   <div
@@ -208,7 +175,6 @@ export default function CouponsPage() {
                   </div>
                 ))}
               </div>
-              )}
             </CardContent>
           </Card>
 

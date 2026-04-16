@@ -1,6 +1,6 @@
 import { cookies } from "next/headers"
 import { createServerClient } from "@supabase/ssr"
-import type { Database } from "@/lib/supabase-types"
+import type { Database } from "@/supabase/database.types"
 
 export async function createServerSupabase() {
   const cookieStore = await cookies() // ✅ MUST be awaited in Next.js 15
@@ -28,3 +28,4 @@ export async function createServerSupabase() {
     }
   )
 }
+

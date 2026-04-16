@@ -8,7 +8,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { TileCalculator } from "./tile-calculator";
-import { Product } from "@/hooks/useProducts";
+import { type Product } from "@/types";
 import { Calculator } from "lucide-react";
 
 interface CalculatorModalProps {

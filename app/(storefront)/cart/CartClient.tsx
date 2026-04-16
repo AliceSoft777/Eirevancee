@@ -11,6 +11,7 @@ import { toast } from 'sonner'
 import { PopularProducts } from '@/components/products/PopularProducts'
 import { useStore } from '@/hooks/useStore'
 import { getSupabaseBrowserClient } from '@/lib/supabase/client'
+import type { Database } from '@/lib/supabase-types'
 
 interface CartItem {
     id: string
@@ -39,6 +40,16 @@ interface AppliedCoupon {
     code: string
     discount_type: 'percentage' | 'fixed'
     discount_value: number
+}
+
+type CouponRow = Pick<
+    Database['public']['Tables']['coupons']['Row'],
+    'code' | 'discount_type' | 'discount_value' | 'expires_at' | 'usage_limit' | 'used_count' | 'min_order_value'
+>
+
+function getErrorMessage(error: unknown, fallback: string): string {
+    if (error instanceof Error && error.message) return error.message
+    return fallback
 }
 
 export default function CartClient({ initialCart, isLoggedIn, siteSettings }: CartClientProps) {
@@ -80,32 +91,32 @@ export default function CartClient({ initialCart, isLoggedIn, siteSettings }: Ca
         setCouponLoading(true)
         try {
             const supabase = getSupabaseBrowserClient()
+            const abortController = new AbortController()
+            const timeoutId = setTimeout(() => abortController.abort(), 10000)
 
-            // Wrap Supabase query in a timeout to prevent hanging
-            const couponQuery = (supabase
-                .from('coupons') as any)
-                .select('*')
+            const { data, error } = await supabase
+                .from('coupons')
+                .select('code, discount_type, discount_value, expires_at, usage_limit, used_count, min_order_value')
                 .eq('code', couponCode.trim().toUpperCase())
                 .eq('status', 'active')
+                .abortSignal(abortController.signal)
                 .single()
 
-            const timeoutPromise = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('Request timed out. Please try again.')), 10000)
-            )
-
-            const { data, error } = await Promise.race([couponQuery, timeoutPromise]) as any
+            clearTimeout(timeoutId)
 
             if (error || !data) {
                 toast.error('Invalid or expired coupon code')
                 return
             }
 
-            // Check expiry — normalise bare date strings to end-of-day so coupon is valid the full day
-            if (data.expires_at) {
-                let expiryDate = new Date(data.expires_at)
+            const typedCoupon: CouponRow = data
+
+            // Check expiry - normalise bare date strings to end-of-day so coupon is valid the full day
+            if (typedCoupon.expires_at) {
+                let expiryDate = new Date(typedCoupon.expires_at)
                 // If stored as bare date (no time component), treat as end-of-day UTC
-                if (!data.expires_at.includes('T')) {
-                    expiryDate = new Date(`${data.expires_at}T23:59:59.999Z`)
+                if (!typedCoupon.expires_at.includes('T')) {
+                    expiryDate = new Date(`${typedCoupon.expires_at}T23:59:59.999Z`)
                 }
                 if (expiryDate < new Date()) {
                     toast.error('This coupon has expired')
@@ -114,27 +125,34 @@ export default function CartClient({ initialCart, isLoggedIn, siteSettings }: Ca
             }
 
             // Check usage limit
-            if (data.usage_limit && data.used_count >= data.usage_limit) {
+            const usageLimit = typedCoupon.usage_limit ?? null
+            const usedCount = typedCoupon.used_count ?? 0
+            if (usageLimit !== null && usedCount >= usageLimit) {
                 toast.error('This coupon has reached its usage limit')
                 return
             }
 
             // Check minimum order value
-            if (data.min_order_value && total < data.min_order_value) {
-                toast.error(`Minimum order of ${formatPrice(data.min_order_value)} required`)
+            if (typedCoupon.min_order_value && total < typedCoupon.min_order_value) {
+                toast.error(`Minimum order of ${formatPrice(typedCoupon.min_order_value)} required`)
                 return
             }
 
-            const coupon = {
-                code: data.code,
-                discount_type: data.discount_type,
-                discount_value: data.discount_value
+            if (typedCoupon.discount_type !== 'percentage' && typedCoupon.discount_type !== 'fixed') {
+                toast.error('This coupon is misconfigured')
+                return
+            }
+
+            const coupon: AppliedCoupon = {
+                code: typedCoupon.code,
+                discount_type: typedCoupon.discount_type,
+                discount_value: typedCoupon.discount_value
             }
             setAppliedCoupon(coupon)
             sessionStorage.setItem('appliedCoupon', JSON.stringify(coupon))
-            toast.success(`Coupon "${data.code}" applied!`)
-        } catch (err: any) {
-            toast.error(err?.message || 'Failed to validate coupon')
+            toast.success(`Coupon "${typedCoupon.code}" applied!`)
+        } catch (err: unknown) {
+            toast.error(getErrorMessage(err, 'Failed to validate coupon'))
         } finally {
             setCouponLoading(false)
         }
@@ -450,3 +468,4 @@ export default function CartClient({ initialCart, isLoggedIn, siteSettings }: Ca
         </div>
     )
 }
+

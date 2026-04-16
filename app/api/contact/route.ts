@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
           </div>
           <div style="background: #f8f9fa; padding: 24px; border: 1px solid #e9ecef; border-radius: 0 0 12px 12px;">
             <p style="color: #212529; line-height: 1.8; font-size: 15px;">
-              We have received your message and will get back to you within <strong>24 hours</strong>.
+              We have received your message and will get back to you soon.
             </p>
             <p style="color: #495057; line-height: 1.8; font-size: 14px;">
               If your matter is urgent, please call us at <strong>+353 14090558</strong>.
@@ -110,7 +110,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, message: 'Message sent successfully!' })
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Contact form error:', error)
     return NextResponse.json(
       { error: 'Failed to send message. Please try again later.' },

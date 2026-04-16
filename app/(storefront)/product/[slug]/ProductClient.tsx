@@ -17,7 +17,7 @@ import { useStore } from "@/hooks/useStore";
 import { useCart } from "@/hooks/useCart";
 import { toast } from "sonner";
 import { useWishlist } from "@/hooks/useWishlist";
-import type { Product } from "@/hooks/useProducts";
+import type { Product } from "@/types";
 import { parseCoveragePerBox } from "@/components/products/tile-calculator";
 import { PopularProducts } from "@/components/products/PopularProducts";
 import type { Review } from "@/hooks/useProductReviews";

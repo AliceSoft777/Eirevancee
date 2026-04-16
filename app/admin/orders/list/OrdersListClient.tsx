@@ -12,10 +12,11 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Search, Filter, ShoppingBag } from "lucide-react"
-import { TableSkeleton } from "@/components/admin/TableSkeleton"
+
 import { Pagination } from "@/components/admin/Pagination"
 import { EmptyState } from "@/components/admin/EmptyState"
 import { usePagination } from "@/hooks/usePagination"
+import { useRealtimeTable } from "@/hooks/useRealtimeTable"
 
 export type OrderListItem = {
   id: string
@@ -39,56 +40,47 @@ export default function OrdersListClient({
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
 
-  useEffect(() => {
-    let timer: number | undefined
-    let cancelled = false
-
-    const fetchLiveOrders = async () => {
-      try {
-        const response = await fetch('/api/admin/orders/live', {
-          method: 'GET',
-          credentials: 'include',
-          cache: 'no-store',
-        })
-
-        if (!response.ok) return
-
-        const payload = await response.json()
-        const rows = Array.isArray(payload?.orders) ? payload.orders : []
-        const mappedRows: OrderListItem[] = rows.map((row: any) => ({
-          id: row.id,
-          orderNumber: row.order_number,
-          customerName: row.customer_name,
-          customerEmail: row.customer_email,
-          customerPhone: row.customer_phone ?? null,
-          status: row.status,
-          total: String(row.total),
-          createdAt: row.created_at,
-          deliveryAddress: row.delivery_address ?? null,
-          items: Array.isArray(row.items) ? row.items : [],
-        }))
-
-        if (!cancelled) {
-          setOrdersState(mappedRows)
-        }
-      } catch {
-        // Keep last rendered data when transient network errors occur.
+  useRealtimeTable({
+    table: 'orders',
+    onInsert: (row) => {
+      const mapped: OrderListItem = {
+        id: row.id,
+        orderNumber: row.order_number,
+        customerName: row.customer_name,
+        customerEmail: row.customer_email,
+        customerPhone: row.customer_phone ?? null,
+        status: row.status,
+        total: String(row.total),
+        createdAt: row.created_at,
+        deliveryAddress: row.delivery_address ?? null,
+        items: Array.isArray(row.items) ? row.items : [],
       }
-    }
 
-    timer = window.setInterval(() => {
-      if (document.visibilityState === 'visible') {
-        fetchLiveOrders()
+      setOrdersState((prev) => {
+        const filtered = prev.filter((order) => order.id !== mapped.id)
+        return [mapped, ...filtered].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      })
+    },
+    onUpdate: (row) => {
+      const mapped: OrderListItem = {
+        id: row.id,
+        orderNumber: row.order_number,
+        customerName: row.customer_name,
+        customerEmail: row.customer_email,
+        customerPhone: row.customer_phone ?? null,
+        status: row.status,
+        total: String(row.total),
+        createdAt: row.created_at,
+        deliveryAddress: row.delivery_address ?? null,
+        items: Array.isArray(row.items) ? row.items : [],
       }
-    }, 15000)
 
-    return () => {
-      cancelled = true
-      if (timer) {
-        window.clearInterval(timer)
-      }
-    }
-  }, [])
+      setOrdersState((prev) => prev.map((order) => (order.id === mapped.id ? mapped : order)))
+    },
+    onDelete: (row) => {
+      setOrdersState((prev) => prev.filter((order) => order.id !== row.id))
+    },
+  })
 
   const filteredOrders = useMemo(() => {
     return ordersState.filter(order => {

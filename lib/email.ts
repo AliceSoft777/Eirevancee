@@ -66,6 +66,11 @@ interface SendOrderEmailOptions {
   orderNumber: string
   status: string
   total: string | number
+  attachments?: Array<{
+    filename: string
+    content: Buffer
+    contentType?: string
+  }>
 }
 
 /**
@@ -78,6 +83,7 @@ export async function sendOrderStatusEmail({
   orderNumber,
   status,
   total,
+  attachments,
 }: SendOrderEmailOptions): Promise<{ success: boolean; error?: string }> {
   try {
     const content = STATUS_CONTENT[status]
@@ -104,6 +110,7 @@ export async function sendOrderStatusEmail({
       to: customerEmail,
       subject: `${content.subject} - ${orderNumber}`,
       html,
+      attachments,
     })
 
     console.log(`[Email] ✅ Sent "${content.subject}" to ${customerEmail} for order ${orderNumber}`)

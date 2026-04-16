@@ -2,10 +2,10 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { getSupabaseBrowserClient } from '@/lib/supabase'
-import { logClientTiming, normalizeClientError } from '@/lib/client-runtime-utils'
 import { useRealtimeTable } from '@/hooks/useRealtimeTable'
 
-// Component-friendly interface (camelCase, with nested data)
+// ─── Types ──────────────────────────────────────────────────────────────────────
+
 export interface Order {
   id: string
   orderNumber: string
@@ -50,297 +50,91 @@ export interface StatusHistoryEntry {
   timestamp: string
 }
 
-const ORDER_SELECT_FIELDS = 'id, order_number, user_id, customer_id, customer_name, customer_email, customer_phone, subtotal, tax, shipping_fee, discount, total, payment_method, payment_status, paid_amount, status, delivery_address, invoice_file_id, source, created_at, updated_at, items, status_history'
-const MAX_ORDERS_CACHE_ROWS = 120
+// ─── Transform ──────────────────────────────────────────────────────────────────
+
+function transformDbOrder(dbOrder: any): Order {
+  const items = (dbOrder.items || []).map((item: any) => ({
+    productId: item.product_id,
+    productName: item.product_name,
+    sku: item.sku || '',
+    quantity: item.quantity,
+    unitPrice: item.unit_price,
+    subtotal: item.subtotal,
+    image: item.image,
+  }))
+
+  const statusHistory = (dbOrder.status_history || []).map((entry: any) => ({
+    status: entry.status,
+    note: entry.note || entry.notes || '',
+    updatedBy: entry.updated_by || entry.updatedBy || 'system',
+    timestamp: entry.timestamp || entry.created_at || new Date().toISOString(),
+  }))
+
+  return {
+    id: dbOrder.id,
+    orderNumber: dbOrder.order_number,
+    userId: dbOrder.user_id,
+    customerId: dbOrder.customer_id,
+    customerName: dbOrder.customer_name,
+    customerEmail: dbOrder.customer_email,
+    customerPhone: dbOrder.customer_phone,
+    subtotal: dbOrder.subtotal,
+    tax: dbOrder.tax,
+    shippingFee: dbOrder.shipping_fee,
+    discount: dbOrder.discount,
+    total: dbOrder.total,
+    paymentMethod: dbOrder.payment_method,
+    paymentStatus: dbOrder.payment_status,
+    paidAmount: dbOrder.paid_amount,
+    status: dbOrder.status,
+    deliveryAddress: dbOrder.delivery_address,
+    invoiceFileId: dbOrder.invoice_file_id,
+    invoiceGeneratedAt: dbOrder.invoice_generated_at,
+    source: dbOrder.source,
+    createdAt: dbOrder.created_at,
+    updatedAt: dbOrder.updated_at,
+    items,
+    statusHistory,
+  }
+}
+
+// ─── Hook ───────────────────────────────────────────────────────────────────────
 
 export function useOrders(userId?: string | null | 'ALL') {
   const [orders, setOrders] = useState<Order[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const mountedRef = useRef(true)
-  const hasLoadedOnceRef = useRef(false)
-  const isFetchingRef = useRef(false)
-  const orderCountRef = useRef(0)
   const isAdminMode = userId === 'ALL' || userId === undefined
-  const enableAdminCache = false
-  const cacheKey = 'admin_orders_cache_v1'
-  const realtimeEnabled = typeof userId === 'string' && userId !== 'ALL'
-
-  const persistOrdersCache = useCallback((rows: Order[]) => {
-    if (!enableAdminCache) return
-    if (typeof window === 'undefined' || !isAdminMode) return
-    if (rows.length > MAX_ORDERS_CACHE_ROWS) return
-    sessionStorage.setItem(cacheKey, JSON.stringify(rows))
-  }, [cacheKey, enableAdminCache, isAdminMode])
-
-  useEffect(() => {
-    orderCountRef.current = orders.length
-  }, [orders.length])
-
-  useEffect(() => {
-    if (!enableAdminCache) return
-    if (typeof window === 'undefined' || !isAdminMode) return
-
-    const raw = sessionStorage.getItem(cacheKey)
-    if (!raw) return
-
-    try {
-      const parsed = JSON.parse(raw) as Order[]
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        setOrders(parsed)
-        setIsLoading(false)
-        hasLoadedOnceRef.current = true
-      }
-    } catch {
-      sessionStorage.removeItem(cacheKey)
-    }
-  }, [cacheKey, enableAdminCache, isAdminMode])
-
-  const withTimeout = useCallback(async <T,>(promise: Promise<T>, timeoutMs: number, errorMessage: string): Promise<T> => {
-    let timeoutId: ReturnType<typeof setTimeout> | undefined
-    try {
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        timeoutId = setTimeout(() => reject(new Error(errorMessage)), timeoutMs)
-      })
-      return await Promise.race([promise, timeoutPromise])
-    } finally {
-      if (timeoutId) clearTimeout(timeoutId)
-    }
-  }, [])
-
-  const transformDbOrders = useCallback((dbOrders: any[]): Order[] => {
-    return dbOrders.map((dbOrder: any) => {
-      const orderItems = (dbOrder.items || []).map((item: any) => ({
-        productId: item.product_id,
-        productName: item.product_name,
-        sku: item.sku || '',
-        quantity: item.quantity,
-        unitPrice: item.unit_price,
-        subtotal: item.subtotal,
-        image: item.image
-      }))
-
-      const history = (dbOrder.status_history || []).map((entry: any) => ({
-        status: entry.status,
-        note: entry.note || entry.notes || '',
-        updatedBy: entry.updated_by || entry.updatedBy || 'system',
-        timestamp: entry.timestamp || entry.created_at || new Date().toISOString()
-      }))
-
-      return transformOrder(dbOrder, orderItems, history)
-    })
-  }, [])
-
-  const transformDbOrder = useCallback((dbOrder: any): Order => {
-    const orderItems = (dbOrder.items || []).map((item: any) => ({
-      productId: item.product_id,
-      productName: item.product_name,
-      sku: item.sku || '',
-      quantity: item.quantity,
-      unitPrice: item.unit_price,
-      subtotal: item.subtotal,
-      image: item.image,
-    }))
-
-    const history = (dbOrder.status_history || []).map((entry: any) => ({
-      status: entry.status,
-      note: entry.note || entry.notes || '',
-      updatedBy: entry.updated_by || entry.updatedBy || 'system',
-      timestamp: entry.timestamp || entry.created_at || new Date().toISOString(),
-    }))
-
-    return transformOrder(dbOrder, orderItems, history)
-  }, [])
-
-  const fetchAdminOrdersFromServer = useCallback(async (): Promise<{ rows: any[] | null; status: number | null }> => {
-    if (typeof window === 'undefined' || !isAdminMode) {
-      return { rows: null, status: null }
-    }
-
-    try {
-      const response = await withTimeout(
-        fetch('/api/admin/orders/live', {
-          method: 'GET',
-          credentials: 'include',
-          cache: 'no-store',
-        }),
-        12000,
-        'Admin fallback request timed out'
-      )
-
-      if (!response.ok) {
-        console.error('[useOrders] admin fallback response not ok', { status: response.status })
-        return { rows: null, status: response.status }
-      }
-
-      const payload = await response.json()
-      const rows = Array.isArray(payload?.orders) ? payload.orders : null
-      console.info('[useOrders] admin fallback response', { count: rows?.length ?? 0 })
-      return { rows, status: response.status }
-    } catch (fallbackErr) {
-      console.error('[useOrders] admin fallback failed', fallbackErr)
-      return { rows: null, status: null }
-    }
-  }, [isAdminMode, withTimeout])
 
   const fetchOrders = useCallback(async () => {
-    if (isFetchingRef.current) return
-
-    const startedAt = Date.now()
-    let rowCount = 0
+    setIsLoading(true)
+    setError(null)
 
     try {
-      isFetchingRef.current = true
-
-      if (!hasLoadedOnceRef.current) {
-        setIsLoading(true)
-      }
-      setError(null)
-
       const supabase = getSupabaseBrowserClient()
 
-      if (isAdminMode) {
-        console.info('[useOrders] admin fetch start', {
-          route: typeof window !== 'undefined' ? window.location.pathname : 'server',
-          cachedRows: orderCountRef.current,
-        })
-
-        // Admin path: single source of truth is server API live endpoint.
-        const adminResult = await fetchAdminOrdersFromServer()
-        if (adminResult.rows) {
-          const transformedAdminRows = transformDbOrders(adminResult.rows)
-          rowCount = transformedAdminRows.length
-          if (mountedRef.current) setOrders(transformedAdminRows)
-          return
-        }
-
-        if (adminResult.status === 401 || adminResult.status === 403) {
-          setOrders([])
-          setError('Admin session expired or unauthorized. Please sign in again.')
-          return
-        }
-
-        // Non-auth failure: keep state explicit and deterministic (no fallback sources).
-        setOrders([])
-        setError('Failed to fetch live admin orders. Please retry.')
-        return
-      }
-      
-      if (!isAdminMode && !userId) {
-        setOrders([])
-        setIsLoading(false)
-        hasLoadedOnceRef.current = true
-        return
-      }
-      
-      // Build query - conditionally filter by user_id
       let query = (supabase as any)
         .from('orders')
-        .select(ORDER_SELECT_FIELDS)
-      
-      // Only filter by user_id if not in admin mode
+        .select('*')
+
       if (!isAdminMode && userId) {
         query = query.eq('user_id', userId)
       }
-      
-      const result: any = await withTimeout(
-        query.order('created_at', { ascending: false }),
-        25000,
-        'Orders request timed out. Please retry.'
-      )
 
-      // Guard: if Supabase returns undefined (e.g. stale auth session), bail gracefully
-      if (!result) {
-        console.warn('[useOrders] Query returned undefined — possible auth session issue')
-        setOrders([])
-        return
-      }
+      const { data, error: fetchError } = await query.order('created_at', { ascending: false })
 
-      const { data: dbOrders, error: orderError } = result
+      if (fetchError) throw fetchError
 
-      if (isAdminMode) {
-        console.info('[useOrders] browser query result', {
-          hasError: Boolean(orderError),
-          rowCount: Array.isArray(dbOrders) ? dbOrders.length : 0,
-          errorCode: orderError?.code,
-          errorMessage: orderError?.message,
-        })
-      }
-
-      if (orderError) {
-        const fallbackResult = await fetchAdminOrdersFromServer()
-        if (fallbackResult?.rows && fallbackResult.rows.length > 0) {
-          const transformedFromFallback = transformDbOrders(fallbackResult.rows)
-          rowCount = transformedFromFallback.length
-          if (mountedRef.current) setOrders(transformedFromFallback)
-          persistOrdersCache(transformedFromFallback)
-          console.warn('[useOrders] recovered using admin fallback after browser error')
-          return
-        }
-
-        console.error('[useOrders] ❌ Order fetch error:', orderError)
-        console.error('[useOrders] Error details:', { message: orderError.message, code: orderError.code, hint: orderError.hint })
-        throw orderError
-      }
-      
-
-      if (!mountedRef.current) return
-
-      if (!dbOrders || dbOrders.length === 0) {
-        if (isAdminMode) {
-          const fallbackResult = await fetchAdminOrdersFromServer()
-          if (fallbackResult?.rows && fallbackResult.rows.length > 0) {
-            const transformedFromFallback = transformDbOrders(fallbackResult.rows)
-            rowCount = transformedFromFallback.length
-            if (mountedRef.current) setOrders(transformedFromFallback)
-            persistOrdersCache(transformedFromFallback)
-            console.warn('[useOrders] browser returned empty; restored data from admin fallback')
-            return
-          }
-        }
-        setOrders([])
-        return
-      }
-
-      const transformedOrders = transformDbOrders(dbOrders)
-      rowCount = transformedOrders.length
-
-      if (mountedRef.current) setOrders(transformedOrders)
-      persistOrdersCache(transformedOrders)
+      const transformed = (data || []).map(transformDbOrder)
+      if (mountedRef.current) setOrders(transformed)
     } catch (err: unknown) {
-      const normalizedError = normalizeClientError(err, 'Failed to fetch orders')
-      const message = normalizedError.message.toLowerCase()
-      const isSessionOrNetworkTransient =
-        normalizedError.isAbortLike ||
-        normalizedError.code === 'PGRST301' ||
-        message.includes('jwt') ||
-        message.includes('session') ||
-        message.includes('network')
-
-      if (hasLoadedOnceRef.current && orderCountRef.current > 0 && isSessionOrNetworkTransient) {
-        console.warn('[useOrders] transient refresh issue, keeping previous data', {
-          message: normalizedError.message,
-          code: normalizedError.code,
-        })
-        return
-      }
-
-      if (!normalizedError.isAbortLike) {
-        console.warn('[useOrders] fetchOrders failed', {
-          message: normalizedError.message,
-          code: normalizedError.code,
-        })
-      }
-      if (mountedRef.current) setError(normalizedError.message)
+      const message = err instanceof Error ? err.message : 'Failed to fetch orders'
+      if (mountedRef.current) setError(message)
     } finally {
-      if (mountedRef.current) {
-        setIsLoading(false)
-        hasLoadedOnceRef.current = true
-      }
-      isFetchingRef.current = false
-      logClientTiming('useOrders.fetchOrders', startedAt, { rowCount })
+      if (mountedRef.current) setIsLoading(false)
     }
-  }, [cacheKey, fetchAdminOrdersFromServer, isAdminMode, persistOrdersCache, transformDbOrders, userId, withTimeout])
+  }, [isAdminMode, userId])
 
   useEffect(() => {
     mountedRef.current = true
@@ -348,233 +142,75 @@ export function useOrders(userId?: string | null | 'ALL') {
     return () => { mountedRef.current = false }
   }, [fetchOrders])
 
+  // Realtime sync
   useRealtimeTable({
     table: 'orders',
-    enabled: realtimeEnabled,
+    enabled: true,
     onInsert: (row) => {
       if (!isAdminMode && typeof userId === 'string' && row.user_id !== userId) return
-
       const mapped = transformDbOrder(row)
-      setOrders((prev) => {
-        const filtered = prev.filter((order) => order.id !== mapped.id)
-        return [mapped, ...filtered].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      })
+      setOrders((prev) => [mapped, ...prev.filter((o) => o.id !== mapped.id)])
     },
     onUpdate: (row) => {
       if (!isAdminMode && typeof userId === 'string' && row.user_id !== userId) return
-
       const mapped = transformDbOrder(row)
-      setOrders((prev) => prev.map((order) => (order.id === mapped.id ? mapped : order)))
+      setOrders((prev) => prev.map((o) => (o.id === mapped.id ? mapped : o)))
     },
     onDelete: (row) => {
-      setOrders((prev) => prev.filter((order) => order.id !== row.id))
+      setOrders((prev) => prev.filter((o) => o.id !== row.id))
     },
   })
 
-  function transformOrder(dbOrder: any, items: OrderItem[], statusHistory: StatusHistoryEntry[]): Order {
-    return {
-      id: dbOrder.id,
-      orderNumber: dbOrder.order_number,
-      userId: dbOrder.user_id,
-      customerId: dbOrder.customer_id,
-      customerName: dbOrder.customer_name,
-      customerEmail: dbOrder.customer_email,
-      customerPhone: dbOrder.customer_phone,
-      subtotal: dbOrder.subtotal,
-      tax: dbOrder.tax,
-      shippingFee: dbOrder.shipping_fee,
-      discount: dbOrder.discount,
-      total: dbOrder.total,
-      paymentMethod: dbOrder.payment_method,
-      paymentStatus: dbOrder.payment_status,
-      paidAmount: dbOrder.paid_amount,
-      status: dbOrder.status,
-      deliveryAddress: dbOrder.delivery_address,
-      invoiceFileId: dbOrder.invoice_file_id,
-      invoiceGeneratedAt: dbOrder.invoice_generated_at,
-      source: dbOrder.source,
-      createdAt: dbOrder.created_at,
-      updatedAt: dbOrder.updated_at,
-      items: items,
-      statusHistory: statusHistory
-    }
-  }
+  // ─── Actions ────────────────────────────────────────────────────────────────
 
-  async function getOrderById(id: string) {
-    if (isAdminMode) {
-      const response = await fetch(`/api/admin/orders/${id}`, {
-        method: 'GET',
-        credentials: 'include',
-        cache: 'no-store',
-      })
-
-      if (!response.ok) {
-        const payload = await response.json().catch(() => ({}))
-        throw new Error(payload?.error || 'Failed to fetch order details')
-      }
-
-      const payload = await response.json()
-      const dbOrder = payload?.order
-      if (!dbOrder) {
-        throw new Error('Order not found')
-      }
-
-      const orderItems = (dbOrder.items || []).map((item: any) => ({
-        productId: item.product_id,
-        productName: item.product_name,
-        sku: item.sku || '',
-        quantity: item.quantity,
-        unitPrice: item.unit_price,
-        subtotal: item.subtotal,
-        image: item.image,
-      }))
-
-      const history = (dbOrder.status_history || []).map((entry: any) => ({
-        status: entry.status,
-        note: entry.note || entry.notes || '',
-        updatedBy: entry.updated_by || entry.updatedBy || 'system',
-        timestamp: entry.timestamp || entry.created_at || new Date().toISOString(),
-      }))
-
-      return transformOrder(dbOrder, orderItems, history)
-    }
-
+  async function getOrderById(id: string): Promise<Order> {
     const supabase = getSupabaseBrowserClient()
-    const result = await (supabase as any)
+    const { data, error } = await (supabase as any)
       .from('orders')
-      .select(ORDER_SELECT_FIELDS)
+      .select('*')
       .eq('id', id)
       .single()
 
-    if (!result) {
-      throw new Error('Failed to fetch order — please try refreshing the page')
-    }
-
-    const { data: dbOrder, error } = result
     if (error) throw error
-
-    // ✅ NEW: Extract items and history from JSONB data (no separate table fetch needed)
-    const orderItems = (dbOrder.items || []).map((item: any) => ({
-        productId: item.product_id,
-        productName: item.product_name,
-        sku: item.sku || '',
-        quantity: item.quantity,
-        unitPrice: item.unit_price,
-        subtotal: item.subtotal,
-        image: item.image
-    }))
-
-    const history = (dbOrder.status_history || []).map((entry: any) => ({
-        status: entry.status,
-        note: entry.note || entry.notes || '',
-        updatedBy: entry.updated_by || entry.updatedBy || 'system',
-        timestamp: entry.timestamp || entry.created_at || new Date().toISOString()
-    }))
-
-
-    return transformOrder(dbOrder, orderItems, history)
+    return transformDbOrder(data)
   }
 
-  async function updateOrderStatus(
-    orderId: string,
-    status: string,
-    note: string,
-    updatedBy: string
-  ) {
-    if (isAdminMode) {
-      const response = await fetch(`/api/admin/orders/${orderId}/status`, {
-        method: 'PATCH',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ status, note, updatedBy }),
-      })
+  async function updateOrderStatus(orderId: string, status: string, note: string, updatedBy: string) {
+    const supabase = getSupabaseBrowserClient()
 
-      if (!response.ok) {
-        const payload = await response.json().catch(() => ({}))
-        throw new Error(payload?.error || 'Failed to update order status')
-      }
+    const { data: orderData, error: fetchError } = await (supabase as any)
+      .from('orders')
+      .select('status_history')
+      .eq('id', orderId)
+      .single()
 
-      await fetchOrders()
-      return
-    }
+    if (fetchError) throw fetchError
 
-    try {
-
-      const supabase = getSupabaseBrowserClient()
-      
-      // 1. Get current order to access existing status_history
-      const fetchResult = await (supabase as any)
-        .from('orders')
-        .select('status_history')
-        .eq('id', orderId)
-        .single()
-
-      if (!fetchResult) {
-        throw new Error('Failed to fetch order status — please try refreshing')
-      }
-
-      const { data: orderData, error: fetchError } = fetchResult
-
-      if (fetchError) {
-        console.error('[updateOrderStatus] Fetch error:', fetchError)
-        throw fetchError
-      }
-
-
-
-      // 2. Parse existing history (it's a JSONB array)
-      const existingHistory = (orderData?.status_history || []) as any[]
-      
-      // 3. Add new status entry
-      const newHistoryEntry = {
+    const existingHistory = (orderData?.status_history || []) as any[]
+    const updatedHistory = [
+      ...existingHistory,
+      {
         status,
         note: note || '',
         timestamp: new Date().toISOString(),
-        updated_by: updatedBy
-      }
-      
-      const updatedHistory = [...existingHistory, newHistoryEntry]
+        updated_by: updatedBy,
+      },
+    ]
 
+    const { error: updateError } = await (supabase as any)
+      .from('orders')
+      .update({
+        status,
+        status_history: updatedHistory,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', orderId)
 
-
-      // 4. Update order with new status AND updated history
-      const updateResult = await (supabase as any)
-        .from('orders')
-        .update({ 
-          status,
-          status_history: updatedHistory,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', orderId)
-
-      if (!updateResult) {
-        throw new Error('Failed to update order status — please try refreshing')
-      }
-
-      const { error: updateError } = updateResult
-
-      if (updateError) {
-        console.error('[updateOrderStatus] Update error:', updateError)
-        throw updateError
-      }
-
-
-
-    } catch (err) {
-      console.error('[updateOrderStatus] Error:', err)
-      throw err
-    }
-  }
-
-  async function updateOrderNotes(orderId: string, notes: string) {
-    // ✅ REMOVED: internal_notes field no longer exists in orders table
-    console.warn('updateOrderNotes: internal_notes field has been removed from orders table')
+    if (updateError) throw updateError
   }
 
   function getOrdersByStatus(status: string) {
-    return orders.filter(o => o.status === status)
+    return orders.filter((o) => o.status === status)
   }
 
   function getRecentOrders(limit: number) {
@@ -587,9 +223,9 @@ export function useOrders(userId?: string | null | 'ALL') {
     error,
     getOrderById,
     updateOrderStatus,
-    updateOrderNotes,
+    updateOrderNotes: () => {},
     getOrdersByStatus,
     getRecentOrders,
-    refetch: fetchOrders
+    refetch: fetchOrders,
   }
 }

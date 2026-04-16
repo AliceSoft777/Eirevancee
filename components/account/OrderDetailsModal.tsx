@@ -18,11 +18,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { X, Package, MapPin, Phone, Mail, DollarSign, Loader2 } from "lucide-react"
+import { X, Package, MapPin, Phone, Mail, DollarSign, Loader2, Download } from "lucide-react"
 import { formatPrice } from "@/lib/utils"
 import { formatOrderDate, getValidNextStatuses } from "@/lib/order-utils"
 import { StatusBadge } from "@/components/admin/StatusBadge"
 import { useState } from "react"
+import { toast } from "sonner"
 
 export function OrderDetailsModal() {
   const { isOpen, closeOrderDetails, selectedOrder, updateOrderStatus, isUpdating, isAdmin } = useOrderDetails()
@@ -34,6 +35,23 @@ export function OrderDetailsModal() {
   }
 
   const validNextStatuses = getValidNextStatuses(selectedOrder.status)
+  const invoiceFileId = (selectedOrder.invoiceFileId ?? selectedOrder.invoice_file_id) as string | undefined
+
+  const handleDownloadInvoice = async () => {
+    try {
+      const res = await fetch(`/api/orders/${selectedOrder.id}/invoice`, { method: "GET" })
+      const payload = await res.json().catch(() => ({}))
+
+      if (!res.ok || !payload.url) {
+        throw new Error(payload.error || "Invoice is not available")
+      }
+
+      window.open(payload.url, "_blank", "noopener,noreferrer")
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to download invoice"
+      toast.error(message)
+    }
+  }
 
   const handleStatusChange = async (newStatus: string) => {
     try {
@@ -71,6 +89,12 @@ export function OrderDetailsModal() {
               </p>
             </div>
             <div className="flex items-center gap-3">
+              {invoiceFileId && (
+                <Button variant="outline" size="sm" onClick={handleDownloadInvoice}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Invoice
+                </Button>
+              )}
               <StatusBadge status={selectedOrder.status} />
               <DialogClose asChild>
                 <Button variant="ghost" size="sm" className="h-8 w-8 p-0">

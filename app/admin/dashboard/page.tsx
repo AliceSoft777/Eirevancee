@@ -5,7 +5,6 @@ import { useProducts } from "@/hooks/useProducts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
-import dynamic from "next/dynamic"
 import { formatPrice } from "@/lib/utils"
 import { StatusBadge } from "@/components/admin/StatusBadge"
 import { formatOrderDate } from "@/lib/order-utils"
@@ -16,13 +15,9 @@ import {
   PackageX,
   Plus
 } from "lucide-react"
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo } from "react"
 import { IconSpinner } from "@/components/ui/icon-spinner"
-
-const DashboardCharts = dynamic(
-  () => import("@/components/admin/DashboardCharts").then((m) => ({ default: m.DashboardCharts })),
-  { ssr: false }
-)
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
 type DateRange = 'today' | '7d' | '30d' | 'all'
 
@@ -30,44 +25,6 @@ export default function AdminDashboardPage() {
   const { orders, isLoading: ordersLoading, error: ordersError } = useOrders('ALL')
   const { products } = useProducts()
   const [dateRange, setDateRange] = useState<DateRange>('30d')
-  const [loadingTimedOut, setLoadingTimedOut] = useState(false)
-  const [showCharts, setShowCharts] = useState(false)
-
-  // Timeout: if data hasn't loaded in 10 seconds, show error state
-  useEffect(() => {
-    if (!ordersLoading) {
-      setLoadingTimedOut(false)
-      return
-    }
-    const timer = setTimeout(() => {
-      if (ordersLoading) {
-        setLoadingTimedOut(true)
-      }
-    }, 10000)
-    return () => clearTimeout(timer)
-  }, [ordersLoading])
-
-  useEffect(() => {
-    let timeoutId: ReturnType<typeof setTimeout> | undefined
-    let idleId: number | undefined
-
-    const show = () => setShowCharts(true)
-
-    if (typeof globalThis !== 'undefined' && 'requestIdleCallback' in globalThis) {
-      idleId = (globalThis as any).requestIdleCallback(show, { timeout: 1200 })
-    } else {
-      timeoutId = setTimeout(show, 600)
-    }
-
-    return () => {
-      if (typeof globalThis !== 'undefined' && idleId !== undefined && 'cancelIdleCallback' in globalThis) {
-        (globalThis as any).cancelIdleCallback(idleId)
-      }
-      if (timeoutId) {
-        clearTimeout(timeoutId)
-      }
-    }
-  }, [])
 
   const filteredOrders = useMemo(() => {
     const now = new Date()
@@ -172,15 +129,19 @@ export default function AdminDashboardPage() {
     }
   ]
 
-  if (ordersLoading && !loadingTimedOut) {
-    return <IconSpinner label="Loading dashboard..." className="min-h-[60vh]" />
+  if (ordersLoading) {
+    return (
+      <div className="flex min-h-[60vh] w-full items-center justify-center">
+        <IconSpinner label="Loading dashboard metrics..." />
+      </div>
+    )
   }
 
   return (
     <div className="space-y-8">
-          {(loadingTimedOut || ordersError) && (
+          {ordersError && (
             <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-amber-900">
-              Live dashboard data is delayed. Showing last available values.
+              Failed to load dashboard data. Please refresh.
             </div>
           )}
           <div className="flex justify-between items-center">
@@ -214,32 +175,41 @@ export default function AdminDashboardPage() {
             ))}
           </div>
 
-          {showCharts ? (
-            <DashboardCharts
-              revenueChartData={revenueChartData}
-              ordersChartData={ordersChartData}
-            />
-          ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Revenue Trend</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-[250px] rounded-md bg-muted/20" />
-                </CardContent>
-              </Card>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Revenue Trend</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={250}>
+                  <LineChart data={revenueChartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis />
+                    <Tooltip formatter={(value) => formatPrice(value as number)} />
+                    <Line type="monotone" dataKey="revenue" stroke="#8b5cf6" strokeWidth={2} isAnimationActive={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Orders Over Time</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-[250px] rounded-md bg-muted/20" />
-                </CardContent>
-              </Card>
-            </div>
-          )}
+            <Card>
+              <CardHeader>
+                <CardTitle>Orders Over Time</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={250}>
+                  <BarChart data={ordersChartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="count" fill="#8b5cf6" isAnimationActive={false} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </div>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">

@@ -1,586 +1,105 @@
-// TypeScript types for Supabase tables
-// Matches database schema after migration
+// Canonical Supabase types wrapper for app imports.
+// Source of truth: /supabase/database.types.ts
 
-export interface Database {
-  public: {
-    Tables: {
-      profiles: {
-        Row: {
-          id: string
-          email: string
-          full_name: string | null
-          phone: string | null
-          role_id: string
-          permissions: string[] | null
-          is_active: boolean
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id: string
-          email: string
-          full_name?: string | null
-          phone?: string | null
-          role_id: string
-          permissions?: string[] | null
-          is_active?: boolean
-        }
-        Update: {
-          full_name?: string | null
-          phone?: string | null
-          role_id?: string
-          permissions?: string[] | null
-          is_active?: boolean
-        }
-      }
+import type {
+  Database as SupabaseDatabase,
+  Tables as SupabaseTables,
+  TablesInsert as SupabaseTablesInsert,
+  TablesUpdate as SupabaseTablesUpdate,
+} from "@/supabase/database.types";
 
-      categories: {
-        Row: {
-          id: string
-          name: string
-          slug: string
-          parent_id: string | null
-          description: string | null
-          image: string | null
-          display_order: number
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          name: string
-          slug: string
-          parent_id?: string | null
-          description?: string | null
-          image?: string | null
-          display_order?: number
-        }
-        Update: {
-          name?: string
-          slug?: string
-          parent_id?: string | null
-          description?: string | null
-          image?: string | null
-          display_order?: number
-        }
-      }
-      products: {
-        Row: {
-          id: string
-          name: string
-          slug: string
-          description: string | null
-          subtitle: string | null
-          price: number | null
-          image: string | null
-          category_id: string | null
-          stock: number
-          status: string
-          is_clearance: boolean
-          low_stock_threshold: number
-          assigned_code: string | null
-          material: string | null
-          size: string | null
-          finish: string | null
-          thickness: string | null
-          sqm_per_box: string | null
-          application_area: string | null
-          package_included: string | null
-          has_led: boolean | null
-          brand: string | null
-          availability: string | null
-          panel_length: string | null
-          panel_width: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          name: string
-          slug: string
-          description?: string | null
-          subtitle?: string | null
-          price?: number | null
-          image?: string | null
-          category_id?: string | null
-          stock?: number
-          status?: string
-          is_clearance?: boolean
-          low_stock_threshold?: number
-          assigned_code?: string | null
-          material?: string | null
-          size?: string | null
-          finish?: string | null
-          thickness?: string | null
-          sqm_per_box?: string | null
-          application_area?: string | null
-          package_included?: string | null
-          has_led?: boolean | null
-          brand?: string | null
-          availability?: string | null
-          panel_length?: string | null
-          panel_width?: string | null
-        }
-        Update: {
-          name?: string
-          slug?: string
-          description?: string | null
-          subtitle?: string | null
-          price?: number | null
-          image?: string | null
-          category_id?: string | null
-          stock?: number
-          status?: string
-          is_clearance?: boolean
-          low_stock_threshold?: number
-          assigned_code?: string | null
-          material?: string | null
-          size?: string | null
-          finish?: string | null
-          thickness?: string | null
-          sqm_per_box?: string | null
-          application_area?: string | null
-          package_included?: string | null
-          has_led?: boolean | null
-          brand?: string | null
-          availability?: string | null
-          panel_length?: string | null
-          panel_width?: string | null
-        }
-      }
-      orders: {
-        Row: {
-          id: string
-          order_number: string
-          user_id: string | null
-          customer_id: string
-          customer_name: string
-          customer_email: string
-          customer_phone: string | null
-          subtotal: number
-          tax: number
-          shipping_fee: number
-          discount: number
-          total: number
-          payment_method: string | null
-          payment_status: string
-          paid_amount: number
-          status: string
-          delivery_address: Record<string, unknown>
-          items: Record<string, unknown>[]
-          status_history: Record<string, unknown>[]
-          coupon_code: string | null
-          invoice_file_id: string | null
-          source: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          order_number: string
-          user_id?: string | null
-          customer_id: string
-          customer_name: string
-          customer_email: string
-          customer_phone?: string | null
-          subtotal: number
-          tax?: number
-          shipping_fee?: number
-          discount?: number
-          total: number
-          payment_method?: string | null
-          payment_status?: string
-          paid_amount?: number
-          status?: string
-          delivery_address: Record<string, unknown>
-          items: Record<string, unknown>[]
-          status_history?: Record<string, unknown>[]
-          coupon_code?: string | null
-          invoice_file_id?: string | null
-          source?: string | null
-        }
-        Update: {
-          status?: string
-          payment_status?: string
-          paid_amount?: number
-          updated_at?: string
-        }
-      }
-      customer_addresses: {
-        Row: {
-          id: string
-          user_id: string
-          label: string | null
-          full_name: string
-          phone: string
-          street: string
-          city: string
-          state: string
-          pincode: string
-          country: string | null
-          is_default: boolean
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          label?: string | null
-          full_name: string
-          phone: string
-          street: string
-          city: string
-          state: string
-          pincode: string
-          country?: string | null
-          is_default?: boolean
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          label?: string | null
-          full_name?: string
-          phone?: string
-          street?: string
-          city?: string
-          state?: string
-          pincode?: string
-          country?: string | null
-          is_default?: boolean
-          updated_at?: string
-        }
-      }
-      wishlist_items: {
-        Row: {
-          id: string
-          user_id: string
-          product_id: string
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          product_id: string
-          created_at?: string
-        }
-        Update: {
-          product_id?: string
-        }
-      }
-      cart_items: {
-        Row: {
-          id: string
-          user_id: string
-          product_id: string
-          variant_id: string | null
-          product_name: string
-          product_price: number
-          product_image: string | null
-          quantity: number
-          reserved_until: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          product_id: string
-          variant_id?: string | null
-          product_name: string
-          product_price: number
-          product_image?: string | null
-          quantity?: number
-          reserved_until?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          quantity?: number
-          updated_at?: string
-        }
-      }
-      coupons: {
-        Row: {
-          id: string
-          code: string
-          description: string | null
-          discount_type: 'percentage' | 'fixed'
-          discount_value: number
-          min_order_value: number | null
-          usage_limit: number | null
-          used_count: number
-          expires_at: string | null
-          status: string
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          code: string
-          description?: string | null
-          discount_type: 'percentage' | 'fixed'
-          discount_value: number
-          min_order_value?: number | null
-          usage_limit?: number | null
-          used_count?: number
-          expires_at?: string | null
-          status?: string
-        }
-        Update: {
-          code?: string
-          description?: string | null
-          discount_type?: 'percentage' | 'fixed'
-          discount_value?: number
-          min_order_value?: number | null
-          usage_limit?: number | null
-          used_count?: number
-          expires_at?: string | null
-          status?: string
-        }
-      }
-      roles: {
-        Row: {
-          id: string
-          name: string
-          description: string | null
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          name: string
-          description?: string | null
-        }
-        Update: {
-          name?: string
-          description?: string | null
-        }
-      }
-      product_images: {
-        Row: {
-          id: string
-          product_id: string
-          image_url: string | null
-          display_order: number
-          is_primary: boolean
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          product_id: string
-          image_url?: string | null
-          display_order?: number
-          is_primary?: boolean
-        }
-        Update: {
-          image_url?: string | null
-          display_order?: number
-          is_primary?: boolean
-        }
-      }
+export type Database = SupabaseDatabase;
 
-      reviews: {
-        Row: {
-          id: string
-          product_id: string
-          customer_id: string
-          rating: number
-          comment: string | null
-          status: 'pending' | 'published' | 'rejected'
-          admin_response: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          product_id: string
-          customer_id: string
-          rating: number
-          comment?: string | null
-          status?: 'pending' | 'published' | 'rejected'
-          admin_response?: string | null
-        }
-        Update: {
-          rating?: number
-          comment?: string | null
-          status?: 'pending' | 'published' | 'rejected'
-          admin_response?: string | null
-        }
-      }
+export type TableName = keyof Database["public"]["Tables"];
+export type TableRow<T extends TableName> =
+  Database["public"]["Tables"][T]["Row"];
+export type TableInsert<T extends TableName> =
+  Database["public"]["Tables"][T]["Insert"];
+export type TableUpdate<T extends TableName> =
+  Database["public"]["Tables"][T]["Update"];
 
-      site_settings: {
-        Row: {
-          id: number
-          store_name: string
-          store_email: string
-          store_phone: string
-          store_address: string
-          currency_symbol: string
-          tax_rate: number
-          free_shipping_threshold: number
-          email_on_new_orders: boolean
-          low_stock_alerts: boolean
-          customer_reviews_notifications: boolean
-          updated_at: string
-        }
-        Insert: {
-          id?: number
-          store_name?: string
-          store_email?: string
-          store_phone?: string
-          store_address?: string
-          currency_symbol?: string
-          tax_rate?: number
-          free_shipping_threshold?: number
-          email_on_new_orders?: boolean
-          low_stock_alerts?: boolean
-          customer_reviews_notifications?: boolean
-          updated_at?: string
-        }
-        Update: {
-          store_name?: string
-          store_email?: string
-          store_phone?: string
-          store_address?: string
-          currency_symbol?: string
-          tax_rate?: number
-          free_shipping_threshold?: number
-          email_on_new_orders?: boolean
-          low_stock_alerts?: boolean
-          customer_reviews_notifications?: boolean
-          updated_at?: string
-        }
-      }
+// App-level aliases
+export type Category = SupabaseTables<"categories"> & {
+  children?: Category[];
+  // Backward-compat with older schema snapshots
+  display_order?: number | null;
+};
 
-      newsletter_subscriptions: {
-        Row: {
-          id: string
-          email: string
-          name: string | null
-          status: string
-          subscribed_at: string
-          unsubscribed_at: string | null
-        }
-        Insert: {
-          id?: string
-          email: string
-          name?: string | null
-          status?: string
-          subscribed_at?: string
-          unsubscribed_at?: string | null
-        }
-        Update: {
-          name?: string | null
-          status?: string
-          unsubscribed_at?: string | null
-        }
-      }
+export type Product = SupabaseTables<"products">;
+export type Order = SupabaseTables<"orders">;
+export type Coupon = SupabaseTables<"coupons">;
+export type Profile = SupabaseTables<"profiles">;
 
-      quotations: {
-        Row: {
-          id: string
-          quote_number: string
-          customer_name: string
-          customer_email: string | null
-          customer_phone: string | null
-          quote_type: string
-          quote_date: string
-          valid_until: string | null
-          delivery_collection: string
-          customer_order_no: string | null
-          sales_rep_name: string | null
-          items: Record<string, unknown>[]
-          subtotal: number
-          vat_total: number
-          total: number
-          instructions: string | null
-          status: 'draft' | 'sent' | 'accepted' | 'declined' | 'expired'
-          pdf_url: string | null
-          created_by: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          quote_number: string
-          customer_name: string
-          customer_email?: string | null
-          customer_phone?: string | null
-          quote_type?: string
-          quote_date?: string
-          delivery_collection?: string
-          customer_order_no?: string | null
-          sales_rep_name?: string | null
-          items?: Record<string, unknown>[]
-          subtotal?: number
-          vat_total?: number
-          total?: number
-          instructions?: string | null
-          status?: 'draft' | 'sent' | 'accepted' | 'declined' | 'expired'
-          pdf_url?: string | null
-          created_by?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          quote_number?: string
-          customer_name?: string
-          customer_email?: string | null
-          customer_phone?: string | null
-          quote_type?: string
-          quote_date?: string
-          delivery_collection?: string
-          customer_order_no?: string | null
-          sales_rep_name?: string | null
-          items?: Record<string, unknown>[]
-          subtotal?: number
-          vat_total?: number
-          total?: number
-          instructions?: string | null
-          status?: 'draft' | 'sent' | 'accepted' | 'declined' | 'expired'
-          pdf_url?: string | null
-          created_by?: string | null
-          updated_at?: string
-        }
-      }
-    }
-  }
-}
+// Joined review shape used in UI components
+export type Review = SupabaseTables<"reviews"> & {
+  profiles?: Pick<Profile, "full_name"> | null;
+};
 
-// Helper types
-export type Category = Database['public']['Tables']['categories']['Row'] & {
-  children?: Category[]
-}
-export type Product = Database['public']['Tables']['products']['Row']
-export type Order = Database['public']['Tables']['orders']['Row']
-export type Coupon = Database['public']['Tables']['coupons']['Row']
-export type Profile = Database['public']['Tables']['profiles']['Row']
-export type Review = Database['public']['Tables']['reviews']['Row']
-export type NewsletterSubscription = Database['public']['Tables']['newsletter_subscriptions']['Row']
+export type NewsletterSubscription = SupabaseTables<"newsletter_subscriptions">;
 
-// Quotation helper types
+// Quotation helper types used by admin quotation flows.
+// Kept explicit here because quotations are not present in the current generated schema snapshot.
 export interface QuotationProductItem {
-  id: string
-  type: 'product'
-  sort_order: number
-  product_id: string | null
-  code: string
-  description: string
-  quantity: number
-  unit_price: number
-  discount_percentage: number
-  amount: number
-  vat_rate: number
-  vat_amount: number
+  id: string;
+  type: "product";
+  sort_order: number;
+  product_id: string | null;
+  code: string;
+  description: string;
+  quantity: number;
+  unit_price: number;
+  discount_percentage: number;
+  amount: number;
+  vat_rate: number;
+  vat_amount: number;
 }
 
 export interface QuotationSectionHeader {
-  id: string
-  type: 'section_header'
-  sort_order: number
-  label: string
+  id: string;
+  type: "section_header";
+  sort_order: number;
+  label: string;
 }
 
-export type QuotationItem = QuotationProductItem | QuotationSectionHeader
+export type QuotationItem = QuotationProductItem | QuotationSectionHeader;
 
-// Frontend-friendly quotation type with strong item typing
-export type Quotation = Omit<Database['public']['Tables']['quotations']['Row'], 'items'> & {
-  items: QuotationItem[]
+export interface Quotation {
+  id: string;
+  quote_number: string;
+  customer_name: string;
+  customer_email: string | null;
+  customer_phone: string | null;
+  quote_type: string;
+  quote_date: string;
+  valid_until: string | null;
+  delivery_collection: string;
+  delivery_address_line1?: string | null;
+  delivery_address_line2?: string | null;
+  delivery_city?: string | null;
+  delivery_postcode?: string | null;
+  discount_enabled?: boolean;
+  discount_percentage?: number;
+  customer_order_no: string | null;
+  sales_rep_name: string | null;
+  items: QuotationItem[];
+  subtotal: number;
+  vat_total: number;
+  total: number;
+  instructions: string | null;
+  discount_enabled?: boolean;
+  discount_percentage?: number;
+  history?: Array<{
+    updated_at: string;
+    updated_by: string;
+    changes: Record<string, unknown>;
+  }> | null;
+  status: "draft" | "sent" | "accepted" | "declined" | "expired";
+  pdf_url: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
 }
+
+export type SupabaseRow<T extends TableName> = SupabaseTables<T>;
+export type SupabaseInsert<T extends TableName> = SupabaseTablesInsert<T>;
+export type SupabaseUpdate<T extends TableName> = SupabaseTablesUpdate<T>;

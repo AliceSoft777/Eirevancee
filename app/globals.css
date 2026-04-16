@@ -108,7 +108,7 @@
     background: hsl(var(--neu-bg)) !important;
     box-shadow: var(--neu-shadow-inset) !important;
     border: none !important;
-    border-radius: 9999px !important;
+    border-radius: 0.5rem !important;
   }
 }
 

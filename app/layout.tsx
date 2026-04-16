@@ -31,7 +31,6 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${inter.variable} ${playfair.variable}`}
-      suppressHydrationWarning
     >
       <body className={`${inter.className} antialiased`} suppressHydrationWarning>
         <AuthProvider>

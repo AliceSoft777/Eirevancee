@@ -1,6 +1,6 @@
 "use client"
 
-import { Product } from "@/hooks/useProducts"
+import { type Product } from "@/types"
 import {
   Table,
   TableBody,

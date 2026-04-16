@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server"
 import { getServerSession } from "@/lib/loaders"
 import { createServerSupabase } from "@/lib/supabase/server"
-
-export const dynamic = "force-dynamic"
-
 export async function GET() {
   try {
     const session = await getServerSession()
@@ -40,3 +37,4 @@ export async function GET() {
     return NextResponse.json({ error: "Failed to load low stock count" }, { status: 500 })
   }
 }
+

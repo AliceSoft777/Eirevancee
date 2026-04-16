@@ -23,6 +23,9 @@ const nextConfig: NextConfig = {
     // Enable optimized package imports
     optimizePackageImports: ['lucide-react', 'recharts', 'framer-motion'],
   },
+  
+  // External packages to avoid polyfill conflicts
+  serverExternalPackages: ['web-streams-polyfill', 'undici'],
 
   // Allow cross-origin requests in development
   allowedDevOrigins: [
@@ -106,6 +109,18 @@ const nextConfig: NextConfig = {
         ],
       },
     ]
+  },
+  // Keep tesseract.js out of the Next.js server bundle.
+  // It uses web-streams-polyfill which conflicts with Node 20 native streams
+  // when bundled. Loading it at runtime via require() in the API route is fine.
+  webpack(config, { isServer }) {
+    if (isServer) {
+      config.externals = [
+        ...(Array.isArray(config.externals) ? config.externals : [config.externals].filter(Boolean)),
+        "tesseract.js",
+      ]
+    }
+    return config
   },
 };
 

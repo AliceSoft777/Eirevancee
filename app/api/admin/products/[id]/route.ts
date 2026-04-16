@@ -1,8 +1,14 @@
 import { NextResponse } from "next/server"
 import { createServerSupabase } from "@/lib/supabase/server"
 import { getServerSession } from "@/lib/loaders"
+import type { Database } from "@/supabase/database.types"
 
-export const dynamic = "force-dynamic"
+type ProductUpdatePayload = Database["public"]["Tables"]["products"]["Update"]
+
+function parsePayload(body: unknown): ProductUpdatePayload {
+  if (!body || typeof body !== "object") return {}
+  return body as ProductUpdatePayload
+}
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
@@ -12,9 +18,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const payload = await request.json()
+    const payload = parsePayload(await request.json().catch(() => null))
     const supabase = await createServerSupabase()
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from("products")
       .update({ ...payload, updated_at: new Date().toISOString() })
       .eq("id", id)
@@ -40,7 +46,7 @@ export async function DELETE(_: Request, context: { params: Promise<{ id: string
     }
 
     const supabase = await createServerSupabase()
-    const { error } = await (supabase as any)
+    const { error } = await supabase
       .from("products")
       .delete()
       .eq("id", id)
@@ -54,3 +60,5 @@ export async function DELETE(_: Request, context: { params: Promise<{ id: string
     return NextResponse.json({ error: "Failed to delete product" }, { status: 500 })
   }
 }
+
+

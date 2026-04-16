@@ -1,4 +1,5 @@
 import { getHomePageData } from "@/lib/loaders"
+import { getPopularProductsAction } from "@/app/actions/popular"
 import HomeClient from "./HomeClient"
 
 // ✅ Enable ISR with 60-second revalidation (was: force-dynamic)
@@ -20,17 +21,18 @@ export default async function HomePage() {
         session, 
         categories, 
         products, 
-        cartCount, 
-        wishlistCount,
         wishlist 
     } = await getHomePageData()
+    const { data: popularProducts } = await getPopularProductsAction({ limit: 8 })
+    const activeFallbackProducts = products.filter((p) => p.status === "active").slice(0, 8)
+    const homepagePopularProducts = popularProducts.length > 0 ? popularProducts : activeFallbackProducts
 
     return (
         <HomeClient
             session={session}
-            products={products}
             categories={categories}
             wishlistProductIds={wishlist.map(w => w.product_id)}
+            popularProducts={homepagePopularProducts}
         />
     )
 }

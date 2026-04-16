@@ -1,7 +1,7 @@
 import { HeaderServerWrapper } from "@/components/layout/header-server-wrapper"
 import { FooterServerWrapper } from "@/components/layout/footer-server-wrapper"
-import { getNavData } from "@/lib/loaders"
-import { PromotionalModal } from "@/components/modals/promotional-modal"
+import { PromotionalModalClient } from "@/components/modals/promotional-modal-client"
+import { Suspense } from "react"
 
 /**
  * Storefront layout — renders Header and Footer once for ALL customer-facing pages.
@@ -12,16 +12,20 @@ export default async function StorefrontLayout({
 }: {
   children: React.ReactNode
 }) {
-  const { categories } = await getNavData()
-
   return (
     <div className="flex flex-col min-h-screen">
-      <PromotionalModal />
-      <HeaderServerWrapper categories={categories} />
+      <Suspense fallback={null}>
+        <PromotionalModalClient />
+      </Suspense>
+      <Suspense fallback={<div className="h-24 border-b border-border bg-[#E5E9F0]" />}>
+        <HeaderServerWrapper />
+      </Suspense>
       <div className="flex-1">
         {children}
       </div>
-      <FooterServerWrapper categories={categories} />
+      <Suspense fallback={<div className="h-32 border-t border-border bg-[#E5E9F0]" />}>
+        <FooterServerWrapper />
+      </Suspense>
     </div>
   )
 }

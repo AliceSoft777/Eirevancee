@@ -1,125 +1,74 @@
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from '@/lib/loaders'
+import { NextRequest, NextResponse } from "next/server"
+import { createServerSupabase } from "@/lib/supabase/server"
+import { getServerSession } from "@/lib/loaders"
+import { deductStockForOrderItems } from "@/lib/secure-checkout"
+import type { Json } from "@/supabase/database.types"
 
-interface OrderItem {
-  product_id: string
-  quantity: number
-  product_name: string
+interface DeductStockBody {
+  orderId?: string
 }
 
 export async function POST(request: NextRequest) {
   try {
-    // ✅ AUTH CHECK - Only authenticated users can deduct stock
     const session = await getServerSession()
     if (!session?.userId) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 403 }
-      )
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { orderId, items } = await request.json()
+    const body = (await request.json().catch(() => ({}))) as DeductStockBody
+    const orderId = typeof body.orderId === "string" ? body.orderId.trim() : ""
 
-    if (!orderId || !items) {
-      return NextResponse.json(
-        { error: 'Missing orderId or items' },
-        { status: 400 }
-      )
+    if (!orderId) {
+      return NextResponse.json({ error: "Missing orderId" }, { status: 400 })
     }
 
-    const cookieStore = await cookies()
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll() {
-            return cookieStore.getAll()
-          },
-          setAll() {},
-        },
-      }
-    )
+    const supabase = await createServerSupabase()
+    const { data: order, error: orderError } = await supabase
+      .from("orders")
+      .select("id, user_id, items")
+      .eq("id", orderId)
+      .maybeSingle()
 
-    // Deduct stock for each item
-    const deductResults = []
+    if (orderError || !order) {
+      return NextResponse.json({ error: "Order not found" }, { status: 404 })
+    }
 
-    for (const item of items as OrderItem[]) {
-      try {
-        // Get current stock
-        const { data: product, error: fetchError } = await supabase
-          .from('products')
-          .select('stock')
-          .eq('id', item.product_id)
-          .single()
+    const isStaff = session.userRole === "admin" || session.userRole === "sales"
+    if (!isStaff && order.user_id !== session.userId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
 
-        if (fetchError || !product) {
-          console.warn(`⚠️ Could not fetch stock for product ${item.product_id}:`, fetchError)
-          deductResults.push({
-            product_id: item.product_id,
-            success: false,
-            reason: 'Product not found'
-          })
-          continue
-        }
+    const serverItems = Array.isArray(order.items)
+      ? order.items.map((item: Json) => {
+          const source =
+            item && typeof item === "object" && !Array.isArray(item)
+              ? (item as Record<string, unknown>)
+              : {}
 
-        // Calculate new stock
-        const newStock = Math.max(0, (product as any).stock - item.quantity)
-
-        // Update stock in database
-        const { error: updateError } = await supabase
-          .from('products')
-          .update({ stock: newStock })
-          .eq('id', item.product_id)
-
-        if (updateError) {
-          console.error(
-            `❌ Stock reduction failed for product ${item.product_id}:`,
-            updateError
-          )
-          deductResults.push({
-            product_id: item.product_id,
-            success: false,
-            reason: updateError.message
-          })
-        } else {
-          deductResults.push({
-            product_id: item.product_id,
-            success: true,
-            oldStock: (product as any).stock,
-            newStock: newStock
-          })
-        }
-      } catch (err) {
-        console.error(
-          `❌ Exception deducting stock for product ${item.product_id}:`,
-          err
-        )
-        deductResults.push({
-          product_id: item.product_id,
-          success: false,
-          reason: 'Exception occurred'
+          return {
+            product_id: String(source.product_id ?? ""),
+            quantity: Number(source.quantity ?? 0),
+          }
         })
-      }
+      : []
+
+    if (serverItems.length === 0) {
+      return NextResponse.json({ error: "Order has no items" }, { status: 400 })
     }
 
-    const allSuccessful = deductResults.every((r: any) => r.success)
+    const results = await deductStockForOrderItems(supabase, serverItems)
+    const success = results.every((result) => result.success)
 
     return NextResponse.json(
       {
-        success: allSuccessful,
-        results: deductResults,
-        orderId: orderId
+        success,
+        orderId,
+        results,
       },
-      { status: allSuccessful ? 200 : 207 }
+      { status: success ? 200 : 207 }
     )
   } catch (error) {
-    console.error('❌ Stock deduction API error:', error)
-    return NextResponse.json(
-      { error: 'Failed to deduct stock', details: String(error) },
-      { status: 500 }
-    )
+    console.error("[orders/deduct-stock] error:", error)
+    return NextResponse.json({ error: "Failed to deduct stock" }, { status: 500 })
   }
 }

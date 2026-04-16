@@ -1,28 +1,36 @@
 import { redirect } from "next/navigation"
-import { SiteHeader } from "@/components/layout/site-header"
-import { Footer } from "@/components/layout/footer"
-import { getServerSession, getNavData } from "@/lib/loaders"
+import { getServerSession } from "@/lib/loaders"
+import { createServerSupabase } from "@/lib/supabase/server"
 import OrdersClient from "./OrdersClient"
-
-export const dynamic = 'force-dynamic'
 import { OrderDetailsProvider } from "@/context/OrderDetailsContext"
-import { OrderDetailsModal } from "@/components/account/OrderDetailsModal"
+import dynamic from "next/dynamic"
+import { Suspense } from "react"
+
+const OrderDetailsModal = dynamic(
+  () => import("@/components/account/OrderDetailsModal").then((m) => ({ default: m.OrderDetailsModal }))
+)
 
 export default async function OrdersPage() {
-    const [session, { categories }] = await Promise.all([
-        getServerSession(),
-        getNavData()
-    ])
+    const session = await getServerSession()
 
-    // Not logged in - redirect to login
     if (!session.userId) {
         redirect("/login")
     }
 
+    // Fetch orders server-side — no client hook needed
+    const supabase = await createServerSupabase()
+    const { data: orders } = await supabase
+        .from("orders")
+        .select("id, order_number, status, total, created_at, items, invoice_file_id")
+        .eq("customer_id", session.userId)
+        .order("created_at", { ascending: false })
+
     return (
         <OrderDetailsProvider isAdmin={false}>
-            <OrdersClient session={session} />
-            <OrderDetailsModal />
+            <OrdersClient orders={orders ?? []} />
+            <Suspense fallback={null}>
+              <OrderDetailsModal />
+            </Suspense>
         </OrderDetailsProvider>
     )
 }

@@ -4,13 +4,14 @@ import { SiteHeader } from "@/components/layout/site-header"
 import { Footer } from "@/components/layout/footer"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeft, Package, Calendar, Clock, MapPin } from "lucide-react"
+import { ArrowLeft, Package, Calendar, Clock, MapPin, Download } from "lucide-react"
 import Link from "next/link"
 import { formatPrice } from "@/lib/utils"
 import { formatOrderDate } from "@/lib/order-utils"
 import { StatusBadge } from "@/components/admin/StatusBadge"
 import type { Order } from "@/lib/supabase-types"
 import type { ServerSession, CategoryWithChildren  } from "@/lib/loaders"
+import { toast } from "sonner"
 
 interface OrderDetailsClientProps {
   order: OrderDetails
@@ -35,6 +36,7 @@ interface DeliveryAddress {
 interface OrderDetails {
   id: string
   order_number: string
+  invoice_file_id: string | null
   status: string
   created_at: string
   updated_at: string
@@ -54,6 +56,22 @@ interface OrderDetails {
 
 
 export default function OrderDetailsClient({ order, session, categories }: OrderDetailsClientProps) {
+  const handleDownloadInvoice = async () => {
+    try {
+      const res = await fetch(`/api/orders/${order.id}/invoice`, { method: "GET" })
+      const payload = await res.json().catch(() => ({}))
+
+      if (!res.ok || !payload.url) {
+        throw new Error(payload.error || "Invoice is not available yet")
+      }
+
+      window.open(payload.url, "_blank", "noopener,noreferrer")
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to download invoice"
+      toast.error(message)
+    }
+  }
+
   return (
     <>
       <SiteHeader session={session} categories={categories} />
@@ -89,6 +107,12 @@ export default function OrderDetailsClient({ order, session, categories }: Order
                 </div>
               </div>
             </div>
+            {order.invoice_file_id && (
+              <Button onClick={handleDownloadInvoice} className="neu-raised border-transparent text-white hover:text-white">
+                <Download className="h-4 w-4 mr-2" />
+                Download Invoice
+              </Button>
+            )}
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

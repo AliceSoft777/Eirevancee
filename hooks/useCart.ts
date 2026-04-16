@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import useStore from "@/hooks/useStore"
 import {
   fetchCartAction,
@@ -29,7 +29,7 @@ export function useCart() {
   const prevUserIdRef = useRef<string | null | undefined>(undefined)
 
   // Helper: build per-product cart map and sync to store
-  function syncCartToStore(items: CartItem[]) {
+  const syncCartToStore = useCallback((items: CartItem[]) => {
     setCartItems(items)
     const count = items.reduce((sum, item) => sum + item.quantity, 0)
     setCartCountInStore(count)
@@ -42,7 +42,24 @@ export function useCart() {
       }
     }
     setCartItemsInStore(map)
-  }
+  }, [setCartCountInStore, setCartItemsInStore])
+
+  const refreshCart = useCallback(async () => {
+    const { data, error: fetchError } = await fetchCartAction()
+
+    if (fetchError || !data) {
+      console.error('[useCart] Error fetching cart:', fetchError)
+      setError(fetchError || 'Failed to load cart')
+      syncCartToStore([])
+      return
+    }
+
+    syncCartToStore(data)
+  }, [syncCartToStore])
+
+  const getErrorMessage = useCallback((error: unknown, fallback: string) => {
+    return error instanceof Error ? error.message : fallback
+  }, [])
 
   // Fetch cart when hydrated and when user changes
   useEffect(() => {
@@ -68,18 +85,10 @@ export function useCart() {
           return
         }
 
-        const { data, error: fetchError } = await fetchCartAction()
-
-        if (fetchError || !data) {
-          console.error('[useCart] Error fetching cart:', fetchError)
-          setError(fetchError || 'Failed to load cart')
-          syncCartToStore([])
-        } else {
-          syncCartToStore(data)
-        }
-      } catch (err: any) {
+        await refreshCart()
+      } catch (err: unknown) {
         console.error('[useCart] Exception fetching cart:', err)
-        setError(err.message || 'Failed to load cart')
+        setError(getErrorMessage(err, 'Failed to load cart'))
         syncCartToStore([])
       } finally {
         setIsLoading(false)
@@ -87,7 +96,7 @@ export function useCart() {
     }
 
     fetchCart()
-  }, [hasHydrated, storeUser?.id, setCartCountInStore])
+  }, [getErrorMessage, hasHydrated, refreshCart, storeUser?.id, syncCartToStore])
 
   async function addToCart(item: AddToCartInput): Promise<CartItem | undefined> {
     try {
@@ -103,13 +112,10 @@ export function useCart() {
       }
 
       // Refresh cart to get updated state
-      const { data: refreshedCart } = await fetchCartAction()
-      if (refreshedCart) {
-        syncCartToStore(refreshedCart)
-      }
+      await refreshCart()
 
       return data
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('[useCart] Exception in addToCart:', err)
       throw err
     }
@@ -125,13 +131,10 @@ export function useCart() {
       }
 
       // Refresh cart to get updated state
-      const { data: refreshedCart } = await fetchCartAction()
-      if (refreshedCart) {
-        syncCartToStore(refreshedCart)
-      }
+      await refreshCart()
 
       return data || undefined
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('[useCart] Exception in updateQuantity:', err)
       throw err
     }
@@ -147,11 +150,8 @@ export function useCart() {
       }
 
       // Refresh cart to get updated state
-      const { data: refreshedCart } = await fetchCartAction()
-      if (refreshedCart) {
-        syncCartToStore(refreshedCart)
-      }
-    } catch (err: any) {
+      await refreshCart()
+    } catch (err: unknown) {
       console.error('[useCart] Exception in removeFromCart:', err)
       throw err
     }
@@ -169,7 +169,7 @@ export function useCart() {
       }
 
       syncCartToStore([])
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('[useCart] Exception in clearCart:', err)
       throw err
     }
