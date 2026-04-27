@@ -78,7 +78,7 @@ export default function LoginClient() {
                 
                 // Extract role name - handle the nested structure
                 const profileData = profile as any
-                const roleName = (profileData?.roles?.name || 'customer') as 'customer' | 'sales' | 'admin'
+                const roleName = (profileData?.roles?.name || 'customer') as 'customer' | 'sales' | 'admin' | 'inventory'
                 
                 // Get user name
                 const userName = data.user.user_metadata?.name || data.user.email?.split('@')[0] || 'User'
@@ -100,7 +100,7 @@ export default function LoginClient() {
                 setIsLoading(false)
                 
                 // Redirect based on role
-                if (roleName === 'admin' || roleName === 'sales') {
+                if (roleName === 'admin' || roleName === 'sales' || roleName === 'inventory') {
                     window.location.href = '/admin/dashboard'
                 } else {
                     window.location.href = '/'

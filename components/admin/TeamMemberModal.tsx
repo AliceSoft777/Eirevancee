@@ -32,13 +32,12 @@ interface TeamMemberModalProps {
   member?: TeamMember | null // If null, we are in "Create" mode
 }
 
-type Role = "admin" | "sales"
+type Role = "admin" | "sales" | "inventory"
 
 interface TeamMemberFormState {
   full_name: string
   email: string
   role: Role
-  permissions: string[]
   password: string
 }
 
@@ -46,7 +45,6 @@ const INITIAL_FORM_STATE: TeamMemberFormState = {
   full_name: "",
   email: "",
   role: "sales",
-  permissions: [],
   password: "",
 }
 
@@ -65,8 +63,7 @@ export function TeamMemberModal({ isOpen, onClose, onRefetch, member }: TeamMemb
         setFormData({
           full_name: member.full_name || "",
           email: member.email || "",
-          role: member.role || "sales",
-          permissions: member.permissions || [],
+          role: (member.role as Role) || "sales",
           password: "",
         })
       } else {
@@ -217,6 +214,7 @@ export function TeamMemberModal({ isOpen, onClose, onRefetch, member }: TeamMemb
               <SelectContent>
                 <SelectItem value="sales">Sales</SelectItem>
                 <SelectItem value="admin">Admin</SelectItem>
+                <SelectItem value="inventory">Inventory</SelectItem>
               </SelectContent>
             </Select>
           </div>

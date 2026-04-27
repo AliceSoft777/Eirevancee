@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -45,13 +45,15 @@ export function QuotationBuilder({
   currentUserName,
 }: QuotationBuilderProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [highlightedItemId, setHighlightedItemId] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
-    customer_name: initialData?.customer_name || "",
-    customer_email: initialData?.customer_email || "",
-    customer_phone: initialData?.customer_phone || "",
+    customer_name: initialData?.customer_name || searchParams.get("name") || "",
+    customer_email: initialData?.customer_email || searchParams.get("email") || "",
+    customer_phone: initialData?.customer_phone || searchParams.get("phone") || "",
     quote_type: initialData?.quote_type || "Material Quote",
     delivery_collection: initialData?.delivery_collection || "Collection",
     delivery_address_line1: initialData?.delivery_address_line1 || "",
@@ -64,6 +66,7 @@ export function QuotationBuilder({
     status: initialData?.status || "draft",
     discount_enabled: initialData?.discount_enabled || false,
     discount_percentage: initialData?.discount_percentage || 0,
+    lead_id: initialData?.lead_id || searchParams.get("lead_id") || null,
   });
 
   const [items, setItems] = useState<QuotationItem[]>(initialData?.items || []);
@@ -98,14 +101,13 @@ export function QuotationBuilder({
     }
 
     const subtotalAfterDiscount = totalIncVat - quoteDiscountAmount;
-    const vat = subtotalAfterDiscount * (vatRate / 100);
 
     return {
       items: updatedItems,
       subtotal: subtotalAfterDiscount,
       quoteDiscount: quoteDiscountAmount,
-      vat_total: vat,
-      total: subtotalAfterDiscount + vat,
+      vat_total: 0,
+      total: subtotalAfterDiscount,
     };
   }, [items, vatRate, formData.discount_enabled, formData.discount_percentage]);
 
@@ -125,19 +127,19 @@ export function QuotationBuilder({
   };
 
   const handleAddProduct = (product: any) => {
-    // Check for duplicate item
     const existingItem = items.find(
       (item) => item.type === "product" && item.product_id === product.id,
     ) as QuotationProductItem | undefined;
 
     if (existingItem) {
-      // Item already exists, increment quantity instead
-      toast.info(`${product.name} already added. Updated quantity.`);
-      updateItem(existingItem.id, {
-        quantity: existingItem.quantity + 1,
-      });
+      toast.warning(`"${product.name}" is already in the quote.`);
+      setHighlightedItemId(existingItem.id);
+      setTimeout(() => setHighlightedItemId(null), 2000);
+      // Scroll to the highlighted row
+      setTimeout(() => {
+        document.getElementById(`item-row-${existingItem.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 50);
     } else {
-      // New item
       const newItem: QuotationProductItem = {
         id: crypto.randomUUID(),
         type: "product",
@@ -556,7 +558,15 @@ export function QuotationBuilder({
                     }
 
                     return (
-                      <tr key={item.id} className="border-b hover:bg-gray-50">
+                      <tr
+                        key={item.id}
+                        id={`item-row-${item.id}`}
+                        className={`border-b transition-colors duration-300 ${
+                          highlightedItemId === item.id
+                            ? "bg-amber-100 ring-2 ring-amber-400"
+                            : "hover:bg-gray-50"
+                        }`}
+                      >
                         <td className="px-4 py-2 border-r align-middle text-center">
                           <div className="flex flex-col items-center gap-1 opacity-50 hover:opacity-100">
                             <button
@@ -601,25 +611,36 @@ export function QuotationBuilder({
                           />
                         </td>
                         <td className="px-4 py-2">
-                          <Input
-                            type="number"
-                            min="0"
-                            max="100"
-                            onWheel={(e) => (e.target as HTMLElement).blur()}
-                            value={
-                              item.discount_percentage === 0
-                                ? ""
-                                : item.discount_percentage
-                            }
-                            onChange={(e) =>
-                              updateItem(item.id, {
-                                discount_percentage:
-                                  parseFloat(e.target.value) || 0,
-                              })
-                            }
-                            className="w-20 text-center"
-                            placeholder="%"
-                          />
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="checkbox"
+                              checked={item.discount_percentage > 0}
+                              onChange={(e) =>
+                                updateItem(item.id, {
+                                  discount_percentage: e.target.checked ? (item.discount_percentage || 5) : 0,
+                                })
+                              }
+                              className="w-3.5 h-3.5 cursor-pointer shrink-0"
+                              title="Enable discount"
+                            />
+                            {item.discount_percentage > 0 && (
+                              <Input
+                                type="number"
+                                min="0"
+                                max="100"
+                                onWheel={(e) => (e.target as HTMLElement).blur()}
+                                value={item.discount_percentage}
+                                onChange={(e) =>
+                                  updateItem(item.id, {
+                                    discount_percentage:
+                                      parseFloat(e.target.value) || 0,
+                                  })
+                                }
+                                className="w-16 text-center"
+                                placeholder="%"
+                              />
+                            )}
+                          </div>
                         </td>
                         <td className="px-4 py-2">
                           <Input
@@ -704,19 +725,11 @@ export function QuotationBuilder({
                       </span>
                     </div>
                   )}
-                <div className="flex justify-between font-medium text-sm items-end text-gray-500">
-                  <div className="flex flex-col">
-                    <span>VAT Amount ({vatRate}%)</span>
-                    <span className="text-xs font-normal text-gray-400 mt-0.5">
-                      (Included in Total)
-                    </span>
-                  </div>
-                  <span>- €{totals.vat_total.toFixed(2)}</span>
-                </div>
+                <p className="text-xs text-red-500 font-medium">
+                  * All prices include VAT ({vatRate}%)
+                </p>
                 <div className="flex justify-between font-bold text-lg pt-2 border-t text-gray-800">
-                  <div className="flex flex-col">
-                    <span>Total Amount</span>
-                  </div>
+                  <span>Total Amount</span>
                   <span>€{totals.total.toFixed(2)}</span>
                 </div>
               </div>

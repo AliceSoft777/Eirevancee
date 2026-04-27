@@ -22,15 +22,15 @@ export default async function AdminLayout({
 
   const session = await getServerSession()
 
-  // HARD BLOCK — server side (allow admin and sales)
-  if (!session.userId || (session.userRole !== "admin" && session.userRole !== "sales")) {
+  // HARD BLOCK — server side (allow admin, sales and inventory)
+  if (!session.userId || (session.userRole !== "admin" && session.userRole !== "sales" && session.userRole !== "inventory")) {
     redirect("/")
   }
 
   return (
   <>
     <AdminHeader session={session} />
-    <AdminShell userRole={session.userRole}>
+    <AdminShell userRole={session.userRole as "admin" | "sales" | "inventory"}>
       {children}
     </AdminShell>
   </>

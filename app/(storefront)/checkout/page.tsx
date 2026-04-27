@@ -63,7 +63,7 @@ export default async function CheckoutPage() {
             <div className="container mx-auto max-w-[1400px] px-4 py-12">
                 <CheckoutClient
                     isLoggedIn={isLoggedIn}
-                    userRole={session.userRole}
+                    userRole={session.userRole as "customer" | "sales" | "admin"}
                     initialAddresses={initialAddresses}
                     initialProfile={initialProfile}
                     userId={session.userId ?? null}

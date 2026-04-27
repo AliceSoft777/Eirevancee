@@ -25,6 +25,7 @@ export type OrderListItem = {
   customerEmail: string
   customerPhone: string | null
   status: string
+  source: string | null
   total: string
   createdAt: string
   deliveryAddress: Record<string, string> | null
@@ -50,6 +51,7 @@ export default function OrdersListClient({
         customerEmail: row.customer_email,
         customerPhone: row.customer_phone ?? null,
         status: row.status,
+        source: row.source ?? null,
         total: String(row.total),
         createdAt: row.created_at,
         deliveryAddress: row.delivery_address ?? null,
@@ -69,6 +71,7 @@ export default function OrdersListClient({
         customerEmail: row.customer_email,
         customerPhone: row.customer_phone ?? null,
         status: row.status,
+        source: row.source ?? null,
         total: String(row.total),
         createdAt: row.created_at,
         deliveryAddress: row.delivery_address ?? null,
@@ -144,6 +147,7 @@ export default function OrdersListClient({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="New">New</SelectItem>
                   <SelectItem value="Pending">Pending</SelectItem>
                   <SelectItem value="Processing">Processing</SelectItem>
                   <SelectItem value="Shipped">Shipped</SelectItem>

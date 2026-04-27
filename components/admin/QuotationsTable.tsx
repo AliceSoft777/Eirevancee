@@ -11,6 +11,7 @@ import {
   Download,
   Eye,
   ArrowUpDown,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,6 +50,7 @@ export function QuotationsTable({ initialQuotations }: QuotationsTableProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortField, setSortField] = useState<SortField>("date");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
 
   // Filter and sort quotations
   const filteredQuotations = useMemo(() => {
@@ -136,6 +138,24 @@ export function QuotationsTable({ initialQuotations }: QuotationsTableProps) {
     } finally {
       setGeneratingId(null);
     }
+  };
+
+  const handleViewPDF = async (quote: Quotation) => {
+    setGeneratingId(quote.id);
+    try {
+      const blob = await generateQuotationPDF(quote);
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank");
+    } catch (error) {
+      toast.error("Failed to generate PDF preview");
+    } finally {
+      setGeneratingId(null);
+    }
+  };
+
+  const closePdfPreview = () => {
+    if (pdfPreviewUrl) URL.revokeObjectURL(pdfPreviewUrl);
+    setPdfPreviewUrl(null);
   };
 
   if (quotations.length === 0) {
@@ -270,13 +290,16 @@ export function QuotationsTable({ initialQuotations }: QuotationsTableProps) {
                         <Button
                           variant="outline"
                           size="sm"
-                          asChild
+                          onClick={() => handleViewPDF(quote)}
+                          disabled={generatingId === quote.id}
                           className="h-8 w-8 px-0 neu-raised hover:bg-black/5"
-                          title="View Quote"
+                          title="View Quote PDF"
                         >
-                          <Link href={`/admin/quotations/${quote.id}`}>
+                          {generatingId === quote.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
                             <Eye className="h-4 w-4" />
-                          </Link>
+                          )}
                         </Button>
                         <Button
                           variant="outline"
@@ -285,7 +308,7 @@ export function QuotationsTable({ initialQuotations }: QuotationsTableProps) {
                           className="h-8 w-8 px-0 neu-raised hover:bg-black/5"
                           title="Edit Quote"
                         >
-                          <Link href={`/admin/quotations/${quote.id}/edit`}>
+                          <Link href={`/admin/quotations/${quote.id}`}>
                             <Edit className="h-4 w-4" />
                           </Link>
                         </Button>
@@ -326,6 +349,8 @@ export function QuotationsTable({ initialQuotations }: QuotationsTableProps) {
           </div>
         </div>
       )}
+
+      {/* PDF Preview Modal — removed, now opens in new tab */}
 
       <Dialog
         open={!!quoteToDelete}

@@ -13,9 +13,11 @@ import {
   Clock, 
   DollarSign, 
   PackageX,
-  Plus
+  Plus,
+  Users2,
+  TrendingUp
 } from "lucide-react"
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { IconSpinner } from "@/components/ui/icon-spinner"
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
@@ -25,6 +27,14 @@ export default function AdminDashboardPage() {
   const { orders, isLoading: ordersLoading, error: ordersError } = useOrders('ALL')
   const { products } = useProducts()
   const [dateRange, setDateRange] = useState<DateRange>('30d')
+  const [crmMetrics, setCrmMetrics] = useState<{ total: number; quoted: number; converted: number; conversionRate: number } | null>(null)
+
+  useEffect(() => {
+    fetch('/api/admin/crm/metrics', { credentials: 'include' })
+      .then(r => r.json())
+      .then(d => setCrmMetrics(d))
+      .catch(() => {})
+  }, [])
 
   const filteredOrders = useMemo(() => {
     const now = new Date()
@@ -156,6 +166,53 @@ export default function AdminDashboardPage() {
               <Button size="sm" variant={dateRange === 'all' ? 'default' : 'outline'} onClick={() => setDateRange('all')}>All Time</Button>
             </div>
           </div>
+
+          {/* CRM Metrics */}
+          {crmMetrics && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Total Leads</p>
+                      <p className="text-3xl font-bold mt-2">{crmMetrics.total}</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-accent/10 text-blue-600">
+                      <Users2 className="w-6 h-6" />
+                    </div>
+                  </div>
+                  <Link href="/admin/crm/leads" className="text-xs text-primary mt-2 block hover:underline">View all leads →</Link>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Quotes Created</p>
+                      <p className="text-3xl font-bold mt-2">{crmMetrics.quoted}</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-accent/10 text-purple-600">
+                      <ShoppingBag className="w-6 h-6" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Conversion Rate</p>
+                      <p className="text-3xl font-bold mt-2">{crmMetrics.conversionRate}%</p>
+                      <p className="text-xs text-muted-foreground mt-1">{crmMetrics.converted} converted</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-accent/10 text-green-600">
+                      <TrendingUp className="w-6 h-6" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {stats.map((stat) => (

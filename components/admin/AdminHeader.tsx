@@ -20,6 +20,7 @@ function RoleBadge({ role }: { role: string }) {
   const roleConfig = {
     admin: { label: "Admin", className: "bg-purple-100 text-purple-700" },
     sales: { label: "Sales", className: "bg-green-100 text-green-700" },
+    inventory: { label: "Inventory", className: "bg-amber-100 text-amber-700" },
     customer: { label: "", className: "" },
   }
   

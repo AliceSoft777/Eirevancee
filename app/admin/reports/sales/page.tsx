@@ -353,6 +353,27 @@ export default function SalesReportPage() {
             </Card>
           </div>
 
+          {/* Source breakdown */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {[
+              { label: 'Online (Website)', key: null, color: 'text-blue-600', bg: 'bg-blue-50' },
+              { label: 'From Quotation', key: 'quotation', color: 'text-purple-600', bg: 'bg-purple-50' },
+              { label: 'New Orders', key: 'New', color: 'text-green-600', bg: 'bg-green-50', isStatus: true },
+            ].map(item => (
+              <Card key={item.label}>
+                <CardContent className="p-4">
+                  <p className="text-xs font-medium text-muted-foreground">{item.label}</p>
+                  <p className={`text-2xl font-bold mt-1 ${item.color}`}>
+                    {item.isStatus
+                      ? filteredOrders.filter(o => o.status === item.key).length
+                      : filteredOrders.filter(o => (item.key ? (o as any).source === item.key : !(o as any).source)).length
+                    }
+                  </p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
           {showCharts ? (
             <SalesReportCharts
               revenueChartData={revenueChartData.map(({ date, revenue }) => ({ date, revenue }))}

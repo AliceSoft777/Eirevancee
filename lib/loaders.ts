@@ -15,7 +15,7 @@ export interface ServerSession {
   userId: string | null
   userName: string | null
   userEmail: string | null
-  userRole: 'customer' | 'sales' | 'admin'
+  userRole: 'customer' | 'sales' | 'admin' | 'inventory'
 }
 
 export interface CartItemData {

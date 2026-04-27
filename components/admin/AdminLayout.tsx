@@ -21,6 +21,7 @@ import {
   X,
   FileText,
   Warehouse,
+  UserPlus,
   LucideIcon
 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -29,7 +30,7 @@ import { logoutOrchestrator } from "@/lib/logout-orchestrator"
 
 interface AdminLayoutProps {
   children: React.ReactNode
-  userRole: "admin" | "sales"
+  userRole: "admin" | "sales" | "inventory"
 }
 
 interface NavItem {
@@ -37,17 +38,21 @@ interface NavItem {
   href: string
   icon: LucideIcon
   adminOnly?: boolean
+  inventoryOnly?: boolean
 }
 
 // Navigation items with role restrictions
 const allNavigation: NavItem[] = [
   { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
-  { name: "Orders", href: "/admin/orders/list", icon: ShoppingBag },
-  { name: "Quotations", href: "/admin/quotations", icon: FileText },
+  { name: "Orders", href: "/admin/orders/list", icon: ShoppingBag, adminOnly: true },
+  { name: "Quotations", href: "/admin/quotations", icon: FileText, adminOnly: true },
   { name: "Products", href: "/admin/products/list", icon: Package },
-  { name: "Reviews", href: "/admin/reviews/pending", icon: Star },
-  { name: "Customers", href: "/admin/customers/list", icon: Users },
+  { name: "Reviews", href: "/admin/reviews/pending", icon: Star, adminOnly: true },
+  { name: "Customers", href: "/admin/customers/list", icon: Users, adminOnly: true },
   { name: "GRN", href: "/admin/inventory/grn", icon: Warehouse },
+  { name: "Stock Audit", href: "/admin/inventory/audit", icon: BarChart3 },
+  { name: "Aliases", href: "/admin/inventory/aliases", icon: Tag },
+  { name: "CRM", href: "/admin/crm/leads", icon: UserPlus, adminOnly: true },
   // Admin-only items
   { name: "Team", href: "/admin/team/list", icon: UserRoundCog, adminOnly: true },
   { name: "Marketing", href: "/admin/marketing/coupons", icon: Tag, adminOnly: true },
@@ -61,14 +66,15 @@ export function AdminLayout({ children, userRole }: AdminLayoutProps) {
   const { logout } = useStore()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const isAdmin = userRole === "admin"
+  const isInventory = userRole === "inventory"
 
   // Filter navigation based on role
   const navigation = useMemo(() => {
-    if (isAdmin) {
-      return allNavigation
-    }
-    return allNavigation.filter(item => !item.adminOnly)
-  }, [isAdmin])
+    if (isAdmin) return allNavigation.filter(item => !item.inventoryOnly)
+    if (isInventory) return allNavigation.filter(item => !item.adminOnly)
+    // sales: no adminOnly, no inventoryOnly
+    return allNavigation.filter(item => !item.adminOnly && !item.inventoryOnly)
+  }, [isAdmin, isInventory])
 
   // Close sidebar on route change (mobile)
   useEffect(() => {
@@ -88,7 +94,7 @@ export function AdminLayout({ children, userRole }: AdminLayoutProps) {
       {/* Mobile Header */}
       <header className="lg:hidden shrink-0 z-30 bg-card border-b border-border px-4 py-3 flex items-center justify-between">
         <h1 className="text-lg font-serif font-bold text-primary">
-          Celtic Tiles <span className="text-xs font-sans text-muted-foreground">{isAdmin ? "Admin" : "Staff"}</span>
+          Celtic Tiles <span className="text-xs font-sans text-muted-foreground">{isAdmin ? "Admin" : isInventory ? "Warehouse" : "Staff"}</span>
         </h1>
         <Button
           variant="ghost"
@@ -126,7 +132,7 @@ export function AdminLayout({ children, userRole }: AdminLayoutProps) {
             borderBottom: '1px solid hsl(var(--border) / 0.3)'
           }}>
             <h1 className="text-lg font-serif font-bold text-primary">
-              Celtic Tiles <span className="text-sm font-sans text-muted-foreground">{isAdmin ? "Admin" : "Staff"}</span>
+              Celtic Tiles <span className="text-sm font-sans text-muted-foreground">{isAdmin ? "Admin" : isInventory ? "Warehouse" : "Staff"}</span>
             </h1>
           </div>
 

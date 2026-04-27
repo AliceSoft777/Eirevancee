@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import nodemailer from 'nodemailer'
+import { createServerSupabase } from '@/lib/supabase/server'
 
 // Read env vars at runtime — prevents Next.js from inlining secret values at build time
 function env(key: string): string {
@@ -25,6 +26,20 @@ export async function POST(req: NextRequest) {
         { error: 'Please provide a valid email address.' },
         { status: 400 }
       )
+    }
+
+    // Save lead via secure DB function (SECURITY DEFINER — no service role key needed)
+    try {
+      const supabase = await createServerSupabase()
+      await (supabase as any).rpc('submit_contact_lead', {
+        p_name: name,
+        p_email: email,
+        p_phone: phone || null,
+        p_message: message,
+      })
+    } catch (leadErr) {
+      // Non-blocking — email still sends even if lead insert fails
+      console.error('Lead RPC error:', leadErr)
     }
 
     // Create SMTP transporter (Office 365)

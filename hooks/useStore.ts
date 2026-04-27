@@ -73,7 +73,7 @@ export const useStore = create<StoreState>()(
             isSales: () => get().user?.role === 'sales',
             canAccessDashboard: () => {
                 const role = get().user?.role
-                return role === 'admin' || role === 'sales'
+                return role === 'admin' || role === 'sales' || role === 'inventory'
             },
 
             // Wishlist (for UI toggle - actual persistence in useWishlist hook)

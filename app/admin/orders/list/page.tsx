@@ -76,11 +76,11 @@ export default async function OrdersListPage() {
   const mappedOrders: OrderListItem[] = (orders ?? []).map(o => ({
     id: o.id,
     orderNumber: o.order_number,
-    invoiceFileId: o.invoice_file_id,
     customerName: o.customer_name,
     customerEmail: o.customer_email,
     customerPhone: o.customer_phone ?? null,
     status: o.status,
+    source: (o as any).source ?? null,
     total: o.total,
     createdAt: o.created_at,
     deliveryAddress: o.delivery_address ?? null,

@@ -5,6 +5,8 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { Pagination } from "@/components/admin/Pagination"
+import { usePagination } from "@/hooks/usePagination"
 import {
   Loader2, ClipboardList, Printer, CheckCircle2,
   AlertTriangle, Search, ChevronDown
@@ -55,6 +57,8 @@ function VarianceBadge({ variance }: { variance: number }) {
 }
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
+
+const ITEMS_PER_PAGE = 20
 
 export default function StockAuditPage() {
   const [products, setProducts] = useState<AuditProduct[]>([])
@@ -114,6 +118,17 @@ export default function StockAuditPage() {
     })
   }, [rows, searchQuery, categoryFilter])
 
+  // Pagination — operates on filteredRows for display only
+  const { currentPage, totalPages, goToPage, startIndex, endIndex } = usePagination({
+    totalItems: filteredRows.length,
+    itemsPerPage: ITEMS_PER_PAGE,
+  })
+
+  // Reset to page 1 when filters change
+  useEffect(() => { goToPage(1) }, [searchQuery, categoryFilter, goToPage])
+
+  const pagedRows = filteredRows.slice(startIndex, endIndex)
+
   const updateCount = (productId: string, value: string) => {
     setRows((prev) =>
       prev.map((r) =>
@@ -124,7 +139,7 @@ export default function StockAuditPage() {
     )
   }
 
-  // Rows with a physical count entered
+  // Rows with a physical count entered — from ALL rows, not just current page
   const countedRows = rows.filter((r) => r.physical_count !== "")
   const auditItems = countedRows.map((r) => ({
     ...r,
@@ -168,9 +183,7 @@ export default function StockAuditPage() {
     }
   }
 
-  const handlePrint = () => {
-    window.print()
-  }
+  const handlePrint = () => { window.print() }
 
   // ── Loading ────────────────────────────────────────────────────────────────
 
@@ -187,7 +200,6 @@ export default function StockAuditPage() {
   if (showResults) {
     return (
       <div className="space-y-6 pb-12">
-        {/* Header */}
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-xl neu-raised">
@@ -201,26 +213,16 @@ export default function StockAuditPage() {
             </div>
           </div>
           <div className="flex gap-2 print:hidden">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => { setShowResults(false); setNotes("") }}
-              className="neu-raised border-transparent"
-            >
+            <Button type="button" variant="outline" onClick={() => { setShowResults(false); setNotes("") }} className="neu-raised border-transparent">
               New Audit
             </Button>
-            <Button
-              type="button"
-              onClick={handlePrint}
-              className="neu-raised border-transparent text-white gap-2"
-            >
+            <Button type="button" onClick={handlePrint} className="neu-raised border-transparent text-white gap-2">
               <Printer className="h-4 w-4" />
               Print Report
             </Button>
           </div>
         </div>
 
-        {/* Summary cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 print:hidden">
           {[
             { label: "Items Counted", value: auditItems.length, color: "text-foreground" },
@@ -235,7 +237,6 @@ export default function StockAuditPage() {
           ))}
         </div>
 
-        {/* Full variance table */}
         <div className="rounded-2xl neu-raised p-5">
           <h2 className="font-semibold text-foreground mb-4">
             Full Report — {auditItems.length} items audited
@@ -255,12 +256,7 @@ export default function StockAuditPage() {
               </thead>
               <tbody>
                 {auditItems.map((row) => (
-                  <tr
-                    key={row.product_id}
-                    className={`border-b border-border/30 last:border-0 ${
-                      row.variance !== 0 ? "bg-amber-50/40 dark:bg-amber-900/10" : ""
-                    }`}
-                  >
+                  <tr key={row.product_id} className={`border-b border-border/30 last:border-0 ${row.variance !== 0 ? "bg-amber-50/40 dark:bg-amber-900/10" : ""}`}>
                     <td className="px-4 py-3 font-medium">{row.product_name}</td>
                     <td className="px-4 py-3 text-muted-foreground font-mono text-xs">{row.sku || "—"}</td>
                     <td className="px-4 py-3 text-center">{row.db_stock}</td>
@@ -360,20 +356,15 @@ export default function StockAuditPage() {
               </tr>
             </thead>
             <tbody>
-              {filteredRows.map((row) => {
-                const variance =
-                  row.physical_count !== ""
-                    ? (row.physical_count as number) - row.db_stock
-                    : null
+              {pagedRows.map((row) => {
+                const variance = row.physical_count !== "" ? (row.physical_count as number) - row.db_stock : null
                 return (
                   <tr key={row.product_id} className="border-b border-border/30 last:border-0">
                     <td className="px-4 py-3">
                       <p className="font-medium text-foreground">{row.product_name}</p>
                       <p className="text-xs text-muted-foreground">{row.category}</p>
                     </td>
-                    <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
-                      {row.sku || "—"}
-                    </td>
+                    <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{row.sku || "—"}</td>
                     <td className="px-4 py-3 text-center font-semibold">{row.db_stock}</td>
                     <td className="px-4 py-3">
                       <Input
@@ -387,11 +378,7 @@ export default function StockAuditPage() {
                       />
                     </td>
                     <td className="px-4 py-3 text-center">
-                      {variance !== null ? (
-                        <VarianceBadge variance={variance} />
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
+                      {variance !== null ? <VarianceBadge variance={variance} /> : <span className="text-xs text-muted-foreground">—</span>}
                     </td>
                   </tr>
                 )
@@ -402,11 +389,8 @@ export default function StockAuditPage() {
 
         {/* Mobile cards */}
         <div className="md:hidden space-y-3">
-          {filteredRows.map((row) => {
-            const variance =
-              row.physical_count !== ""
-                ? (row.physical_count as number) - row.db_stock
-                : null
+          {pagedRows.map((row) => {
+            const variance = row.physical_count !== "" ? (row.physical_count as number) - row.db_stock : null
             return (
               <div key={row.product_id} className="rounded-xl neu-raised p-4 space-y-3">
                 <div>
@@ -431,17 +415,24 @@ export default function StockAuditPage() {
                     />
                   </div>
                   <div className="flex justify-center">
-                    {variance !== null ? (
-                      <VarianceBadge variance={variance} />
-                    ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
-                    )}
+                    {variance !== null ? <VarianceBadge variance={variance} /> : <span className="text-xs text-muted-foreground">—</span>}
                   </div>
                 </div>
               </div>
             )
           })}
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={goToPage}
+            totalItems={filteredRows.length}
+            itemsPerPage={ITEMS_PER_PAGE}
+          />
+        )}
       </div>
 
       {/* Notes */}
@@ -473,23 +464,11 @@ export default function StockAuditPage() {
             </p>
           </div>
           <div className="flex gap-3 ml-auto">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => handleSubmit(false)}
-              disabled={isSaving}
-              className="neu-raised border-transparent"
-            >
+            <Button type="button" variant="outline" onClick={() => handleSubmit(false)} disabled={isSaving} className="neu-raised border-transparent">
               {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Report Only"}
             </Button>
             {discrepancies.length > 0 && (
-              <Button
-                id="audit-apply-btn"
-                type="button"
-                onClick={() => handleSubmit(true)}
-                disabled={isSaving}
-                className="neu-raised border-transparent text-white hover:text-white gap-2"
-              >
+              <Button id="audit-apply-btn" type="button" onClick={() => handleSubmit(true)} disabled={isSaving} className="neu-raised border-transparent text-white hover:text-white gap-2">
                 <CheckCircle2 className="h-4 w-4" />
                 Save &amp; Apply Corrections
               </Button>

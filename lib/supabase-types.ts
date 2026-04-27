@@ -86,13 +86,12 @@ export interface Quotation {
   vat_total: number;
   total: number;
   instructions: string | null;
-  discount_enabled?: boolean;
-  discount_percentage?: number;
   history?: Array<{
     updated_at: string;
     updated_by: string;
     changes: Record<string, unknown>;
   }> | null;
+  lead_id?: string | null;
   status: "draft" | "sent" | "accepted" | "declined" | "expired";
   pdf_url: string | null;
   created_by: string | null;

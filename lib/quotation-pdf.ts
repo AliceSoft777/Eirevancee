@@ -22,8 +22,9 @@ async function fetchImageAsBase64(url: string): Promise<string | null> {
 export async function generateQuotationPDF(quote: Quotation): Promise<Blob> {
   const doc = new jsPDF();
 
-  // Load logo
-  const logoBase64 = await fetchImageAsBase64("/images/celticlogo.png");
+  // Load logo — use absolute URL to avoid server-side fetch issues
+  const logoUrl = typeof window !== "undefined" ? `${window.location.origin}/images/celticlogo.png` : null
+  const logoBase64 = logoUrl ? await fetchImageAsBase64(logoUrl) : null
 
   doc.setFont("helvetica");
 
@@ -195,7 +196,13 @@ export async function generateQuotationPDF(quote: Quotation): Promise<Blob> {
     },
   });
 
-  const finalY = (doc as any).lastAutoTable.finalY + 10;
+  let finalY = (doc as any).lastAutoTable.finalY + 10;
+
+  // If the totals/notes section won't fit on the current page, add a new page
+  if (finalY + 55 > 270) {
+    doc.addPage();
+    finalY = 20;
+  }
 
   // 5. Totals & Instructions Area
   // Left Box: Instructions + Notes
@@ -213,7 +220,7 @@ export async function generateQuotationPDF(quote: Quotation): Promise<Blob> {
   doc.text("Please Note:", 16, finalY + 37);
   doc.setFont("helvetica", "normal");
   const defaultNotes =
-    "Prices are subject to fluctuation due to supplier increase and are valid for only 30 days of the quote date.";
+    "Prices are subject to change due to supplier cost increases and are valid for 30 days from the quotation date.";
   doc.text(doc.splitTextToSize(defaultNotes, 85), 38, finalY + 37);
 
   // Right Box: Totals
@@ -261,10 +268,10 @@ export async function generateQuotationPDF(quote: Quotation): Promise<Blob> {
   // Derive vat rate from what was saved inside an item for display
   const sampleVatRate =
     quote.items.find(
-      (item) =>
+      (item): item is import("./supabase-types").QuotationProductItem =>
         item.type === "product" &&
-        typeof item.vat_rate === "number" &&
-        item.vat_rate > 0,
+        typeof (item as any).vat_rate === "number" &&
+        (item as any).vat_rate > 0,
     )?.vat_rate || 0;
 
   doc.setFont("helvetica", "normal");

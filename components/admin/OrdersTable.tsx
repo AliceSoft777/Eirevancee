@@ -57,6 +57,7 @@ export function OrdersTable({ orders }: OrdersTableProps) {
               <th className="text-left py-4 px-4 text-sm font-semibold">Customer</th>
               <th className="text-right py-4 px-4 text-sm font-semibold">Total</th>
               <th className="text-left py-4 px-4 text-sm font-semibold">Status</th>
+              <th className="text-left py-4 px-4 text-sm font-semibold">Source</th>
               <th className="text-left py-4 px-4 text-sm font-semibold">Date</th>
               <th className="text-center py-4 px-4 text-sm font-semibold">Actions</th>
             </tr>
@@ -85,17 +86,28 @@ export function OrdersTable({ orders }: OrdersTableProps) {
                   </div>
                 </td>
                 <td className="py-3 px-4 text-right font-mono font-semibold">
-                  {formatPrice(order.total)}
+                  {formatPrice(Number(order.total))}
                 </td>
                 <td className="py-3 px-4">
                   <StatusBadge status={order.status} />
+                </td>
+                <td className="py-3 px-4">
+                  {order.source && (
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                      order.source === 'quotation' ? 'bg-purple-100 text-purple-700' :
+                      order.source === 'website' ? 'bg-blue-100 text-blue-700' :
+                      'bg-gray-100 text-gray-600'
+                    }`}>
+                      {order.source}
+                    </span>
+                  )}
                 </td>
                 <td className="py-3 px-4 text-sm text-muted-foreground">
                   {formatOrderDate(order.createdAt)}
                 </td>
                 <td className="py-3 px-4 text-center">
                   <div className="flex items-center justify-center gap-2">
-                    {order.invoiceFileId && (
+                    {(order as any).invoiceFileId && (
                       <Button
                         size="sm"
                         variant="outline"

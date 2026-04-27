@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "@/lib/loaders"
 import { createWorker, Worker } from "tesseract.js"
 
+export const runtime = "nodejs"
+
 // ── Singleton OCR worker ───────────────────────────────────────────────────────
 // Creating a Tesseract worker is expensive (~1 s per request). We keep one
 // alive for the server process lifetime and reuse it across all requests.
@@ -29,8 +31,30 @@ async function getWorker(): Promise<Worker> {
 }
 
 // ── OCR text normalisation ─────────────────────────────────────────────────────
-// Tesseract raw output contains noise: vertical bars, lone punctuation, random
-// characters. This produces clean lines the GRN parser can reliably consume.
+// Drops invoice column headers and reference lines while keeping product names
+// that legitimately contain numbers (e.g. "Vanity Model 8112-80 C").
+const HEADER_WORDS = [
+  "pallets", "boxes", "cajas", "pieces", "piezas", "blisters",
+  "formato", "size", "descripcion", "description", "codigo", "code",
+  "precio", "price", "importe", "amount", "total", "payment", "dto",
+  "m2", "qty", "quantity", "ref", "s/ref", "visit", "alb",
+]
+
+function isHeaderOrNoiseLine(line: string): boolean {
+  const lower = line.toLowerCase()
+  // Drop lines that are purely column headers (all words match known header words)
+  const words = lower.split(/\s+/).filter(Boolean)
+  if (words.length === 0) return true
+  const headerWordCount = words.filter(w => HEADER_WORDS.some(h => w.includes(h))).length
+  // If more than 60% of words are header words → drop the line
+  if (headerWordCount / words.length > 0.6) return true
+  // Drop lines that look like reference/date lines: contain "/" with numbers (e.g. "Alb. 201.351 / 14-10-25")
+  if (/\d{2,}\/\d{2,}/.test(line) || /alb\./i.test(line)) return true
+  // Drop lines that are purely numeric with spaces (e.g. "1 36 216 38,88")
+  if (/^[\d\s.,]+$/.test(line)) return true
+  return false
+}
+
 function normaliseOcrText(raw: string): string {
   return raw
     .split("\n")
@@ -38,10 +62,11 @@ function normaliseOcrText(raw: string): string {
       line
         .replace(/\|/g, "1")               // pipe → 1 (common OCR error)
         .replace(/[ \t]+/g, " ")            // collapse horizontal whitespace
-        .replace(/[^a-zA-Z0-9 '"/\-.:,()xX×]/g, "") // strip noise chars
+        .replace(/[^a-zA-Z0-9 '"/.:(),xX\u00e1\u00e9\u00ed\u00f3\u00fa\u00f1\u00fc\u00c1\u00c9\u00cd\u00d3\u00da\u00d1\u00dc-]/g, "") // keep accented chars
         .trim()
     )
-    .filter((line) => line.length >= 3)    // drop very short artefact lines
+    .filter((line) => line.length >= 4)    // drop very short artefact lines
+    .filter((line) => !isHeaderOrNoiseLine(line)) // drop header/noise lines
     .join("\n")
 }
 
@@ -49,7 +74,7 @@ export async function POST(req: Request) {
   try {
     // 1. AUTH
     const session = await getServerSession()
-    if (!session || (session.userRole !== "admin" && session.userRole !== "sales")) {
+    if (!session || (session.userRole !== "admin" && session.userRole !== "sales" && session.userRole !== "inventory")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 

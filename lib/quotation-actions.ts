@@ -126,6 +126,19 @@ export async function saveQuotation(
   if (!isNew && quotationData.id) {
     revalidatePath(`/admin/quotations/${quotationData.id}`);
   }
+
+  // Auto status update: if quote linked to a lead, update lead to 'Quoted'
+  const savedQuote = data as Record<string, unknown>;
+  if (isNew && savedQuote?.lead_id) {
+    await supabase.from("leads").update({ status: "Quoted" }).eq("id", savedQuote.lead_id);
+    await supabase.from("activity_logs").insert({
+      lead_id: savedQuote.lead_id,
+      action: "quote_created",
+      note: `Quote ${savedQuote.quote_number} created`,
+      performed_by: session.userId,
+    });
+  }
+
   return data as unknown as Quotation;
 }
 
@@ -176,25 +189,25 @@ export async function convertQuotationToOrder(quotationId: string) {
   // Create order from quotation
   const orderData = {
     customer_name: quote.customer_name,
-    customer_email: quote.customer_email,
-    customer_phone: quote.customer_phone,
-    customer_id: null,
+    customer_email: quote.customer_email || "",
+    customer_phone: quote.customer_phone || null,
+    customer_id: quote.lead_id ? quote.lead_id.toString() : (quote.customer_email || quote.customer_name),
     items: quote.items,
     subtotal: quote.subtotal,
-    tax_rate: 23, // Default tax rate
+    tax: 0,
     discount: 0,
-    delivery_address:
-      quote.delivery_collection === "Delivery"
-        ? {
-            line1: quote.delivery_address_line1,
-            line2: quote.delivery_address_line2,
-            city: quote.delivery_city,
-            postcode: quote.delivery_postcode,
-          }
-        : null,
-    status: "pending",
-    notes: quote.instructions || "",
-    created_by: session.userId,
+    total: quote.total,
+    payment_status: "unpaid",
+    status: "New",
+    source: "quotation",
+    delivery_address: quote.delivery_collection === "Delivery"
+      ? {
+          street: [quote.delivery_address_line1, quote.delivery_address_line2].filter(Boolean).join(", "),
+          city: quote.delivery_city || "",
+          state: "",
+          pincode: quote.delivery_postcode || "",
+        }
+      : { street: "Collection", city: "", state: "", pincode: "" },
   };
 
   // Generate order number via RPC
@@ -219,14 +232,64 @@ export async function convertQuotationToOrder(quotationId: string) {
     throw new Error(`Failed to create order: ${orderError.message}`);
   }
 
-  // Update quotation status to "converted"
-  await supabase
-    .from("quotations")
-    .update({ status: "accepted" })
-    .eq("id", quotationId);
+  // Update quotation status to accepted
+  await supabase.from("quotations").update({ status: "accepted" }).eq("id", quotationId);
+
+  // Auto status update: if quote linked to a lead, update lead to 'Converted' + log activity
+  // Try lead_id first, fall back to customer_email match for quotes created before lead_id was saved
+  let resolvedLeadId = quote.lead_id || null;
+
+  if (!resolvedLeadId && quote.customer_email) {
+    const { data: leadByEmail } = await supabase
+      .from("leads")
+      .select("id")
+      .eq("email", quote.customer_email)
+      .maybeSingle();
+    if (leadByEmail) resolvedLeadId = leadByEmail.id;
+  }
+
+  if (resolvedLeadId) {
+    await supabase.from("leads").update({ status: "Converted" }).eq("id", resolvedLeadId);
+    await supabase.from("activity_logs").insert({
+      lead_id: resolvedLeadId,
+      action: "order_created",
+      note: `Order ${orderNum} created from quote ${quote.quote_number}`,
+      performed_by: session.userId,
+    });
+  }
+
+  // Task 21 + 22: Auto customer creation — check by email, create if not exists
+  if (quote.customer_email) {
+    const { data: existingProfile } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("email", quote.customer_email)
+      .maybeSingle();
+
+    if (!existingProfile) {
+      const { data: customerRole } = await supabase
+        .from("roles")
+        .select("id")
+        .eq("name", "customer")
+        .single();
+
+      if (customerRole) {
+        // Generate a new UUID for the profile — cannot reuse lead_id or order customer_id
+        const newProfileId = crypto.randomUUID();
+        await supabase.from("profiles").insert({
+          id: newProfileId,
+          email: quote.customer_email,
+          full_name: quote.customer_name,
+          phone: quote.customer_phone || null,
+          role_id: customerRole.id,
+        });
+      }
+    }
+  }
 
   revalidatePath("/admin/quotations");
   revalidatePath("/admin/orders");
+  revalidatePath("/admin/crm/leads");
 
   return newOrder;
 }
@@ -258,7 +321,7 @@ export async function recordQuotationChange(
   const newHistoryEntry = {
     updated_at: new Date().toISOString(),
     updated_by: session.userId,
-    username: session.user?.email || "Unknown",
+    username: session.userEmail || "Unknown",
     changes,
   };
 

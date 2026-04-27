@@ -199,14 +199,14 @@ export function QuotationViewer({ quotation }: QuotationViewerProps) {
             </div>
 
             {quotation.discount_enabled &&
-              quotation.discount_percentage > 0 && (
+              (quotation.discount_percentage ?? 0) > 0 && (
                 <div className="flex justify-between text-sm text-red-600">
-                  <span>Discount ({quotation.discount_percentage}%)</span>
+                  <span>Discount ({quotation.discount_percentage ?? 0}%)</span>
                   <span className="font-semibold">
                     -€
                     {(
                       quotation.subtotal *
-                      (quotation.discount_percentage / 100)
+                      ((quotation.discount_percentage ?? 0) / 100)
                     ).toFixed(2)}
                   </span>
                 </div>

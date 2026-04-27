@@ -79,6 +79,7 @@ Products List_V2.xlsx
 ~$*.ppt*
 temp-output.css
 eslint-report.json
+eng.traineddata
 
 # Database files
 *.sql

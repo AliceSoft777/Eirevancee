@@ -26,8 +26,10 @@ import {
   ImageIcon,
   AlertTriangle,
   Info,
+  Plus,
 } from "lucide-react";
 import { searchProductsForQuote } from "@/lib/quotation-actions";
+import { useCategories } from "@/hooks/useCategories";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -51,6 +53,20 @@ interface ProductResult {
   assigned_code: string | null;
   price: number | null;
   stock: number | null;
+}
+
+async function readJsonResponse<T>(res: Response): Promise<T | { error?: string }> {
+  const text = await res.text();
+
+  if (!text) {
+    return {};
+  }
+
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return { error: text };
+  }
 }
 
 // ─── Diff Badge ───────────────────────────────────────────────────────────────
@@ -218,6 +234,7 @@ function ProductLinkModal({
 
 const makeRow = (overrides: Partial<GRNRow> = {}): GRNRow => ({
   id: crypto.randomUUID(),
+  vendor_name: "",
   name: "",
   expected_qty: 1,
   received_qty: 1,
@@ -250,6 +267,91 @@ export default function GRNPage() {
   const [activeRowId, setActiveRowId] = useState<string | null>(null);
   const [showConfirmSave, setShowConfirmSave] = useState(false);
   const [pendingSavePayload, setPendingSavePayload] = useState<any>(null);
+
+  // New product modal state
+  const { categories } = useCategories();
+  const [newProductRowId, setNewProductRowId] = useState<string | null>(null);
+  const [newProductForm, setNewProductForm] = useState({
+    name: "", assigned_code: "", size: "", finish: "", price: "", category_id: "",
+  });
+  const [isSavingProduct, setIsSavingProduct] = useState(false);
+  // Track whether alias-match has completed — only show New Product after that
+  const [aliasMatchDone, setAliasMatchDone] = useState(false);
+
+  const openNewProductModal = (rowId: string) => {
+    const row = rows.find(r => r.id === rowId);
+    setNewProductRowId(rowId);
+    setNewProductForm({
+      name: row?.vendor_name || row?.name || "",
+      assigned_code: row?.sku || "",
+      size: "", finish: "", price: "", category_id: "",
+    });
+  };
+
+  const handleCreateNewProduct = async () => {
+    if (!newProductForm.name.trim()) {
+      toast.error("Product name is required.");
+      return;
+    }
+    setIsSavingProduct(true);
+    try {
+      // 1. Generate slug from name
+      const slug = newProductForm.name.trim().toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+      // 2. Create product
+      const productRes = await fetch("/api/admin/products", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newProductForm.name.trim(),
+          slug: `${slug}-${Date.now()}`,
+          assigned_code: newProductForm.assigned_code.trim() || null,
+          size: newProductForm.size.trim() || null,
+          finish: newProductForm.finish.trim() || null,
+          price: newProductForm.price ? parseFloat(newProductForm.price) : null,
+          category_id: newProductForm.category_id || null,
+          status: "draft",
+          stock: 0,
+        }),
+      });
+      const productData = await productRes.json();
+      if (!productRes.ok) throw new Error(productData.error || "Failed to create product");
+      const product = productData.product;
+
+      // 3. Auto-create alias so future GRN scans auto-match
+      const row = rows.find(r => r.id === newProductRowId);
+      const vendorName = row?.vendor_name || row?.name || "";
+      if (vendorName.trim()) {
+        await fetch("/api/admin/inventory/aliases", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ alias: vendorName.trim(), product_id: product.id }),
+        });
+      }
+
+      // 4. Link the GRN row to the new product
+      if (newProductRowId) {
+        updateRow(newProductRowId, {
+          product_id: product.id,
+          name: product.name,
+          sku: product.assigned_code,
+          price: product.price ?? null,
+          stock: 0,
+          is_auto_matched: false,
+        });
+      }
+
+      toast.success(`"${product.name}" created as draft and linked.`);
+      setNewProductRowId(null);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to create product");
+    } finally {
+      setIsSavingProduct(false);
+    }
+  };
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -322,6 +424,7 @@ export default function GRNPage() {
     const names = merged.map((r) => r.vendor_name);
     if (names.length > 0) {
       setIsMatching(true);
+      setAliasMatchDone(false);
       try {
         const res = await fetch("/api/admin/inventory/grn/alias-match", {
           method: "POST",
@@ -361,6 +464,7 @@ export default function GRNPage() {
         // Alias match failure is non-critical — staff can still link manually
       } finally {
         setIsMatching(false);
+        setAliasMatchDone(true);
       }
     }
   };
@@ -438,19 +542,20 @@ export default function GRNPage() {
         credentials: "include",
         body: form,
       });
-      const payload = await res.json();
-      if (!res.ok) throw new Error(payload?.error || "OCR failed");
-      if (!payload.raw_text) {
+      const payload = await readJsonResponse<{ raw_text?: string; confidence?: number; error?: string }>(res);
+      const ocrPayload = payload as { raw_text?: string; confidence?: number; error?: string };
+      if (!res.ok) throw new Error(ocrPayload?.error || "OCR failed");
+      if (!ocrPayload.raw_text) {
         setOcrError(
           "OCR completed but no text was detected. Try a clearer image.",
         );
         return;
       }
 
-      await parseAndMatchText(payload.raw_text);
+      await parseAndMatchText(ocrPayload.raw_text);
       setInputMode("table");
 
-      const conf = payload.confidence ?? null;
+      const conf = ocrPayload.confidence ?? null;
       if (conf !== null && conf < 60) {
         setOcrWarning(
           `Low confidence (${conf}%) — text may contain errors. Please review carefully before processing.`,
@@ -776,7 +881,7 @@ export default function GRNPage() {
             {imagePreview && (
               <button
                 type="button"
-                onClick={() => setInputMode("text")}
+                onClick={() => setInputMode("table")}
                 className="text-xs text-primary underline underline-offset-2"
               >
                 Or paste text directly →
@@ -955,31 +1060,44 @@ export default function GRNPage() {
                         </span>
                       )}
                     </td>
-                    {/* Linked Product / Search */}
+                    {/* Linked Product / Search / New Product */}
                     <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={() => openModal(row.id)}
-                        className={`flex items-center justify-center w-full gap-2 px-2 py-1.5 rounded-xl text-xs font-medium transition-all ${
-                          row.product_id
-                            ? row.is_auto_matched
-                              ? "text-blue-700 bg-blue-50 neu-raised"
-                              : "text-green-700 bg-green-50 neu-raised"
-                            : "text-muted-foreground neu-raised hover:text-primary"
-                        }`}
-                      >
-                        {row.product_id ? (
-                          <>
-                            <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-                            <span className="truncate">Linked</span>
-                          </>
-                        ) : (
-                          <>
-                            <Link2 className="h-3.5 w-3.5 shrink-0" />
-                            Search
-                          </>
+                      <div className="flex flex-col gap-1">
+                        <button
+                          type="button"
+                          onClick={() => openModal(row.id)}
+                          className={`flex items-center justify-center w-full gap-2 px-2 py-1.5 rounded-xl text-xs font-medium transition-all ${
+                            row.product_id
+                              ? row.is_auto_matched
+                                ? "text-blue-700 bg-blue-50 neu-raised"
+                                : "text-green-700 bg-green-50 neu-raised"
+                              : "text-muted-foreground neu-raised hover:text-primary"
+                          }`}
+                        >
+                          {row.product_id ? (
+                            <>
+                              <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                              <span className="truncate">Linked</span>
+                            </>
+                          ) : (
+                            <>
+                              <Link2 className="h-3.5 w-3.5 shrink-0" />
+                              Search
+                            </>
+                          )}
+                        </button>
+                        {/* Show New Product only after alias-match ran and row is still unlinked */}
+                        {!row.product_id && aliasMatchDone && (
+                          <button
+                            type="button"
+                            onClick={() => openNewProductModal(row.id)}
+                            className="flex items-center justify-center w-full gap-1 px-2 py-1.5 rounded-xl text-xs font-medium text-emerald-700 bg-emerald-50 neu-raised hover:bg-emerald-100 transition-all"
+                          >
+                            <Plus className="h-3 w-3 shrink-0" />
+                            New Product
+                          </button>
                         )}
-                      </button>
+                      </div>
                     </td>
                     {/* Delete */}
                     <td className="px-4 py-3">
@@ -1156,6 +1274,95 @@ export default function GRNPage() {
           </div>
         </div>
       )}
+
+      {/* New Product Modal */}
+      <Dialog open={!!newProductRowId} onOpenChange={(o) => !isSavingProduct && !o && setNewProductRowId(null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Add New Product</DialogTitle>
+            <DialogDescription>
+              This will create a <strong>draft</strong> product and auto-link it to this GRN row. An alias will be saved so future scans auto-match it.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 mt-2">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-foreground">Product Name *</label>
+              <Input
+                value={newProductForm.name}
+                onChange={e => setNewProductForm(p => ({ ...p, name: e.target.value }))}
+                placeholder="e.g. Composición JUNGLE DARK Set x6"
+                autoFocus
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-foreground">SKU / Code</label>
+                <Input
+                  value={newProductForm.assigned_code}
+                  onChange={e => setNewProductForm(p => ({ ...p, assigned_code: e.target.value }))}
+                  placeholder="e.g. E125"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-foreground">Size</label>
+                <Input
+                  value={newProductForm.size}
+                  onChange={e => setNewProductForm(p => ({ ...p, size: e.target.value }))}
+                  placeholder="e.g. 30x60, 60*120 CM"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-foreground">Finish</label>
+                <Input
+                  value={newProductForm.finish}
+                  onChange={e => setNewProductForm(p => ({ ...p, finish: e.target.value }))}
+                  placeholder="e.g. Polished, Matt"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-foreground">Price (€)</label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={newProductForm.price}
+                  onChange={e => setNewProductForm(p => ({ ...p, price: e.target.value }))}
+                  placeholder="0.00"
+                  onWheel={e => (e.target as HTMLElement).blur()}
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-foreground">Category</label>
+              <select
+                value={newProductForm.category_id}
+                onChange={e => setNewProductForm(p => ({ ...p, category_id: e.target.value }))}
+                className="w-full px-3 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+              >
+                <option value="">Select category (optional)</option>
+                {categories.map(cat => (
+                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                ))}
+              </select>
+            </div>
+            <p className="text-xs text-muted-foreground bg-muted/40 rounded-lg p-2">
+              Product will be created as <strong>draft</strong> — it won&apos;t appear on the storefront until published from the Products admin page.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNewProductRowId(null)} disabled={isSavingProduct} className="neu-raised border-transparent">
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateNewProduct}
+              disabled={isSavingProduct || !newProductForm.name.trim()}
+              className="neu-raised border-transparent text-white hover:text-white"
+            >
+              {isSavingProduct ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Create & Link
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Product Link Modal */}
       <ProductLinkModal

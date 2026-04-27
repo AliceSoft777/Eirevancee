@@ -8,7 +8,7 @@ import { getServerSession } from "@/lib/loaders"
 export async function GET() {
   try {
     const session = await getServerSession()
-    if (!session || (session.userRole !== "admin" && session.userRole !== "sales")) {
+    if (!session || (session.userRole !== "admin" && session.userRole !== "sales" && session.userRole !== "inventory")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -33,7 +33,7 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const session = await getServerSession()
-    if (!session || (session.userRole !== "admin" && session.userRole !== "sales")) {
+    if (!session || (session.userRole !== "admin" && session.userRole !== "sales" && session.userRole !== "inventory")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 

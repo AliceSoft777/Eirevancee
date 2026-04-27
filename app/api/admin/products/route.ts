@@ -13,7 +13,7 @@ function parsePayload(body: unknown): ProductInsertPayload | null {
 export async function POST(request: Request) {
   try {
     const session = await getServerSession()
-    if (!session.userId || (session.userRole !== "admin" && session.userRole !== "sales")) {
+    if (!session.userId || (session.userRole !== "admin" && session.userRole !== "sales" && session.userRole !== "inventory")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -38,4 +38,3 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Failed to create product" }, { status: 500 })
   }
 }
-

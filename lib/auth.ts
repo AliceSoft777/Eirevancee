@@ -1,9 +1,9 @@
 // User role types
-export type UserRole = 'customer' | 'sales' | 'admin';
+export type UserRole = 'customer' | 'sales' | 'admin' | 'inventory';
 
 // Role permission helpers
 export function canManageProducts(role: UserRole): boolean {
-  return role === 'admin' || role === 'sales';
+  return role === 'admin' || role === 'sales' || role === 'inventory';
 }
 
 export function canManageOrders(role: UserRole): boolean {
