@@ -18,8 +18,8 @@ import Image from "next/image"
 
 interface ProductsTableProps {
   products: Product[]
-  onDelete: (id: string) => void
-  onEdit: (product: Product) => void
+  onDelete?: (id: string) => void
+  onEdit?: (product: Product) => void
 }
 
 export function ProductsTable({ products, onDelete, onEdit }: ProductsTableProps) {
@@ -87,28 +87,32 @@ export function ProductsTable({ products, onDelete, onEdit }: ProductsTableProps
                         <Eye className="w-4 h-4 text-muted-foreground" />
                     </Link>
                   </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    onClick={() => onEdit(product)}
-                    aria-label={`Edit ${product.name}`}
-                    className="hover:text-orange-500"
-                  >
-                    <Pencil className="w-4 h-4 text-orange-500" />
-                  </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    onClick={() => {
+                  {onEdit && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => onEdit(product)}
+                      aria-label={`Edit ${product.name}`}
+                      className="hover:text-orange-500"
+                    >
+                      <Pencil className="w-4 h-4 text-orange-500" />
+                    </Button>
+                  )}
+                  {onDelete && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
                         if (confirm('Are you sure you want to delete this product?')) {
-                            onDelete(product.id)
+                          onDelete(product.id)
                         }
-                    }}
-                    aria-label={`Delete ${product.name}`}
-                    className="hover:text-red-500"
-                   >
-                    <Trash2 className="w-4 h-4 text-red-500" />
-                  </Button>
+                      }}
+                      aria-label={`Delete ${product.name}`}
+                      className="hover:text-red-500"
+                    >
+                      <Trash2 className="w-4 h-4 text-red-500" />
+                    </Button>
+                  )}
                 </div>
               </TableCell>
             </TableRow>

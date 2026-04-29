@@ -22,9 +22,11 @@ import type { ProductData } from "./page"
 
 interface ProductsListClientProps {
   initialProducts: ProductData[]
+  userRole: "admin" | "sales" | "inventory"
 }
 
-export default function ProductsListClient({ initialProducts }: ProductsListClientProps) {
+export default function ProductsListClient({ initialProducts, userRole }: ProductsListClientProps) {
+  const canEdit = userRole !== "inventory"
   const [products, setProducts] = useState<ProductData[]>(initialProducts)
   const { addProduct, updateProduct, deleteProduct, refetch } = useProducts({
     initialData: initialProducts as any,
@@ -110,12 +112,14 @@ export default function ProductsListClient({ initialProducts }: ProductsListClie
               <p className="text-muted-foreground mt-1">Manage your product catalog</p>
             </div>
             
-            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+            {canEdit && (
+              <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
                 <Button className="w-full sm:w-auto" onClick={handleAddProduct}>
                   <Plus className="w-4 h-4 mr-2" />
                   Add Product
                 </Button>
-            </div>
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto justify-end">
@@ -173,23 +177,23 @@ export default function ProductsListClient({ initialProducts }: ProductsListClie
                   icon={Package}
                   title="No products found"
                   description="Try adjusting your search or filter to find what you're looking for."
-                  actionLabel={searchTerm || statusFilter !== "all" || categoryFilter !== "all" ? "Clear Filters" : "Add Product"}
+                  actionLabel={searchTerm || statusFilter !== "all" || categoryFilter !== "all" ? "Clear Filters" : canEdit ? "Add Product" : undefined}
                   onAction={() => {
                     if (searchTerm || statusFilter !== "all" || categoryFilter !== "all") {
                       setSearchTerm("")
                       setStatusFilter("all")
                       setCategoryFilter("all")
-                    } else {
+                    } else if (canEdit) {
                        handleAddProduct()
                     }
                   }}
                 />
               ) : (
                 <>
-                  <ProductsTable 
-                    products={currentProducts as any} 
-                    onDelete={deleteProduct} 
-                    onEdit={handleEditProduct}
+                  <ProductsTable
+                    products={currentProducts as any}
+                    onDelete={canEdit ? deleteProduct : undefined}
+                    onEdit={canEdit ? handleEditProduct : undefined}
                   />
                   {totalPages > 1 && (
                     <Pagination
@@ -206,17 +210,15 @@ export default function ProductsListClient({ initialProducts }: ProductsListClie
           </Card>
 
           {/* Product Modal */}
-          {isModalOpen && (
-            <ProductFormModal 
-              isOpen={isModalOpen} 
+          {isModalOpen && canEdit && (
+            <ProductFormModal
+              isOpen={isModalOpen}
               onClose={() => {
                 setIsModalOpen(false)
                 setSelectedProduct(null)
-              }} 
+              }}
               onSave={handleSaved}
-              onCreateProduct={addProduct}
-              onUpdateProduct={updateProduct}
-              product={selectedProduct} 
+              product={selectedProduct}
             />
           )}
 

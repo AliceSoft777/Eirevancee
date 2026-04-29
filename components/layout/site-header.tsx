@@ -98,7 +98,8 @@ export function SiteHeader({
   
   const isAdmin = () => user?.role === 'admin';
   const isSales = () => user?.role === 'sales';
-  const canAccessDashboard = () => user?.role === 'admin' || user?.role === 'sales';
+  const isInventory = () => user?.role === 'inventory';
+  const canAccessDashboard = () => user?.role === 'admin' || user?.role === 'sales' || user?.role === 'inventory';
   
   // ✅ Use reactive subscription to cart count from Zustand store
   const cartCount = useStore((state) => state.cartCount);

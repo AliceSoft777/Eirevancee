@@ -31,8 +31,8 @@ export interface ProductData {
 export default async function ProductsListPage() {
   const session = await getServerSession()
 
-  // Allow both admin and sales roles
-  if (!session || (session.userRole !== "admin" && session.userRole !== "sales")) {
+  // Allow admin, sales, and inventory roles
+  if (!session || (session.userRole !== "admin" && session.userRole !== "sales" && session.userRole !== "inventory")) {
     redirect("/")
   }
 
@@ -68,6 +68,6 @@ export default async function ProductsListPage() {
     }
   })
 
-  return <ProductsListClient initialProducts={productsWithInStock} />
+  return <ProductsListClient initialProducts={productsWithInStock} userRole={session.userRole as "admin" | "sales" | "inventory"} />
 }
 
