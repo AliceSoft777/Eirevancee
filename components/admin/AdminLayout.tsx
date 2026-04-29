@@ -37,28 +37,29 @@ interface NavItem {
   name: string
   href: string
   icon: LucideIcon
-  adminOnly?: boolean
-  inventoryOnly?: boolean
+  adminOnly?: boolean      // admin only
+  noInventory?: boolean    // admin + sales, not inventory
+  inventoryOnly?: boolean  // inventory only
 }
 
 // Navigation items with role restrictions
 const allNavigation: NavItem[] = [
-  { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
-  { name: "Orders", href: "/admin/orders/list", icon: ShoppingBag, adminOnly: true },
-  { name: "Quotations", href: "/admin/quotations", icon: FileText, adminOnly: true },
-  { name: "Products", href: "/admin/products/list", icon: Package },
-  { name: "Reviews", href: "/admin/reviews/pending", icon: Star, adminOnly: true },
-  { name: "Customers", href: "/admin/customers/list", icon: Users, adminOnly: true },
-  { name: "GRN", href: "/admin/inventory/grn", icon: Warehouse },
-  { name: "Stock Audit", href: "/admin/inventory/audit", icon: BarChart3 },
-  { name: "Aliases", href: "/admin/inventory/aliases", icon: Tag },
-  { name: "CRM", href: "/admin/crm/leads", icon: UserPlus, adminOnly: true },
+  { name: "Dashboard",   href: "/admin/dashboard",              icon: LayoutDashboard },
+  { name: "Orders",      href: "/admin/orders/list",            icon: ShoppingBag,  noInventory: true },
+  { name: "Quotations",  href: "/admin/quotations",             icon: FileText,     noInventory: true },
+  { name: "Products",    href: "/admin/products/list",          icon: Package },
+  { name: "Reviews",     href: "/admin/reviews/pending",        icon: Star,         noInventory: true },
+  { name: "Customers",   href: "/admin/customers/list",         icon: Users,        noInventory: true },
+  { name: "GRN",         href: "/admin/inventory/grn",          icon: Warehouse },
+  { name: "Stock Audit", href: "/admin/inventory/audit",        icon: BarChart3 },
+  { name: "Aliases",     href: "/admin/inventory/aliases",      icon: Tag },
+  { name: "CRM",         href: "/admin/crm/leads",              icon: UserPlus,     noInventory: true },
   // Admin-only items
-  { name: "Team", href: "/admin/team/list", icon: UserRoundCog, adminOnly: true },
-  { name: "Marketing", href: "/admin/marketing/coupons", icon: Tag, adminOnly: true },
-  { name: "Newsletter", href: "/admin/newsletter", icon: Mail, adminOnly: true },
-  { name: "Reports", href: "/admin/reports/sales", icon: BarChart3, adminOnly: true },
-  { name: "Settings", href: "/admin/settings/general", icon: Settings, adminOnly: true },
+  { name: "Team",        href: "/admin/team/list",              icon: UserRoundCog, adminOnly: true },
+  { name: "Marketing",   href: "/admin/marketing/coupons",      icon: Tag,          adminOnly: true },
+  { name: "Newsletter",  href: "/admin/newsletter",             icon: Mail,         adminOnly: true },
+  { name: "Reports",     href: "/admin/reports/sales",          icon: BarChart3,    adminOnly: true },
+  { name: "Settings",    href: "/admin/settings/general",       icon: Settings,     adminOnly: true },
 ]
 
 export function AdminLayout({ children, userRole }: AdminLayoutProps) {
@@ -70,9 +71,9 @@ export function AdminLayout({ children, userRole }: AdminLayoutProps) {
 
   // Filter navigation based on role
   const navigation = useMemo(() => {
-    if (isAdmin) return allNavigation.filter(item => !item.inventoryOnly)
-    if (isInventory) return allNavigation.filter(item => !item.adminOnly)
-    // sales: no adminOnly, no inventoryOnly
+    if (isAdmin)     return allNavigation.filter(item => !item.inventoryOnly)
+    if (isInventory) return allNavigation.filter(item => !item.adminOnly && !item.noInventory)
+    // sales
     return allNavigation.filter(item => !item.adminOnly && !item.inventoryOnly)
   }, [isAdmin, isInventory])
 
