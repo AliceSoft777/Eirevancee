@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import CheckoutClient from './CheckoutClient'
 import { getServerSession, getSiteSettings } from '@/lib/loaders'
 import { createServerSupabase } from '@/lib/supabase/server'
@@ -61,14 +62,16 @@ export default async function CheckoutPage() {
     return (
         <main className="bg-background min-h-screen">
             <div className="container mx-auto max-w-[1400px] px-4 py-12">
-                <CheckoutClient
-                    isLoggedIn={isLoggedIn}
-                    userRole={session.userRole as "customer" | "sales" | "admin"}
-                    initialAddresses={initialAddresses}
-                    initialProfile={initialProfile}
-                    userId={session.userId ?? null}
-                    siteSettings={siteSettings}
-                />
+                <Suspense fallback={null}>
+                    <CheckoutClient
+                        isLoggedIn={isLoggedIn}
+                        userRole={session.userRole as "customer" | "sales" | "admin"}
+                        initialAddresses={initialAddresses}
+                        initialProfile={initialProfile}
+                        userId={session.userId ?? null}
+                        siteSettings={siteSettings}
+                    />
+                </Suspense>
             </div>
         </main>
     )

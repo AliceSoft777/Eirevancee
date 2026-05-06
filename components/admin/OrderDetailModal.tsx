@@ -161,11 +161,13 @@ export function OrderDetailModal({
                       {order.items.map((item, idx) => (
                         <tr key={idx} className="border-b last:border-0">
                           <td className="py-2.5 pr-4">
-                            <p className="font-medium">{item.product_name}</p>
+                            <p className="font-medium">
+                              {(item as any).product_name || (item as any).name || (item as any).description || "Item"}
+                            </p>
                           </td>
                           <td className="py-2.5 text-center text-muted-foreground">{item.quantity}</td>
-                          <td className="py-2.5 text-right text-muted-foreground">{formatPrice(item.unit_price)}</td>
-                          <td className="py-2.5 text-right font-medium">{formatPrice(item.subtotal)}</td>
+                          <td className="py-2.5 text-right text-muted-foreground">{formatPrice(Number((item as any).unit_price ?? (item as any).price ?? 0))}</td>
+                          <td className="py-2.5 text-right font-medium">{formatPrice(Number((item as any).subtotal ?? (Number((item as any).unit_price ?? 0) * item.quantity)) )}</td>
                         </tr>
                       ))}
                     </tbody>

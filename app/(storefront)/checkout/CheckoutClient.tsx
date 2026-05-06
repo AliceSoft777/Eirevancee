@@ -6,11 +6,11 @@ import { Input } from "@/components/ui/input"
 import { useCart } from "@/hooks/useCart"
 import { formatPrice } from "@/lib/utils"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useState, useEffect } from "react"
 import Image from "next/image"
 import { toast } from "sonner"
-import { Loader2, Tag } from "lucide-react"
+import { ArrowLeft, Loader2, Tag } from "lucide-react"
 import Link from "next/link"
 import type { UserAddress } from "@/hooks/useAddresses"
 import type { Database } from "@/lib/supabase-types"
@@ -43,6 +43,9 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
     const supabase = getSupabaseBrowserClient()
     const { cartItems, isLoading: cartLoading, clearCart, getCartTotal } = useCart()
     const router = useRouter()
+    const searchParams = useSearchParams()
+    const isQuoteMode = searchParams.get("mode") === "quote"
+    const [quoteData, setQuoteData] = useState<any>(null)
     const [isProcessing, setIsProcessing] = useState(false)
 
     const [addresses] = useState<UserAddress[]>(initialAddresses)
@@ -68,10 +71,39 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
 
     const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(null)
 
-    const subtotal = getCartTotal()
-    const taxRate = (siteSettings.tax_rate ?? 0) / 100 // from DB (0 = inclusive/no extra tax)
+    // Load quote data from sessionStorage when in quote mode
+    useEffect(() => {
+        if (!isQuoteMode) return
+        try {
+            const stored = sessionStorage.getItem("quoteCheckout")
+            if (stored) {
+                const parsed = JSON.parse(stored)
+                setQuoteData(parsed)
+                // Pre-fill all customer + delivery details from quote
+                setFormData(prev => ({
+                    ...prev,
+                    full_name: parsed.customerName || prev.full_name,
+                    email: parsed.customerEmail || prev.email,
+                    phone: parsed.customerPhone || prev.phone,
+                    street: parsed.deliveryAddress?.street || prev.street,
+                    city: parsed.deliveryAddress?.city || prev.city,
+                    state: parsed.deliveryAddress?.state || parsed.deliveryAddress?.city || prev.state,
+                    pincode: parsed.deliveryAddress?.pincode || prev.pincode,
+                }))
+            } else {
+                toast.error("Quote data not found. Please go back.")
+                router.push("/quotecart")
+            }
+        } catch {
+            router.push("/quotecart")
+        }
+    }, [isQuoteMode])
 
-    const couponDiscount = appliedCoupon
+    const cartSubtotal = getCartTotal()
+    const subtotal = isQuoteMode && quoteData ? quoteData.total : cartSubtotal
+    const taxRate = (siteSettings.tax_rate ?? 0) / 100
+
+    const couponDiscount = !isQuoteMode && appliedCoupon
         ? appliedCoupon.discount_type === 'percentage'
             ? subtotal * (appliedCoupon.discount_value / 100)
             : Math.min(appliedCoupon.discount_value, subtotal)
@@ -79,29 +111,31 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
     const discountedSubtotal = subtotal - couponDiscount
     const tax = discountedSubtotal * taxRate
     const isFreeShipping = discountedSubtotal > siteSettings.free_shipping_threshold
-    const shippingFee = isFreeShipping ? 0 : 0 // Below threshold: no flat fee, quote needed
-    const total = discountedSubtotal + tax + shippingFee
+    const shippingFee = 0
+    const total = isQuoteMode && quoteData ? quoteData.total : discountedSubtotal + tax + shippingFee
 
     // Load applied coupon from sessionStorage (set in cart page)
     useEffect(() => {
+        if (isQuoteMode) return
         try {
             const stored = sessionStorage.getItem('appliedCoupon')
             if (stored) setAppliedCoupon(JSON.parse(stored))
         } catch {}
     }, [])
 
-    // Pre-fill email from auth session (not available server-side)
+    // Pre-fill email from auth session — only for normal cart mode
     useEffect(() => {
+        if (isQuoteMode) return
         supabase.auth.getSession().then((result) => {
             if (!result) return
             const email = result.data?.session?.user?.email
             if (email) setFormData(prev => ({ ...prev, email }))
         }).catch(() => {})
-    }, [supabase])
+    }, [supabase, isQuoteMode])
 
-    // Auto-select default (or first) saved address on mount
+    // Auto-select default (or first) saved address on mount — skip in quote mode
     useEffect(() => {
-        if (addresses.length === 0) return
+        if (isQuoteMode || addresses.length === 0) return
         const defaultAddress = addresses.find(a => a.is_default) ?? addresses[0]
         handleAddressSelection(defaultAddress.id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -199,46 +233,69 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
                 label: null
             }
 
-            // ✅ Check if this address already exists before inserting
-            try {
-                const checkResult = await (supabase
-                    .from('customer_addresses'))
-                    .select('id')
-                    .eq('user_id', userId)
-                    .eq('street', street)
-                    .eq('city', city)
-                    .eq('pincode', pincode)
-                    .limit(1)
+            // Save address non-blocking — skip in quote mode (address comes from quote)
+            if (!isQuoteMode) {
+                try {
+                    const { data: existing } = await supabase
+                        .from('customer_addresses')
+                        .select('id')
+                        .eq('user_id', userId)
+                        .eq('street', street)
+                        .eq('city', city)
+                        .eq('pincode', pincode)
+                        .limit(1)
 
-                const existingAddresses = checkResult?.data ?? []
-                if (existingAddresses.length === 0) {
-                    const insertResult = await (supabase
-                        .from('customer_addresses'))
-                        .insert([addressPayload])
-                        .select()
-                    if (insertResult?.error) {
-                        console.warn('[Checkout] Address save failed (non-blocking):', insertResult.error.message)
+                    if (!existing || existing.length === 0) {
+                        await supabase.from('customer_addresses').insert([addressPayload])
                     }
+                } catch (addrErr) {
+                    console.warn('[Checkout] Address save failed (non-blocking):', addrErr)
                 }
-            } catch (addrErr) {
-                console.warn('[Checkout] Address save failed (non-blocking):', addrErr)
             }
 
-            const checkoutPayload = {
+            // In quote mode, read fresh from sessionStorage at submit time
+            // so we are never blocked by stale React state from useEffect timing
+            let liveQuoteData: any = quoteData
+            if (isQuoteMode && !liveQuoteData) {
+                try {
+                    const stored = sessionStorage.getItem("quoteCheckout")
+                    if (stored) liveQuoteData = JSON.parse(stored)
+                } catch {}
+            }
+
+            if (isQuoteMode && !liveQuoteData) {
+                clearTimeout(timeoutId)
+                toast.error("Quote data lost. Please go back to the quote cart.")
+                router.push("/quotecart")
+                setIsProcessing(false)
+                return
+            }
+
+            const quoteSnapshot = isQuoteMode && liveQuoteData ? {
+                items: liveQuoteData.items.filter((i: any) => i.type === "product").map((i: any) => ({
+                    product_id: i.product_id || "",
+                    product_name: i.description || i.product_name || "Item",
+                    quantity: Number(i.quantity) || 0,
+                    unit_price: Number(i.unit_price) || 0,
+                    subtotal: Number(i.amount) || Number(i.subtotal) || (Number(i.unit_price) * Number(i.quantity)) || 0,
+                })),
+                subtotal: liveQuoteData.subtotal,
+                tax: 0,
+                shipping_fee: 0,
+                discount: liveQuoteData.quoteDiscount ?? 0,
+                coupon_code: null,
+                total: liveQuoteData.total,
+            } : null
+
+            const checkoutPayload: Record<string, any> = {
                 paymentMethod,
-                couponCode: appliedCoupon?.code ?? null,
-                customer: {
-                    full_name,
-                    email,
-                    phone,
-                },
-                deliveryAddress: {
-                    street,
-                    city,
-                    state,
-                    pincode,
-                    country: "Ireland",
-                },
+                couponCode: isQuoteMode ? null : (appliedCoupon?.code ?? null),
+                customer: { full_name, email, phone },
+                deliveryAddress: { street, city, state, pincode, country: "Ireland" },
+                ...(isQuoteMode && liveQuoteData ? {
+                    quoteId: liveQuoteData.quoteId,
+                    quoteSnapshot,
+                } : {}),
             }
 
             // Card payment: create Stripe session first, then persist server-calculated order.
@@ -248,7 +305,11 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            couponCode: appliedCoupon?.code ?? null,
+                            couponCode: isQuoteMode ? null : (appliedCoupon?.code ?? null),
+                            ...(isQuoteMode && liveQuoteData ? {
+                                quoteId: liveQuoteData.quoteId,
+                                quoteSnapshot,
+                            } : {}),
                         })
                     })
 
@@ -376,7 +437,7 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
         )
     }
 
-    if (cartItems.length === 0) {
+    if (!isQuoteMode && cartItems.length === 0) {
         return (
             <div className="text-center py-16">
                 <h1 className="text-3xl font-bold text-primary mb-4">Your cart is empty</h1>
@@ -390,7 +451,18 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
 
     return (
         <>
-            <h1 className="text-3xl font-serif font-bold text-primary mb-8">Checkout</h1>
+            <div className="flex items-center gap-4 mb-8">
+                {isQuoteMode && (
+                    <button
+                        type="button"
+                        onClick={() => router.push("/quotecart")}
+                        className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                        <ArrowLeft className="w-4 h-4" />
+                    </button>
+                )}
+                <h1 className="text-3xl font-serif font-bold text-primary">Checkout</h1>
+            </div>
 
             <form onSubmit={handleSubmit}>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -419,7 +491,7 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
                         </Card>
 
                         {/* Saved Addresses Section */}
-                        {addresses.length > 0 && (
+                        {!isQuoteMode && addresses.length > 0 && (
                             <Card>
                                 <CardHeader>
                                     <CardTitle className="flex items-center gap-2 text-base">
@@ -548,6 +620,7 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
                                     </label>
                                 </div>
                                 {(userRole === 'admin' || userRole === 'sales') && (
+                                    <>
                                     <div 
                                         className={`border rounded-lg p-4 cursor-pointer transition-all ${formData.payment === 'offline_cash' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40'}`}
                                         onClick={() => setFormData(prev => ({ ...prev, payment: 'offline_cash' }))}
@@ -567,10 +640,35 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
                                                     </svg>
                                                 )}
                                             </div>
-                                            <span className="font-medium">Offline Cash Payment</span>
+                                            <span className="font-medium">In-store Cash Payment</span>
                                             <span className="text-xs text-muted-foreground">(Pay in store)</span>
                                         </label>
                                     </div>
+                                    <div 
+                                        className={`border rounded-lg p-4 cursor-pointer transition-all ${formData.payment === 'card_instore' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40'}`}
+                                        onClick={() => setFormData(prev => ({ ...prev, payment: 'card_instore' }))}
+                                    >
+                                        <label className="flex items-center gap-3 cursor-pointer">
+                                            <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 transition-all duration-200 ${formData.payment === 'card_instore' ? 'bg-primary shadow-[inset_2px_2px_4px_rgba(0,0,0,0.2),inset_-2px_-2px_4px_rgba(255,255,255,0.1)]' : 'bg-[#E5E9F0] shadow-[2px_2px_4px_rgba(0,0,0,0.1),-2px_-2px_4px_rgba(255,255,255,0.9)]'}`}>
+                                                {formData.payment === 'card_instore' && <svg className="w-3 h-3 text-white" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" viewBox="0 0 24 24" stroke="currentColor"><path d="M5 13l4 4L19 7" /></svg>}
+                                            </div>
+                                            <span className="font-medium">In-store Card Payment</span>
+                                            <span className="text-xs text-muted-foreground">(Card machine)</span>
+                                        </label>
+                                    </div>
+                                    <div 
+                                        className={`border rounded-lg p-4 cursor-pointer transition-all ${formData.payment === 'bank_transfer' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40'}`}
+                                        onClick={() => setFormData(prev => ({ ...prev, payment: 'bank_transfer' }))}
+                                    >
+                                        <label className="flex items-center gap-3 cursor-pointer">
+                                            <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 transition-all duration-200 ${formData.payment === 'bank_transfer' ? 'bg-primary shadow-[inset_2px_2px_4px_rgba(0,0,0,0.2),inset_-2px_-2px_4px_rgba(255,255,255,0.1)]' : 'bg-[#E5E9F0] shadow-[2px_2px_4px_rgba(0,0,0,0.1),-2px_-2px_4px_rgba(255,255,255,0.9)]'}`}>
+                                                {formData.payment === 'bank_transfer' && <svg className="w-3 h-3 text-white" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" viewBox="0 0 24 24" stroke="currentColor"><path d="M5 13l4 4L19 7" /></svg>}
+                                            </div>
+                                            <span className="font-medium">Bank Transfer</span>
+                                            <span className="text-xs text-muted-foreground">(Direct bank payment)</span>
+                                        </label>
+                                    </div>
+                                    </>
                                 )}
                             </CardContent>
                         </Card>
@@ -584,65 +682,111 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
                             </CardHeader>
                             <CardContent>
                                 <div className="space-y-3 mb-6">
-                                    {cartItems.slice(0, 3).map((item) => (
-                                        <div key={item.id} className="flex gap-3">
-                                            <div className="relative w-16 h-16 bg-gray-100 rounded overflow-hidden flex-shrink-0">
-                                                <Image
-                                                    src={item.product_image || '/images/placeholder.jpg'}
-                                                    alt={item.product_name}
-                                                    fill
-                                                    className="object-cover"
-                                                    sizes="64px"
-                                                />
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-medium line-clamp-2">{item.product_name}</p>
-                                                <p className="text-xs text-muted-foreground">
-                                                    Qty: {item.quantity}
+                                    {isQuoteMode && quoteData ? (
+                                        <>
+                                            {quoteData.items.filter((i: any) => i.type === "product").slice(0, 3).map((item: any) => (
+                                                <div key={item.id} className="flex gap-3">
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-xs font-mono text-muted-foreground">{item.code}</p>
+                                                        <p className="text-sm font-medium line-clamp-2">{item.description}</p>
+                                                        <p className="text-xs text-muted-foreground">Qty: {item.quantity}</p>
+                                                        <p className="text-sm font-bold text-primary mt-1">{formatPrice(item.amount)}</p>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                            {quoteData.items.filter((i: any) => i.type === "product").length > 3 && (
+                                                <p className="text-sm text-muted-foreground text-center">
+                                                    +{quoteData.items.filter((i: any) => i.type === "product").length - 3} more item(s)
                                                 </p>
-                                                <p className="text-sm font-bold text-primary mt-1">
-                                                    {formatPrice(item.product_price * item.quantity)}
+                                            )}
+                                        </>
+                                    ) : (
+                                        <>
+                                            {cartItems.slice(0, 3).map((item) => (
+                                                <div key={item.id} className="flex gap-3">
+                                                    <div className="relative w-16 h-16 bg-gray-100 rounded overflow-hidden flex-shrink-0">
+                                                        <Image
+                                                            src={item.product_image || '/images/placeholder.jpg'}
+                                                            alt={item.product_name}
+                                                            fill
+                                                            className="object-cover"
+                                                            sizes="64px"
+                                                        />
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-sm font-medium line-clamp-2">{item.product_name}</p>
+                                                        <p className="text-xs text-muted-foreground">Qty: {item.quantity}</p>
+                                                        <p className="text-sm font-bold text-primary mt-1">{formatPrice(item.product_price * item.quantity)}</p>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                            {cartItems.length > 3 && (
+                                                <p className="text-sm text-muted-foreground text-center">
+                                                    +{cartItems.length - 3} more item(s)
                                                 </p>
-                                            </div>
-                                        </div>
-                                    ))}
-                                    {cartItems.length > 3 && (
-                                        <p className="text-sm text-muted-foreground text-center">
-                                            +{cartItems.length - 3} more item(s)
-                                        </p>
+                                            )}
+                                        </>
                                     )}
                                 </div>
 
                                 <div className="border-t border-border pt-4 space-y-2">
-                                    <div className="flex justify-between text-sm">
-                                        <span className="text-muted-foreground">Subtotal</span>
-                                        <span className="font-medium">{formatPrice(subtotal)}</span>
-                                    </div>
-                                    {couponDiscount > 0 && appliedCoupon && (
-                                        <div className="flex justify-between text-sm">
-                                            <span className="text-green-600 flex items-center gap-1">
-                                                <Tag className="h-3 w-3" />
-                                                Coupon ({appliedCoupon.code})
-                                            </span>
-                                            <span className="font-semibold text-green-600">-{formatPrice(couponDiscount)}</span>
-                                        </div>
-                                    )}
-                                    {siteSettings.tax_rate > 0 && (
-                                        <div className="flex justify-between text-sm">
-                                            <span className="text-muted-foreground">VAT ({siteSettings.tax_rate}%)</span>
-                                            <span className="font-medium">{formatPrice(tax)}</span>
-                                        </div>
-                                    )}
-                                    <div className="flex justify-between text-sm">
-                                        <span className="text-muted-foreground">Delivery</span>
-                                        <span className="font-medium">
-                                            {isFreeShipping ? <span className="text-green-600">Free</span> : <span className="text-red-600 text-xs">Quote required</span>}
-                                        </span>
-                                    </div>
-                                    {!isFreeShipping && (
-                                        <p className="text-xs text-red-600 leading-snug">
-                                            Delivery charge applies — please contact us for a quote.
-                                        </p>
+                                    {isQuoteMode && quoteData ? (
+                                        <>
+                                            <div className="flex justify-between text-sm">
+                                                <span className="text-muted-foreground">Items</span>
+                                                <span className="font-medium">{formatPrice(quoteData.items.filter((i: any) => i.type === "product").reduce((s: number, i: any) => s + i.unit_price * i.quantity, 0))}</span>
+                                            </div>
+                                            {quoteData.items.some((i: any) => i.type === "product" && i.discount_percentage > 0) && (
+                                                <div className="flex justify-between text-sm text-green-600">
+                                                    <span>Item Discounts</span>
+                                                    <span className="font-semibold">-{formatPrice(quoteData.items.filter((i: any) => i.type === "product").reduce((s: number, i: any) => s + (i.unit_price * i.quantity - i.amount), 0))}</span>
+                                                </div>
+                                            )}
+                                            {quoteData.quoteDiscount > 0 && (
+                                                <div className="flex justify-between text-sm text-green-600">
+                                                    <span>Quote Discount ({quoteData.quoteDiscountPercentage}%)</span>
+                                                    <span className="font-semibold">-{formatPrice(quoteData.quoteDiscount)}</span>
+                                                </div>
+                                            )}
+                                            <div className="flex justify-between text-sm">
+                                                <span className="text-muted-foreground">Delivery</span>
+                                                <span className="font-medium">{quoteData.deliveryCollection}</span>
+                                            </div>
+                                            <p className="text-xs text-red-500 font-medium">* All prices include VAT</p>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <div className="flex justify-between text-sm">
+                                                <span className="text-muted-foreground">Subtotal</span>
+                                                <span className="font-medium">{formatPrice(subtotal)}</span>
+                                            </div>
+                                            {couponDiscount > 0 && appliedCoupon && (
+                                                <div className="flex justify-between text-sm">
+                                                    <span className="text-green-600 flex items-center gap-1">
+                                                        <Tag className="h-3 w-3" />
+                                                        Coupon ({appliedCoupon.code})
+                                                    </span>
+                                                    <span className="font-semibold text-green-600">-{formatPrice(couponDiscount)}</span>
+                                                </div>
+                                            )}
+                                            {siteSettings.tax_rate > 0 && (
+                                                <div className="flex justify-between text-sm">
+                                                    <span className="text-muted-foreground">VAT ({siteSettings.tax_rate}%)</span>
+                                                    <span className="font-medium">{formatPrice(tax)}</span>
+                                                </div>
+                                            )}
+                                            <div className="flex justify-between text-sm">
+                                                <span className="text-muted-foreground">Delivery</span>
+                                                <span className="font-medium">
+                                                    {isFreeShipping ? <span className="text-green-600">Free</span> : <span className="text-red-600 text-xs">Quote required</span>}
+                                                </span>
+                                            </div>
+                                            {!isFreeShipping && (
+                                                <p className="text-xs text-red-600 leading-snug">
+                                                    Delivery charge applies — please contact us for a quote.
+                                                </p>
+                                            )}
+                                        </>
                                     )}
                                     <div className="flex justify-between font-bold border-t border-border pt-2 mt-2">
                                         <span>Total</span>

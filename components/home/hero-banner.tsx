@@ -118,11 +118,13 @@ export function HeroBanner({
                 {HERO_IMAGES.map((_, i) => (
                     <button
                         key={i}
+                        type="button"
                         onClick={() => setCurrentIndex(i)}
                         className={`h-2 transition-all rounded-full ${
                             currentIndex === i ? "w-8 bg-tm-red" : "w-2 bg-white/50 hover:bg-white"
                         }`}
                         aria-label={`Go to slide ${i + 1}`}
+                        suppressHydrationWarning
                     />
                 ))}
             </div>

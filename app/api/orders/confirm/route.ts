@@ -189,7 +189,12 @@ export async function POST(request: NextRequest) {
     })
 
     if (!emailResult.success) {
-      return NextResponse.json({ error: emailResult.error || "Failed to send confirmation email" }, { status: 500 })
+      console.warn(`[Email] ❌ Failed to send email for order ${typedOrder.order_number}:`, emailResult.error)
+      return NextResponse.json({
+        success: false,
+        email: { sent: false, error: emailResult.error },
+        invoice: { path: invoice.path },
+      })
     }
 
     await supabase

@@ -1,12 +1,11 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo, useEffect, useCallback } from "react"
 import Link from "next/link"
-import { format } from "date-fns"
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, parseISO } from "date-fns"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
@@ -16,7 +15,7 @@ import { Pagination } from "@/components/admin/Pagination"
 import { usePagination } from "@/hooks/usePagination"
 import { DeleteConfirmDialog } from "@/components/admin/DeleteConfirmDialog"
 import { toast } from "sonner"
-import { Search, Plus, Eye, Trash2, Loader2, Users2, AlertCircle } from "lucide-react"
+import { Search, Plus, Eye, Trash2, Loader2, Users2, AlertCircle, Calendar, Download } from "lucide-react"
 
 interface Lead {
   id: string
@@ -30,25 +29,62 @@ interface Lead {
   created_at: string
 }
 
+type DateRangePreset = "all" | "weekly" | "monthly" | "yearly" | "custom"
+
 const STATUS_COLORS: Record<string, string> = {
-  New: "bg-blue-100 text-blue-800",
+  New:       "bg-blue-100 text-blue-800",
   Contacted: "bg-yellow-100 text-yellow-800",
-  Quoted: "bg-purple-100 text-purple-800",
+  Quoted:    "bg-purple-100 text-purple-800",
   Converted: "bg-green-100 text-green-800",
 }
 
-export default function LeadsListPage() {
-  const [leads, setLeads] = useState<Lead[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [statusFilter, setStatusFilter] = useState("all")
-  const [deleteId, setDeleteId] = useState<string | null>(null)
-  const [isDeleting, setIsDeleting] = useState(false)
-  const [showAddModal, setShowAddModal] = useState(false)
-  const [addForm, setAddForm] = useState({ name: "", email: "", phone: "", message: "", source: "manual" })
-  const [isAdding, setIsAdding] = useState(false)
+function getPresetRange(preset: DateRangePreset): { from: Date | null; to: Date | null } {
+  const now = new Date()
+  if (preset === "weekly")  return { from: startOfWeek(now, { weekStartsOn: 1 }), to: endOfWeek(now, { weekStartsOn: 1 }) }
+  if (preset === "monthly") return { from: startOfMonth(now), to: endOfMonth(now) }
+  if (preset === "yearly")  return { from: startOfYear(now), to: endOfYear(now) }
+  return { from: null, to: null }
+}
 
-  // Follow-up due today or overdue
+function exportLeadsToExcel(leads: Lead[], rangeLabel: string) {
+  import("xlsx").then((XLSX) => {
+    const rows = leads.map((l) => ({
+      "Name":            l.name,
+      "Email":           l.email,
+      "Phone":           l.phone ?? "",
+      "Status":          l.status,
+      "Source":          l.source,
+      "Message":         l.message ?? "",
+      "Next Follow-up":  l.next_follow_up_date ? format(parseISO(l.next_follow_up_date), "dd/MM/yyyy") : "",
+      "Created At":      format(parseISO(l.created_at), "dd/MM/yyyy HH:mm"),
+    }))
+
+    const ws = XLSX.utils.json_to_sheet(rows)
+    ws["!cols"] = [
+      { wch: 24 }, { wch: 30 }, { wch: 16 }, { wch: 12 },
+      { wch: 14 }, { wch: 40 }, { wch: 16 }, { wch: 18 },
+    ]
+
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, "Leads")
+    XLSX.writeFile(wb, `Leads_${rangeLabel}_${format(new Date(), "yyyy-MM-dd")}.xlsx`)
+  })
+}
+
+export default function LeadsListPage() {
+  const [leads, setLeads]               = useState<Lead[]>([])
+  const [isLoading, setIsLoading]       = useState(true)
+  const [searchTerm, setSearchTerm]     = useState("")
+  const [statusFilter, setStatusFilter] = useState("all")
+  const [datePreset, setDatePreset]     = useState<DateRangePreset>("all")
+  const [customFrom, setCustomFrom]     = useState("")
+  const [customTo, setCustomTo]         = useState("")
+  const [deleteId, setDeleteId]         = useState<string | null>(null)
+  const [isDeleting, setIsDeleting]     = useState(false)
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [addForm, setAddForm]           = useState({ name: "", email: "", phone: "", message: "", source: "manual" })
+  const [isAdding, setIsAdding]         = useState(false)
+
   const followUpsDue = useMemo(() =>
     leads.filter(l => l.next_follow_up_date && l.status !== "Converted" &&
       new Date(l.next_follow_up_date) <= new Date()
@@ -72,24 +108,53 @@ export default function LeadsListPage() {
   }
 
   const filteredLeads = useMemo(() => {
+    let from: Date | null = null
+    let to: Date | null = null
+
+    if (datePreset === "custom") {
+      from = customFrom ? new Date(customFrom + "T00:00:00") : null
+      to   = customTo   ? new Date(customTo   + "T23:59:59.999") : null
+    } else if (datePreset !== "all") {
+      ;({ from, to } = getPresetRange(datePreset))
+    }
+
     return leads.filter(l => {
       const matchesSearch =
         l.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         l.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (l.phone && l.phone.includes(searchTerm))
+
       const matchesStatus = statusFilter === "all" || l.status === statusFilter
-      return matchesSearch && matchesStatus
+
+      const createdAt = new Date(l.created_at)
+      const matchesDate =
+        (!from || createdAt >= from) &&
+        (!to   || createdAt <= to)
+
+      return matchesSearch && matchesStatus && matchesDate
     })
-  }, [leads, searchTerm, statusFilter])
+  }, [leads, searchTerm, statusFilter, datePreset, customFrom, customTo])
+
+  const rangeLabel = useMemo(() => {
+    if (datePreset === "weekly")  return "Weekly"
+    if (datePreset === "monthly") return "Monthly"
+    if (datePreset === "yearly")  return "Yearly"
+    if (datePreset === "custom" && customFrom && customTo) return `${customFrom}_to_${customTo}`
+    return "All"
+  }, [datePreset, customFrom, customTo])
 
   const { currentPage, totalPages, goToPage, startIndex, endIndex, itemsPerPage } = usePagination({
     totalItems: filteredLeads.length,
     itemsPerPage: 10,
   })
 
-  useEffect(() => { goToPage(1) }, [searchTerm, statusFilter, goToPage])
+  useEffect(() => { goToPage(1) }, [searchTerm, statusFilter, datePreset, customFrom, customTo, goToPage])
 
   const currentLeads = filteredLeads.slice(startIndex, endIndex)
+
+  const handleExport = useCallback(() => {
+    exportLeadsToExcel(filteredLeads, rangeLabel)
+  }, [filteredLeads, rangeLabel])
 
   const handleDelete = async () => {
     if (!deleteId) return
@@ -163,8 +228,8 @@ export default function LeadsListPage() {
       )}
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
+      <div className="flex flex-wrap gap-3 items-center">
+        <div className="relative flex-1 min-w-48">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             placeholder="Search by name, email or phone..."
@@ -173,9 +238,10 @@ export default function LeadsListPage() {
             className="pl-9"
           />
         </div>
+
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-full sm:w-44">
-            <SelectValue placeholder="Status" />
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder="All Statuses" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Statuses</SelectItem>
@@ -185,7 +251,53 @@ export default function LeadsListPage() {
             <SelectItem value="Converted">Converted</SelectItem>
           </SelectContent>
         </Select>
+
+        <Select value={datePreset} onValueChange={(v) => setDatePreset(v as DateRangePreset)}>
+          <SelectTrigger className="w-44">
+            <Calendar className="w-4 h-4 mr-2 shrink-0" />
+            <SelectValue placeholder="All Time" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Time</SelectItem>
+            <SelectItem value="weekly">This Week</SelectItem>
+            <SelectItem value="monthly">This Month</SelectItem>
+            <SelectItem value="yearly">This Year</SelectItem>
+            <SelectItem value="custom">Custom Range</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Button
+          variant="outline"
+          onClick={handleExport}
+          disabled={filteredLeads.length === 0}
+          className="flex items-center gap-2"
+        >
+          <Download className="w-4 h-4" />
+          Export Excel
+        </Button>
       </div>
+
+      {/* Custom date range */}
+      {datePreset === "custom" && (
+        <div className="flex flex-wrap gap-3 items-center p-3 bg-accent/10 rounded-lg border border-border">
+          <span className="text-sm font-medium text-muted-foreground">From:</span>
+          <Input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} className="w-40" />
+          <span className="text-sm font-medium text-muted-foreground">To:</span>
+          <Input type="date" value={customTo}   onChange={e => setCustomTo(e.target.value)}   className="w-40" />
+          {(customFrom || customTo) && (
+            <Button variant="ghost" size="sm" onClick={() => { setCustomFrom(""); setCustomTo("") }}>Clear</Button>
+          )}
+        </div>
+      )}
+
+      {/* Results summary */}
+      {(datePreset !== "all" || statusFilter !== "all") && (
+        <p className="text-sm text-muted-foreground">
+          Showing <span className="font-semibold text-foreground">{filteredLeads.length}</span> lead{filteredLeads.length !== 1 ? "s" : ""}
+          {datePreset !== "all" && <> · <span className="font-semibold text-foreground">{rangeLabel}</span></>}
+          {statusFilter !== "all" && <> · Status: <span className="font-semibold text-foreground">{statusFilter}</span></>}
+        </p>
+      )}
 
       {/* Table */}
       <Card>
@@ -201,9 +313,9 @@ export default function LeadsListPage() {
             <EmptyState
               icon={Users2}
               title="No leads found"
-              description={searchTerm || statusFilter !== "all" ? "Try adjusting your filters." : "Leads from the contact form will appear here."}
-              actionLabel={searchTerm || statusFilter !== "all" ? "Clear Filters" : undefined}
-              onAction={() => { setSearchTerm(""); setStatusFilter("all") }}
+              description={searchTerm || statusFilter !== "all" || datePreset !== "all" ? "Try adjusting your filters." : "Leads from the contact form will appear here."}
+              actionLabel={searchTerm || statusFilter !== "all" || datePreset !== "all" ? "Clear Filters" : undefined}
+              onAction={() => { setSearchTerm(""); setStatusFilter("all"); setDatePreset("all"); setCustomFrom(""); setCustomTo("") }}
             />
           ) : (
             <>
@@ -233,13 +345,10 @@ export default function LeadsListPage() {
                         )}
                       </div>
                       <Button size="sm" variant="outline" asChild>
-                        <Link href={`/admin/crm/leads/${lead.id}`}>
-                          <Eye className="w-4 h-4" />
-                        </Link>
+                        <Link href={`/admin/crm/leads/${lead.id}`}><Eye className="w-4 h-4" /></Link>
                       </Button>
                       <Button
-                        size="sm"
-                        variant="outline"
+                        size="sm" variant="outline"
                         className="text-destructive hover:text-destructive"
                         onClick={() => setDeleteId(lead.id)}
                       >

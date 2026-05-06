@@ -366,19 +366,26 @@ export default function GRNPage() {
       .filter(Boolean);
 
     const parsed: GRNRow[] = lines.map((line) => {
-      const leadingQty = line.match(/^(\d+)\s+(.+)/);
-      const trailingX = line.match(/^(.+?)\s+[xX](\d+)$/);
-      const trailingQty = line.match(/^(.+?)\s+(\d+)$/);
+      // Strip any leading numeric table columns (pallets / boxes / m2 / size etc.)
+      // before attempting quantity extraction.
+      // e.g. "1 36 216 38,88 30 X 60 Composición JUNGLE DARK Set x6 ST E 125"
+      //   → "Composición JUNGLE DARK Set x6"
+      const stripped = line.replace(/^([\d.,]+\s+)+/, "").trim() || line;
+
+      const trailingX = stripped.match(/^(.+?)\s+[xX](\d+)$/);
+      const trailingQty = stripped.match(/^(.+?)\s+(\d+)$/);
+      // Only use a single leading digit as quantity (not multi-column table data)
+      const leadingQty = stripped.match(/^(\d{1,3})\s+([A-Za-zÀ-ž].+)/);
 
       let qty = 1;
-      let name = line;
+      let name = stripped;
 
-      if (leadingQty) {
-        qty = parseInt(leadingQty[1], 10);
-        name = leadingQty[2].trim();
-      } else if (trailingX) {
+      if (trailingX) {
         name = trailingX[1].trim();
         qty = parseInt(trailingX[2], 10);
+      } else if (leadingQty) {
+        qty = parseInt(leadingQty[1], 10);
+        name = leadingQty[2].trim();
       } else if (trailingQty) {
         name = trailingQty[1].trim();
         qty = parseInt(trailingQty[2], 10);

@@ -18,6 +18,7 @@ export type ProductCardProduct = Pick<Product, "id" | "name" | "slug" | "price" 
 
 interface ProductCardProps {
     product: ProductCardProduct
+    priority?: boolean
 }
 
 function withImageWidth(url: string | null | undefined, width = 300): string {
@@ -36,7 +37,7 @@ function withImageWidth(url: string | null | undefined, width = 300): string {
     }
 }
 
-export const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
+export const ProductCard = memo(function ProductCard({ product, priority = false }: ProductCardProps) {
 
     const { isInWishlist, user } = useStore()
     const setCartCount = useStore((state) => state.setCartCount)
@@ -189,7 +190,8 @@ export const ProductCard = memo(function ProductCard({ product }: ProductCardPro
                         fill
                         className="object-cover transition-transform duration-500 group-hover:scale-110"
                         sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
-                        loading="lazy"
+                        loading={priority ? "eager" : "lazy"}
+                        priority={priority}
                         unoptimized
                     />
                     <div className="absolute top-2 right-2">

@@ -11,6 +11,7 @@ yarn.lock
 yarn-error.log
 
 # Next.js
+.claude/
 .next/
 out/
 next-env.d.ts

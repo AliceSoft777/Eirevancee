@@ -153,6 +153,7 @@ export function QuotationBuilder({
         amount: product.price || 0,
         vat_rate: vatRate,
         vat_amount: (product.price || 0) * (vatRate / 100),
+        image_url: product.image || null,
       };
       setItems([...items, newItem]);
     }
@@ -384,21 +385,26 @@ export function QuotationBuilder({
           {/* Discount Section */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
             <div className="flex items-center gap-3">
-              <input
-                type="checkbox"
-                id="discount_enabled"
-                checked={formData.discount_enabled}
-                onChange={(e) => {
+              <div
+                onClick={() =>
                   setFormData((prev) => ({
                     ...prev,
-                    discount_enabled: e.target.checked,
-                    discount_percentage: e.target.checked
-                      ? prev.discount_percentage
-                      : 0,
-                  }));
-                }}
-                className="w-4 h-4 rounded cursor-pointer"
-              />
+                    discount_enabled: !prev.discount_enabled,
+                    discount_percentage: !prev.discount_enabled ? prev.discount_percentage : 0,
+                  }))
+                }
+                className={`w-4 h-4 flex items-center justify-center cursor-pointer transition-all duration-200 ${
+                  formData.discount_enabled
+                    ? "bg-primary shadow-[inset_2px_2px_4px_rgba(0,0,0,0.2),inset_-2px_-2px_4px_rgba(255,255,255,0.1)]"
+                    : "bg-[#E5E9F0] shadow-[2px_2px_4px_rgba(0,0,0,0.1),-2px_-2px_4px_rgba(255,255,255,0.9)]"
+                }`}
+              >
+                {formData.discount_enabled && (
+                  <svg className="w-2.5 h-2.5 text-white" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" viewBox="0 0 24 24" stroke="currentColor">
+                    <path d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </div>
               <Label
                 htmlFor="discount_enabled"
                 className="cursor-pointer font-semibold"
@@ -497,8 +503,8 @@ export function QuotationBuilder({
               Search for products above to build the quote.
             </div>
           ) : (
-            <div className="border rounded-md overflow-x-auto">
-              <table className="w-full text-sm text-left">
+            <div className="border rounded-md overflow-x-auto overflow-y-visible">
+              <table className="w-full text-sm text-left" style={{ overflowY: "visible" }}>
                 <thead className="text-xs text-gray-700 bg-gray-50 border-b">
                   <tr>
                     <th className="px-4 py-3 w-16 text-center">Ord</th>
@@ -610,19 +616,26 @@ export function QuotationBuilder({
                             className="min-w-[200px]"
                           />
                         </td>
-                        <td className="px-4 py-2">
+                        <td className="px-4 py-2 overflow-visible">
                           <div className="flex items-center gap-1">
-                            <input
-                              type="checkbox"
-                              checked={item.discount_percentage > 0}
-                              onChange={(e) =>
+                            <div
+                              onClick={() =>
                                 updateItem(item.id, {
-                                  discount_percentage: e.target.checked ? (item.discount_percentage || 5) : 0,
+                                  discount_percentage: item.discount_percentage > 0 ? 0 : 5,
                                 })
                               }
-                              className="w-3.5 h-3.5 cursor-pointer shrink-0"
-                              title="Enable discount"
-                            />
+                              className={`w-3.5 h-3.5 flex items-center justify-center cursor-pointer shrink-0 transition-all duration-200 ${
+                                item.discount_percentage > 0
+                                  ? "bg-primary shadow-[inset_2px_2px_4px_rgba(0,0,0,0.2),inset_-2px_-2px_4px_rgba(255,255,255,0.1)]"
+                                  : "bg-[#E5E9F0] shadow-[2px_2px_4px_rgba(0,0,0,0.1),-2px_-2px_4px_rgba(255,255,255,0.9)]"
+                              }`}
+                            >
+                              {item.discount_percentage > 0 && (
+                                <svg className="w-2 h-2 text-white" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path d="M5 13l4 4L19 7" />
+                                </svg>
+                              )}
+                            </div>
                             {item.discount_percentage > 0 && (
                               <Input
                                 type="number"
@@ -787,7 +800,7 @@ export function QuotationBuilder({
             <Button
               type="button"
               onClick={handleConfirmedSubmit}
-              disabled={isSubmitting}
+              disabled={isSubmitting}/*  */
               className="neu-raised text-white border-transparent hover:text-white"
             >
               {isSubmitting ? (

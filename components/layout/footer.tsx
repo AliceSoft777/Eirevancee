@@ -137,12 +137,18 @@ export function Footer({ categories = [] }: FooterProps) {
                 </div>
               </li>
               <li className="pt-2">
-                <Button 
+                <Button
+                  asChild
                   className="w-full bg-primary hover:bg-primary-dark text-white font-semibold tracking-wide neu-raised rounded-lg"
-                  onClick={() => window.open('https://www.google.com/maps/place/Celtic+Tiles/@53.3240536,-6.3380458,17z/data=!3m1!4b1!4m6!3m5!1s0x4867133caf418fc7:0x8584650c497326da!8m2!3d53.3240536!4d-6.3380458!16s%2Fg%2F11c5q8y8qy', '_blank')}
                 >
-                  <MapPin className="h-4 w-4 mr-2" />
-                  Find a Showroom
+                  <a
+                    href="https://www.google.com/maps/place/Celtic+Tiles/@53.3240536,-6.3380458,17z/data=!3m1!4b1!4m6!3m5!1s0x4867133caf418fc7:0x8584650c497326da!8m2!3d53.3240536!4d-6.3380458!16s%2Fg%2F11c5q8y8qy"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <MapPin className="h-4 w-4 mr-2" />
+                    Find a Showroom
+                  </a>
                 </Button>
               </li>
             </ul>

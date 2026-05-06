@@ -148,13 +148,15 @@ export function SiteHeader({
             Free Delivery on orders over €1000
           </span>
           <span className="hidden md:inline-block h-3 w-px bg-white/30" />
-          <button 
-            onClick={() => window.open('https://www.google.com/maps/place/Celtic+Tiles/@53.3240536,-6.3380458,17z/data=!3m1!4b1!4m6!3m5!1s0x4867133caf418fc7:0x8584650c497326da!8m2!3d53.3240536!4d-6.3380458!16s%2Fg%2F11c5q8y8qy', '_blank')}
-            className="flex items-center gap-2 hover:text-white/80 transition-colors cursor-pointer"
+          <a
+            href="https://www.google.com/maps/place/Celtic+Tiles/@53.3240536,-6.3380458,17z/data=!3m1!4b1!4m6!3m5!1s0x4867133caf418fc7:0x8584650c497326da!8m2!3d53.3240536!4d-6.3380458!16s%2Fg%2F11c5q8y8qy"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 hover:text-white/80 transition-colors"
           >
             <Store className="h-3 w-3" />
             Visit our Dublin Showroom
-          </button>
+          </a>
           <Link href="/contact" className="hidden sm:flex items-center gap-2 hover:text-white/80 transition-colors underline underline-offset-4">
             Get in touch
           </Link>

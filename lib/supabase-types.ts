@@ -52,6 +52,7 @@ export interface QuotationProductItem {
   amount: number;
   vat_rate: number;
   vat_amount: number;
+  image_url?: string | null;
 }
 
 export interface QuotationSectionHeader {

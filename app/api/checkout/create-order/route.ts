@@ -10,7 +10,7 @@ import {
 } from "@/lib/secure-checkout"
 import type { Database } from "@/supabase/database.types"
 
-type PaymentMethod = "card" | "offline_cash"
+type PaymentMethod = "card" | "offline_cash" | "card_instore" | "bank_transfer"
 
 interface CreateOrderRequestBody {
   stripeSessionId?: string
@@ -74,13 +74,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    const supabase = await createServerSupabase()
+
     const body = parseBody(await request.json().catch(() => null))
+    const rawMethod = (body as any).paymentMethod
     const paymentMethod: PaymentMethod =
-      body.paymentMethod === "offline_cash" ? "offline_cash" : "card"
+      rawMethod === "offline_cash" ? "offline_cash"
+      : rawMethod === "card_instore" ? "card_instore"
+      : rawMethod === "bank_transfer" ? "bank_transfer"
+      : "card"
     const stripeSessionId = cleanText(body.stripeSessionId, 255)
 
-    if (paymentMethod === "offline_cash" && session.userRole !== "admin" && session.userRole !== "sales") {
-      return NextResponse.json({ error: "Offline payment is staff-only" }, { status: 403 })
+    if ((paymentMethod === "offline_cash" || paymentMethod === "card_instore" || paymentMethod === "bank_transfer") && session.userRole !== "admin" && session.userRole !== "sales") {
+      return NextResponse.json({ error: "This payment method is staff-only" }, { status: 403 })
     }
 
     if (paymentMethod === "card" && !stripeSessionId) {
@@ -106,8 +112,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Valid email is required" }, { status: 400 })
     }
 
-    const supabase = await createServerSupabase()
-    const snapshot = await buildSecureCheckoutSnapshot(supabase, session.userId, body.couponCode)
+    const isOfflinePayment = paymentMethod === "offline_cash" || paymentMethod === "card_instore" || paymentMethod === "bank_transfer"
+    const isQuoteMode = !!(body as any).quoteId && !!(body as any).quoteSnapshot
+
+    // Quote mode: always use the passed quote snapshot — no cart lookup needed
+    const snapshot = isQuoteMode
+      ? (body as any).quoteSnapshot
+      : await buildSecureCheckoutSnapshot(supabase, session.userId, body.couponCode)
 
     let orderNumber = generateSecureOrderNumber()
 
@@ -157,8 +168,12 @@ export async function POST(request: NextRequest) {
         timestamp: new Date().toISOString(),
         updated_by: session.userName || "system",
         note:
-          paymentMethod === "offline_cash"
-            ? "Cash payment - awaiting store receipt"
+      paymentMethod === "offline_cash"
+            ? "Cash payment - paid in store"
+            : paymentMethod === "card_instore"
+            ? "Card payment - paid via in-store machine"
+            : paymentMethod === "bank_transfer"
+            ? "Bank transfer - payment received"
             : "Card payment - awaiting verification",
       },
     ]
@@ -203,8 +218,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error?.message || "Failed to create order" }, { status: 500 })
     }
 
-    if (paymentMethod === "offline_cash") {
-      // Offline flow finalizes immediately, so stock deduction happens here on server.
+    if (paymentMethod === "offline_cash" || paymentMethod === "card_instore" || paymentMethod === "bank_transfer") {
       await deductStockForOrderItems(supabase, snapshot.items)
     }
 

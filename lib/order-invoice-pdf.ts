@@ -49,89 +49,194 @@ function safeNumber(value: unknown): number {
   return Number.isFinite(num) ? num : 0
 }
 
+function formatPaymentMethod(method: string | null): string {
+  if (!method) return "Card Payment"
+  if (method === "offline_cash") return "Cash on Collection"
+  if (method === "card_instore") return "Card - In Store"
+  if (method === "bank_transfer") return "Bank Transfer"
+  return "Card Payment"
+}
+
+// Fixed heights
+const PAGE_H = 297
+const PAGE_W = 210
+const MARGIN = 14
+const FOOTER_H = 52   // height reserved for the 3 boxes + red bar
+const FOOTER_TOP = PAGE_H - FOOTER_H - 6  // Y where footer starts
+
+function drawHeader(doc: jsPDF, logoDataUri: string | null, order: InvoiceOrderData) {
+  // Logo + company info
+  if (logoDataUri) {
+    doc.addImage(logoDataUri, "PNG", MARGIN, 10, 38, 16)
+  } else {
+    doc.setFont("helvetica", "bold")
+    doc.setFontSize(14)
+    doc.text("CELTIC TILES", MARGIN, 18)
+  }
+
+  doc.setFont("helvetica", "normal")
+  doc.setFontSize(8)
+  doc.text("Celtic Tiles Ltd", 54, 14)
+  doc.text("Unit D3 Finches industrial Park", 54, 18)
+  doc.text("Longmile Road Dublin12 D12FP74", 54, 22)
+
+  doc.setFont("helvetica", "bold")
+  doc.setFontSize(22)
+  doc.text("Invoice", PAGE_W - MARGIN, 20, { align: "right" })
+
+  // Name/Address + Ship To boxes
+  const boxY = 32
+  const boxH = 34
+  const boxW = (PAGE_W - MARGIN * 2 - 6) / 2
+
+  doc.setDrawColor(0)
+  doc.setLineWidth(0.3)
+  doc.rect(MARGIN, boxY, boxW, boxH)
+  doc.rect(MARGIN + boxW + 6, boxY, boxW, boxH)
+
+  doc.setFont("helvetica", "bold")
+  doc.setFontSize(9)
+  doc.text("Name/Address", MARGIN + 2, boxY + 5)
+  doc.text("Ship To", MARGIN + boxW + 8, boxY + 5)
+
+  doc.setLineWidth(0.2)
+  doc.line(MARGIN, boxY + 7, MARGIN + boxW, boxY + 7)
+  doc.line(MARGIN + boxW + 6, boxY + 7, MARGIN + boxW * 2 + 6, boxY + 7)
+
+  doc.setFont("helvetica", "normal")
+  doc.setFontSize(8)
+  const addr = order.delivery_address
+  const addrLines = [
+    order.customer_name,
+    addr?.street || "",
+    [addr?.city, addr?.state].filter(Boolean).join(", "),
+    [addr?.pincode, addr?.country].filter(Boolean).join(" "),
+  ].filter(Boolean)
+  doc.text(addrLines, MARGIN + 2, boxY + 12)
+
+  doc.text(order.customer_name || "", MARGIN + boxW + 8, boxY + 12)
+  doc.text(formatPaymentMethod(order.payment_method), MARGIN + boxW + 8, boxY + 19)
+
+  // Meta row
+  const metaY = boxY + boxH + 6
+  doc.setFont("helvetica", "bold")
+  doc.setFontSize(7.5)
+  const cols = [MARGIN, 50, 88, 120, 155]
+  const labels = ["Inv No.", "Tax Date", "Cust. Order No.", "Sales Rep", "Delivery/Collection"]
+  labels.forEach((lbl, i) => doc.text(lbl, cols[i], metaY))
+
+  doc.setFont("helvetica", "normal")
+  const delivery = order.payment_method === "offline_cash" || order.payment_method === "card_instore"
+    ? "Collection"
+    : "Delivery"
+  const values = [
+    order.order_number,
+    format(new Date(order.created_at), "dd/MM/yyyy"),
+    order.order_number,
+    "WEB",
+    delivery,
+  ]
+  values.forEach((val, i) => doc.text(val, cols[i], metaY + 5))
+
+  return metaY + 10  // Y where the table should start
+}
+
+function drawFooter(doc: jsPDF, order: InvoiceOrderData, pageNum: number, totalPages: number) {
+  const ph = doc.internal.pageSize.getHeight()
+  const pw = doc.internal.pageSize.getWidth()
+  const fTop = ph - FOOTER_H - 2
+
+  const bW1 = 74, bW2 = 45, bW3 = 54, gap = 5
+  const bH = 34
+
+  doc.setDrawColor(0)
+  doc.setLineWidth(0.3)
+
+  // Box 1 — Banking Details
+  doc.rect(MARGIN, fTop, bW1, bH)
+  doc.setFont("helvetica", "bold")
+  doc.setFontSize(8)
+  doc.text("Banking Details:", MARGIN + 2, fTop + 5)
+  doc.setFont("helvetica", "normal")
+  doc.text(["AIB", "Sort Code: 932515", "Account No: 97805024"], MARGIN + 2, fTop + 10)
+
+  // Box 2 — Signature
+  doc.rect(MARGIN + bW1 + gap, fTop, bW2, bH)
+  doc.setFont("helvetica", "bold")
+  doc.text("Signature", MARGIN + bW1 + gap + 5, fTop + 5)
+
+  // Box 3 — Totals (only on last page)
+  const box3X = pw - MARGIN - bW3
+  doc.rect(box3X, fTop, bW3, bH)
+
+  const subtotal = safeNumber(order.subtotal) || Math.max(0, safeNumber(order.total) - safeNumber(order.tax) - safeNumber(order.shipping_fee))
+  const lines: [string, string][] = [
+    ["Subtotal", `€${subtotal.toFixed(2)}`],
+    ["VAT Total", `€${safeNumber(order.tax).toFixed(2)}`],
+  ]
+  if (safeNumber(order.discount) > 0) lines.push(["Discount", `-€${safeNumber(order.discount).toFixed(2)}`])
+  if (safeNumber(order.shipping_fee) > 0) lines.push(["Shipping", `€${safeNumber(order.shipping_fee).toFixed(2)}`])
+  lines.push(["Total", `€${safeNumber(order.total).toFixed(2)}`])
+
+  doc.setFontSize(8)
+  let ly = fTop + 5
+  for (const [label, value] of lines) {
+    doc.setFont("helvetica", label === "Total" ? "bold" : "normal")
+    doc.text(label, box3X + 2, ly)
+    doc.text(value, pw - MARGIN - 2, ly, { align: "right" })
+    ly += 6
+  }
+
+  // Payment method line below boxes
+  const pmY = fTop + bH + 3
+  doc.setFont("helvetica", "normal")
+  doc.setFontSize(7)
+  doc.setTextColor(0, 0, 0)
+  doc.text(
+    format(new Date(order.created_at), "dd/MM/yyyy HH:mm:ss"),
+    pw / 2, pmY, { align: "center" }
+  )
+  doc.text(`Page ${pageNum} of ${totalPages}`, pw - MARGIN, pmY, { align: "right" })
+
+  // Red footer bar
+  const barY = ph - 10
+  doc.setFillColor(136, 17, 33)
+  doc.rect(MARGIN, barY, pw - MARGIN * 2, 8, "F")
+  doc.setTextColor(255, 255, 255)
+  doc.setFontSize(6.5)
+  doc.text(
+    "Phone:+35314090558  Cell:+353870007777  Email:info@celtictiles.ie  Website:https://www.celtictiles.ie",
+    MARGIN + 2, barY + 3.5
+  )
+  doc.text("VAT Reg. No.:4047335JH  Company Reg No.:725840", MARGIN + 2, barY + 6.5)
+  doc.setTextColor(0, 0, 0)
+}
+
 export async function generateOrderInvoicePdfBuffer(order: InvoiceOrderData): Promise<Buffer> {
   const doc = new jsPDF({ unit: "mm", format: "a4" })
-  const pageWidth = doc.internal.pageSize.getWidth()
-  const pageHeight = doc.internal.pageSize.getHeight()
-
   const logoDataUri = await loadLogoDataUri()
 
   doc.setFont("helvetica", "normal")
 
-  if (logoDataUri) {
-    doc.addImage(logoDataUri, "PNG", 14, 12, 38, 16)
-  } else {
-    doc.setFontSize(14)
-    doc.setFont("helvetica", "bold")
-    doc.text("CELTIC TILES", 14, 18)
-  }
+  // --- Page 1 header ---
+  const tableStartY = drawHeader(doc, logoDataUri, order)
 
-  doc.setFontSize(8)
-  doc.setFont("helvetica", "normal")
-  doc.text("Celtic Tiles Ltd", 54, 15)
-  doc.text("Unit D3 Finches industrial Park", 54, 19)
-  doc.text("Longmile Road Dublin12 D12FP74", 54, 23)
-
-  doc.setFont("helvetica", "bold")
-  doc.setFontSize(18)
-  doc.text("Invoice", pageWidth - 14, 20, { align: "right" })
-
-  const boxY = 38
-  const boxH = 32
-
-  doc.setDrawColor(0)
-  doc.setLineWidth(0.3)
-  doc.rect(14, boxY, 88, boxH)
-  doc.rect(pageWidth - 102, boxY, 88, boxH)
-
-  doc.setFont("helvetica", "bold")
-  doc.setFontSize(9)
-  doc.text("Name/Address", 16, boxY + 5)
-  doc.text("Ship To", pageWidth - 100, boxY + 5)
-
-  doc.setLineWidth(0.2)
-  doc.line(14, boxY + 7, 102, boxY + 7)
-  doc.line(pageWidth - 102, boxY + 7, pageWidth - 14, boxY + 7)
-
-  doc.setFont("helvetica", "normal")
-  doc.setFontSize(8)
-  const addressLines = [
-    order.customer_name,
-    order.delivery_address?.street || "",
-    [order.delivery_address?.city, order.delivery_address?.state].filter(Boolean).join(", "),
-    [order.delivery_address?.pincode, order.delivery_address?.country].filter(Boolean).join(" "),
-  ].filter(Boolean)
-  doc.text(addressLines.slice(0, 4), 16, boxY + 12)
-
-  doc.text(order.customer_name || "", pageWidth - 100, boxY + 12)
-  doc.text(order.payment_method === "offline_cash" ? "Cash on Collection" : "Card Payment", pageWidth - 100, boxY + 20)
-
-  const metaY = boxY + boxH + 9
-  doc.setFont("helvetica", "bold")
-  doc.setFontSize(7.5)
-  doc.text("Inv No.", 14, metaY)
-  doc.text("Tax Date", 44, metaY)
-  doc.text("Cust. Order No.", 74, metaY)
-  doc.text("Sales Rep", 114, metaY)
-  doc.text("Delivery/Collection", 142, metaY)
-
-  doc.setFont("helvetica", "normal")
-  doc.text(order.order_number, 14, metaY + 4)
-  doc.text(format(new Date(order.created_at), "dd/MM/yyyy"), 44, metaY + 4)
-  doc.text(order.order_number, 74, metaY + 4)
-  doc.text("WEB", 114, metaY + 4)
-  doc.text(order.payment_method === "offline_cash" ? "Collection" : "Delivery", 142, metaY + 4)
-
-  const vatRate = order.total > 0 && order.tax > 0 ? Math.round((order.tax / Math.max(order.total - order.tax, 1)) * 10000) / 100 : 0
+  const vatRate =
+    safeNumber(order.total) > 0 && safeNumber(order.tax) > 0
+      ? Math.round((safeNumber(order.tax) / Math.max(safeNumber(order.total) - safeNumber(order.tax), 1)) * 10000) / 100
+      : 0
 
   const rows = order.items.map((item) => {
     const qty = safeNumber(item.quantity)
     const unitPrice = safeNumber(item.unit_price)
     const amount = safeNumber(item.subtotal)
     const vat = vatRate > 0 ? amount * (vatRate / 100) : 0
+    // Use product_id only if it looks like a real SKU (not a UUID)
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    const code = uuidPattern.test(item.product_id ?? "") ? "-" : (item.product_id || "-")
     return [
       qty.toFixed(2),
-      item.product_id || "-",
+      code,
       item.product_name || "-",
       `€${unitPrice.toFixed(2)}`,
       `€${amount.toFixed(2)}`,
@@ -139,12 +244,13 @@ export async function generateOrderInvoicePdfBuffer(order: InvoiceOrderData): Pr
     ]
   })
 
+  // Table — stops before footer zone
   autoTable(doc, {
-    startY: metaY + 7,
+    startY: tableStartY,
     head: [["Total Qty", "Code", "Description", "Unit Price", "Amount", "VAT"]],
     body: rows,
     theme: "plain",
-    styles: { fontSize: 8, cellPadding: 1.5 },
+    styles: { fontSize: 8, cellPadding: 1.8, overflow: "linebreak" },
     headStyles: {
       textColor: [0, 0, 0],
       fillColor: [255, 255, 255],
@@ -153,67 +259,31 @@ export async function generateOrderInvoicePdfBuffer(order: InvoiceOrderData): Pr
       lineWidth: { top: 0.4, bottom: 0.4, left: 0, right: 0 },
     },
     columnStyles: {
-      0: { cellWidth: 18 },
-      1: { cellWidth: 24 },
+      0: { cellWidth: 16 },
+      1: { cellWidth: 20 },
       2: { cellWidth: 74 },
-      3: { cellWidth: 25, halign: "right" },
-      4: { cellWidth: 25, halign: "right" },
-      5: { cellWidth: 20, halign: "right" },
+      3: { cellWidth: 24, halign: "right" },
+      4: { cellWidth: 24, halign: "right" },
+      5: { cellWidth: 24, halign: "right" },
+    },
+    // Stop the table before the footer zone on every page
+    // margin.top = header height so continuation pages start below redrawn header
+    margin: { top: tableStartY, bottom: FOOTER_H + 10, left: MARGIN, right: MARGIN },
+    didDrawPage: (data) => {
+      if (data.pageNumber > 1) {
+        const newStartY = drawHeader(doc, logoDataUri, order)
+        // Push the cursor down so table rows don't overlap header
+        ;(data.cursor as any).y = newStartY
+      }
     },
   })
 
-  const tableY = (doc as unknown as { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY ?? 180
-  const summaryTop = Math.min(tableY + 8, pageHeight - 52)
-
-  doc.setDrawColor(0)
-  doc.setLineWidth(0.3)
-  doc.rect(14, summaryTop, 74, 34)
-  doc.rect(91, summaryTop, 45, 34)
-  doc.rect(pageWidth - 68, summaryTop, 54, 34)
-
-  doc.setFont("helvetica", "bold")
-  doc.setFontSize(8)
-  doc.text("Banking Details:", 16, summaryTop + 5)
-  doc.setFont("helvetica", "normal")
-  doc.text(["AIB", "Sort Code: 932515", "Account No: 97805024"], 16, summaryTop + 10)
-
-  doc.setFont("helvetica", "bold")
-  doc.text("Signature", 98, summaryTop + 5)
-
-  const subtotal = Math.max(0, order.total - order.tax - order.shipping_fee)
-  const lines = [
-    ["Subtotal", `€${subtotal.toFixed(2)}`],
-    ["VAT Total", `€${safeNumber(order.tax).toFixed(2)}`],
-  ]
-  if (safeNumber(order.discount) > 0) {
-    lines.push(["Discount", `-€${safeNumber(order.discount).toFixed(2)}`])
+  // Count total pages and draw footer on every page
+  const totalPages = (doc as any).internal.getNumberOfPages()
+  for (let p = 1; p <= totalPages; p++) {
+    doc.setPage(p)
+    drawFooter(doc, order, p, totalPages)
   }
-  if (safeNumber(order.shipping_fee) > 0) {
-    lines.push(["Shipping", `€${safeNumber(order.shipping_fee).toFixed(2)}`])
-  }
-  lines.push(["Total", `€${safeNumber(order.total).toFixed(2)}`])
-
-  doc.setFont("helvetica", "bold")
-  doc.setFontSize(8)
-  let lineY = summaryTop + 5
-  for (const [label, value] of lines) {
-    doc.text(label, pageWidth - 66, lineY)
-    doc.text(value, pageWidth - 16, lineY, { align: "right" })
-    lineY += 6
-  }
-
-  doc.setFont("helvetica", "normal")
-  doc.setFontSize(7)
-  doc.text(format(new Date(order.created_at), "dd/MM/yyyy HH:mm"), pageWidth / 2, pageHeight - 12, { align: "center" })
-  doc.text("Page 1 of 1", pageWidth - 14, pageHeight - 12, { align: "right" })
-
-  doc.setFillColor(136, 17, 33)
-  doc.rect(14, pageHeight - 10, pageWidth - 28, 8, "F")
-  doc.setTextColor(255, 255, 255)
-  doc.setFontSize(7)
-  doc.text("Phone:+35314090558 Cell:+353870007777 Email:info@celtictiles.ie Website:https://www.celtictiles.ie", 16, pageHeight - 6.5)
-  doc.text("VAT Reg. No.:4047335JH Company Reg No.:725840", 16, pageHeight - 3.5)
-  doc.setTextColor(0, 0, 0)
 
   const arrayBuffer = doc.output("arraybuffer")
   return Buffer.from(arrayBuffer)

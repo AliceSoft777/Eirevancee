@@ -4,9 +4,6 @@ import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowRight } from "lucide-react";
-import { convertQuotationToOrder } from "@/lib/quotation-actions";
-import { toast } from "sonner";
-import { useState } from "react";
 import Link from "next/link";
 import type { Quotation } from "@/lib/supabase-types";
 
@@ -15,18 +12,31 @@ interface QuotationViewerProps {
 }
 
 export function QuotationViewer({ quotation }: QuotationViewerProps) {
-  const [isConverting, setIsConverting] = useState(false);
-
-  const handleConvertToOrder = async () => {
-    setIsConverting(true);
-    try {
-      await convertQuotationToOrder(quotation.id);
-      toast.success("Quotation converted to order successfully!");
-    } catch (error: any) {
-      toast.error(error.message || "Failed to convert quotation to order");
-    } finally {
-      setIsConverting(false);
+  const handleConvertToSale = () => {
+    // Store quote data in sessionStorage for /quotecart page
+    const quoteData = {
+      quoteId: quotation.id,
+      quoteNumber: quotation.quote_number,
+      customerName: quotation.customer_name,
+      customerEmail: quotation.customer_email || "",
+      customerPhone: quotation.customer_phone || "",
+      items: quotation.items,
+      subtotal: quotation.subtotal,
+      total: quotation.total,
+      quoteDiscount: quotation.discount_enabled && quotation.discount_percentage
+        ? quotation.subtotal * ((quotation.discount_percentage ?? 0) / 100)
+        : 0,
+      quoteDiscountPercentage: quotation.discount_percentage ?? 0,
+      deliveryCollection: quotation.delivery_collection,
+      deliveryAddress: quotation.delivery_collection === "Delivery" ? {
+        street: [quotation.delivery_address_line1, quotation.delivery_address_line2].filter(Boolean).join(", "),
+        city: quotation.delivery_city || "",
+        state: quotation.delivery_city || "",
+        pincode: quotation.delivery_postcode || "",
+      } : undefined,
     }
+    sessionStorage.setItem("quoteCart", JSON.stringify(quoteData))
+    window.location.href = "/quotecart"
   };
 
   const statusColors: Record<string, string> = {
@@ -268,12 +278,11 @@ export function QuotationViewer({ quotation }: QuotationViewerProps) {
 
         {quotation.status === "draft" && (
           <Button
-            onClick={handleConvertToOrder}
-            disabled={isConverting}
+            onClick={handleConvertToSale}
             className="neu-raised text-white border-transparent hover:text-white"
           >
-            {isConverting ? "Converting..." : "Convert to Order"}
-            {!isConverting && <ArrowRight className="w-4 h-4 ml-2" />}
+            Convert to Sale
+            <ArrowRight className="w-4 h-4 ml-2" />
           </Button>
         )}
       </div>

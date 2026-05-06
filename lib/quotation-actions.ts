@@ -50,7 +50,7 @@ export async function searchProductsForQuote(searchQuery: string) {
   const supabase = await createServerSupabase();
   const { data, error } = await supabase
     .from("products")
-    .select("id, name, assigned_code, price, stock")
+    .select("id, name, assigned_code, price, stock, image")
     .eq("status", "active")
     .or(`assigned_code.ilike.%${searchQuery}%,name.ilike.%${searchQuery}%`)
     .limit(15);
@@ -128,15 +128,69 @@ export async function saveQuotation(
   }
 
   // Auto status update: if quote linked to a lead, update lead to 'Quoted'
+  // TASK 1: Two-way Quotation ↔ CRM connection
   const savedQuote = data as Record<string, unknown>;
-  if (isNew && savedQuote?.lead_id) {
-    await supabase.from("leads").update({ status: "Quoted" }).eq("id", savedQuote.lead_id);
-    await supabase.from("activity_logs").insert({
-      lead_id: savedQuote.lead_id,
-      action: "quote_created",
-      note: `Quote ${savedQuote.quote_number} created`,
-      performed_by: session.userId,
-    });
+
+  if (isNew) {
+    let resolvedLeadId = savedQuote?.lead_id as string | null;
+
+    if (!resolvedLeadId) {
+      // Step 1: Check by phone (unique identifier)
+      if (savedQuote?.customer_phone) {
+        const { data: leadByPhone } = await supabase
+          .from("leads")
+          .select("id")
+          .eq("phone", savedQuote.customer_phone)
+          .maybeSingle();
+        if (leadByPhone) resolvedLeadId = leadByPhone.id;
+      }
+
+      // Step 2: Fallback — check by email
+      if (!resolvedLeadId && savedQuote?.customer_email) {
+        const { data: leadByEmail } = await supabase
+          .from("leads")
+          .select("id")
+          .eq("email", savedQuote.customer_email)
+          .maybeSingle();
+        if (leadByEmail) resolvedLeadId = leadByEmail.id;
+      }
+
+      // Step 3: No existing lead — create new one
+      if (!resolvedLeadId) {
+        const { data: newLead } = await supabase
+          .from("leads")
+          .insert({
+            name: savedQuote.customer_name,
+            email: savedQuote.customer_email || "",
+            phone: savedQuote.customer_phone || null,
+            source: "quotation",
+            status: "Quoted",
+            message: `Auto-created from quote ${savedQuote.quote_number}`,
+          })
+          .select("id")
+          .single();
+        if (newLead) resolvedLeadId = newLead.id;
+      }
+
+      // Link lead_id back to the quotation
+      if (resolvedLeadId) {
+        await supabase
+          .from("quotations")
+          .update({ lead_id: resolvedLeadId })
+          .eq("id", savedQuote.id);
+      }
+    }
+
+    // Update lead status to Quoted + log activity
+    if (resolvedLeadId) {
+      await supabase.from("leads").update({ status: "Quoted" }).eq("id", resolvedLeadId);
+      await supabase.from("activity_logs").insert({
+        lead_id: resolvedLeadId,
+        action: "quote_created",
+        note: `Quote ${savedQuote.quote_number} created`,
+        performed_by: session.userId,
+      });
+    }
   }
 
   return data as unknown as Quotation;

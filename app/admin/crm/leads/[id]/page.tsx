@@ -12,7 +12,6 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
 import { ArrowLeft, Loader2, FileText, Mail, Phone, Calendar, MessageSquare, ArrowRight } from "lucide-react"
-import { convertQuotationToOrder } from "@/lib/quotation-actions"
 
 interface Lead {
   id: string
@@ -100,12 +99,35 @@ export default function LeadDetailPage() {
 
   const handleConvertToOrder = async (quotationId: string) => {
     try {
-      await convertQuotationToOrder(quotationId)
-      toast.success("Converted to order successfully!")
-      fetchQuotations()
-      fetchLead()
+      const res = await fetch(`/api/admin/quotations/${quotationId}`, { credentials: "include" })
+      if (!res.ok) throw new Error("Failed to load quotation")
+      const { quotation } = await res.json()
+
+      const quoteData = {
+        quoteId: quotation.id,
+        quoteNumber: quotation.quote_number,
+        customerName: quotation.customer_name,
+        customerEmail: quotation.customer_email || "",
+        customerPhone: quotation.customer_phone || "",
+        items: quotation.items,
+        subtotal: quotation.subtotal,
+        total: quotation.total,
+        quoteDiscount: quotation.discount_enabled && quotation.discount_percentage
+          ? quotation.subtotal * ((quotation.discount_percentage ?? 0) / 100)
+          : 0,
+        quoteDiscountPercentage: quotation.discount_percentage ?? 0,
+        deliveryCollection: quotation.delivery_collection,
+        deliveryAddress: quotation.delivery_collection === "Delivery" ? {
+          street: [quotation.delivery_address_line1, quotation.delivery_address_line2].filter(Boolean).join(", "),
+          city: quotation.delivery_city || "",
+          state: quotation.delivery_city || "",
+          pincode: quotation.delivery_postcode || "",
+        } : undefined,
+      }
+      sessionStorage.setItem("quoteCart", JSON.stringify(quoteData))
+      router.push("/quotecart")
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Failed to convert")
+      toast.error(err instanceof Error ? err.message : "Failed to load quotation")
     }
   }
 

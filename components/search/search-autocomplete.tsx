@@ -4,7 +4,6 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Search } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useSearchPlaceholderTypewriter } from "@/hooks/useSearchPlaceholderTypewriter";
 import { Input } from "@/components/ui/input";
 import { formatPrice } from "@/lib/utils";
@@ -15,8 +14,6 @@ interface SearchProduct {
   slug: string;
   price: number;
   image: string | null;
-  category_id: string | null;
-  categories?: { name: string } | null;
 }
 
 interface SearchCategory {
@@ -30,7 +27,6 @@ interface SearchAutocompleteProps {
 }
 
 export function SearchAutocomplete({ onSearch }: SearchAutocompleteProps) {
-  const supabase = getSupabaseBrowserClient();
   const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState<SearchProduct[]>([]);
   const [categories, setCategories] = useState<SearchCategory[]>([]);
@@ -93,46 +89,24 @@ export function SearchAutocomplete({ onSearch }: SearchAutocompleteProps) {
 
     setIsLoading(true);
     try {
-      // Search products — use `as any` casting consistent with all other Supabase queries
-      const { data: productsData, error: productsError } = await (supabase
-        .from("products") as any)
-        .select("id, name, slug, price, image, category_id, categories(name)")
-        .ilike("name", `%${searchQuery}%`)
-        .limit(6);
-
-      if (productsError) {
-        console.error("Supabase products search error:", productsError);
-        throw productsError;
-      }
-
-      // Search categories
-      const { data: categoriesData, error: categoriesError } = await (supabase
-        .from("categories") as any)
-        .select("id, name, slug")
-        .ilike("name", `%${searchQuery}%`)
-        .limit(4);
-
-      if (categoriesError) {
-        console.error("Supabase categories search error:", categoriesError);
-        throw categoriesError;
-      }
-
-      setSuggestions(productsData || []);
-      setCategories(categoriesData || []);
-      // Always open dropdown when user has typed - show results or "no results" message
+      const res = await fetch(`/api/search?q=${encodeURIComponent(searchQuery)}`, {
+        signal: abortControllerRef.current!.signal,
+      });
+      if (!res.ok) throw new Error("Search failed");
+      const { products, categories: cats } = await res.json();
+      setSuggestions(products);
+      setCategories(cats);
       setIsOpen(true);
       setSelectedIndex(-1);
     } catch (err: any) {
-      // Silently ignore AbortError
-      if (err?.name === 'AbortError') return;
-      console.error("Search error:", err);
+      if (err?.name === "AbortError") return;
       setSuggestions([]);
       setCategories([]);
-      setIsOpen(true); // Still show dropdown with "no results" on error
+      setIsOpen(true);
     } finally {
       setIsLoading(false);
     }
-  }, [supabase]);
+  }, []);
 
   // Debounced search effect
   useEffect(() => {
@@ -327,11 +301,6 @@ export function SearchAutocomplete({ onSearch }: SearchAutocompleteProps) {
                             <div className="text-sm font-medium text-foreground truncate">
                               {product.name}
                             </div>
-                            {product.categories?.name && (
-                              <div className="text-xs text-muted-foreground">
-                                in {product.categories.name}
-                              </div>
-                            )}
                           </div>
                           
                           {/* Price */}

@@ -1,65 +1,82 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { createServerSupabase } from "@/lib/supabase/server"
 import { getServerSession } from "@/lib/loaders"
+import { generateOrderInvoicePdfBuffer } from "@/lib/order-invoice-pdf"
+import type { Json } from "@/supabase/database.types"
 
-type InvoiceRow = {
-  id: string
-  user_id: string | null
-  customer_id: string
-  invoice_file_id: string | null
-  order_number: string
+function normalizeItems(raw: Json) {
+  if (!Array.isArray(raw)) return []
+  return raw
+    .filter((i): i is Record<string, unknown> => !!i && typeof i === "object" && !Array.isArray(i))
+    .map((i) => ({
+      product_id: String(i.product_id ?? i.sku ?? ""),
+      product_name: String(i.product_name ?? i.name ?? i.description ?? "Item"),
+      quantity: Number(i.quantity ?? 0),
+      unit_price: Number(i.unit_price ?? i.price ?? 0),
+      subtotal: Number(i.subtotal ?? i.amount ?? Number(i.unit_price ?? 0) * Number(i.quantity ?? 0)),
+    }))
+    .filter((i) => i.quantity > 0)
 }
 
-export async function GET(_: Request, context: { params: Promise<{ id: string }> }) {
+function normalizeAddress(raw: Json) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null
+  const s = raw as Record<string, unknown>
+  return {
+    street: String(s.street ?? ""),
+    city: String(s.city ?? ""),
+    state: String(s.state ?? ""),
+    pincode: String(s.pincode ?? ""),
+    country: String(s.country ?? "Ireland"),
+  }
+}
+
+export async function GET(
+  _req: NextRequest,
+  props: { params: Promise<{ id: string }> }
+) {
   try {
     const session = await getServerSession()
-    if (!session.userId) {
+    if (!session.userId || (session.userRole !== "admin" && session.userRole !== "sales")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { id } = await context.params
+    const { id } = await props.params
     const supabase = await createServerSupabase()
-    const { data, error } = await supabase
+
+    const { data: order, error } = await supabase
       .from("orders")
-      .select("id, user_id, customer_id, invoice_file_id, order_number")
+      .select("id, order_number, customer_name, customer_email, payment_method, created_at, subtotal, tax, discount, shipping_fee, total, items, delivery_address")
       .eq("id", id)
       .maybeSingle()
 
-    if (error || !data) {
+    if (error || !order) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 })
     }
 
-    const order = data as InvoiceRow
-    const isStaff = session.userRole === "admin" || session.userRole === "sales"
-    const isOwner = order.user_id === session.userId || order.customer_id === session.userId
-    if (!isStaff && !isOwner) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    }
-
-    if (!order.invoice_file_id) {
-      return NextResponse.json({ error: "Invoice not available" }, { status: 404 })
-    }
-
-    const signed = await supabase.storage
-      .from("uploads")
-      .createSignedUrl(order.invoice_file_id, 60 * 15)
-
-    if (signed.error || !signed.data?.signedUrl) {
-      const publicData = supabase.storage
-        .from("uploads")
-        .getPublicUrl(order.invoice_file_id)
-
-      return NextResponse.json({
-        url: publicData.data.publicUrl,
-        fileName: `${order.order_number}.pdf`,
-      })
-    }
-
-    return NextResponse.json({
-      url: signed.data.signedUrl,
-      fileName: `${order.order_number}.pdf`,
+    const pdfBuffer = await generateOrderInvoicePdfBuffer({
+      order_number: order.order_number,
+      created_at: order.created_at,
+      customer_name: order.customer_name,
+      payment_method: order.payment_method,
+      subtotal: Number(order.subtotal ?? 0),
+      tax: Number(order.tax ?? 0),
+      discount: Number(order.discount ?? 0),
+      shipping_fee: Number(order.shipping_fee ?? 0),
+      total: Number(order.total ?? 0),
+      items: normalizeItems(order.items as Json),
+      delivery_address: normalizeAddress(order.delivery_address as Json),
     })
-  } catch {
-    return NextResponse.json({ error: "Failed to fetch invoice" }, { status: 500 })
+
+    return new NextResponse(pdfBuffer, {
+      status: 200,
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="${order.order_number}.pdf"`,
+        "Content-Length": String(pdfBuffer.length),
+      },
+    })
+  } catch (err) {
+    console.error("[invoice] error:", err)
+    return NextResponse.json({ error: "Failed to generate invoice" }, { status: 500 })
   }
 }

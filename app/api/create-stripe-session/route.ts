@@ -6,6 +6,14 @@ import { buildSecureCheckoutSnapshot, generateSecureOrderNumber } from "@/lib/se
 
 interface CreateStripeSessionBody {
   couponCode?: string | null
+  quoteId?: string | null
+  quoteSnapshot?: {
+    total: number
+    items: any[]
+    subtotal: number
+    discount: number
+    coupon_code: string | null
+  } | null
 }
 
 function parseBody(body: unknown): CreateStripeSessionBody {
@@ -30,10 +38,22 @@ export async function POST(req: NextRequest) {
     }
 
     const body = parseBody(await req.json().catch(() => null))
-    const supabase = await createServerSupabase()
-    const snapshot = await buildSecureCheckoutSnapshot(supabase, session.userId, body?.couponCode)
-    const amount = snapshot.total
-    const orderNumber = generateSecureOrderNumber()
+    const isQuoteMode = !!(body.quoteId && body.quoteSnapshot)
+
+    let amount: number
+    let orderNumber: string
+
+    if (isQuoteMode) {
+      // Quote mode: use the quote total directly — no cart lookup needed
+      amount = Number(body.quoteSnapshot!.total)
+      orderNumber = generateSecureOrderNumber()
+    } else {
+      // Normal cart mode: build snapshot from user's DB cart
+      const supabase = await createServerSupabase()
+      const snapshot = await buildSecureCheckoutSnapshot(supabase, session.userId, body?.couponCode)
+      amount = snapshot.total
+      orderNumber = generateSecureOrderNumber()
+    }
 
     if (amount < 0.1 || amount > 50000) {
       return NextResponse.json({ error: "Invalid order amount" }, { status: 400 })
@@ -69,7 +89,7 @@ export async function POST(req: NextRequest) {
       metadata: {
         orderId: orderNumber,
         userId: session.userId,
-        couponCode: snapshot.coupon_code ?? "",
+        couponCode: isQuoteMode ? "" : ((body as any).snapshot?.coupon_code ?? ""),
       },
       payment_intent_data: {
         metadata: {

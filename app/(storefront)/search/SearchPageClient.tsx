@@ -1,10 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useSearchParams } from "next/navigation"
-import { getSupabaseBrowserClient } from "@/lib/supabase/client"
 import { ProductCard } from "@/components/products/product-card"
-import { Search, Loader2 } from "lucide-react"
+import { Search } from "lucide-react"
 import Link from "next/link"
 import type { Product } from "@/lib/supabase-types"
 
@@ -18,51 +15,15 @@ interface SearchProduct {
   stock: number
   status: string
   category_id: string | null
-  categories?: { name: string } | null
 }
 
-interface SearchPageClientProps {}
+interface SearchPageClientProps {
+  query: string
+  initialResults: SearchProduct[]
+}
 
-export default function SearchPageClient({}: SearchPageClientProps) {
-  const searchParams = useSearchParams()
-  const query = searchParams.get("q") || ""
-  
-  const [searchResults, setSearchResults] = useState<SearchProduct[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const supabase = getSupabaseBrowserClient()
-
-  useEffect(() => {
-    async function searchProducts() {
-      if (!query.trim()) {
-        setSearchResults([])
-        setIsLoading(false)
-        return
-      }
-
-      setIsLoading(true)
-      try {
-        const { data, error } = await supabase
-          .from("products")
-          .select("id, name, slug, price, image, description, stock, status, category_id, categories(name)")
-          .ilike("name", `%${query}%`)
-          .eq("status", "active")
-          .limit(50)
-
-        if (error) throw error
-        setSearchResults(data || [])
-      } catch (err) {
-        console.error("Search error:", err)
-        setSearchResults([])
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    searchProducts()
-  }, [query, supabase])
-
-  // Transform search results to Product format for ProductCard
-  const productsForCards: Product[] = searchResults.map(p => ({
+export default function SearchPageClient({ query, initialResults }: SearchPageClientProps) {
+  const productsForCards: Product[] = initialResults.map(p => ({
     id: p.id,
     name: p.name,
     slug: p.slug,
@@ -93,68 +54,49 @@ export default function SearchPageClient({}: SearchPageClientProps) {
   }))
 
   return (
-    <>
-      <main className="min-h-screen bg-[#E5E9F0]">
-        <div className="container mx-auto max-w-[1400px] px-6 py-12">
-          {/* Search Header */}
-          <div className="mb-12 text-center">
-            <h1 className="font-serif text-4xl md:text-5xl font-bold text-slate-800 mb-4">
-              Search <span className="text-primary italic">Results</span>
-            </h1>
-            <div className="h-1.5 w-24 bg-primary/20 rounded-full mx-auto mb-4" />
-            {query && (
-              <p className="text-lg text-slate-500">
-                {isLoading ? "Searching..." : `${searchResults.length} result${searchResults.length !== 1 ? "s" : ""} for "${query}"`}
-              </p>
-            )}
-          </div>
-
-          {/* Loading State */}
-          {isLoading ? (
-            <div className="flex items-center justify-center py-20">
-              <div className="neu-raised rounded-[2rem] p-12 bg-[#E5E9F0]">
-                <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
-                <p className="text-slate-500 mt-4 font-medium">Searching products...</p>
-              </div>
-            </div>
-          ) : !query.trim() ? (
-            /* No Query State */
-            <div className="neu-inset rounded-[2rem] p-12 text-center">
-              <Search className="h-16 w-16 mx-auto text-slate-400/50 mb-4" />
-              <h2 className="text-xl font-medium text-slate-600 mb-2">
-                Enter a search term
-              </h2>
-              <p className="text-sm text-slate-500">
-                Use the search bar above to find products
-              </p>
-            </div>
-          ) : searchResults.length === 0 ? (
-            /* No Results State */
-            <div className="neu-inset rounded-[2rem] p-12 text-center">
-              <Search className="h-16 w-16 mx-auto text-slate-400/50 mb-4" />
-              <h2 className="text-xl font-medium text-slate-600 mb-2">
-                No products found
-              </h2>
-              <p className="text-sm text-slate-500 mb-6">
-                We couldn't find any products matching "{query}"
-              </p>
-              <Link
-                href="/"
-                className="inline-block px-8 py-3 bg-primary text-white font-bold rounded-full hover:bg-primary/90 transition-colors shadow-lg"
-              >
-                Browse All Products
-              </Link>
-            </div>
-          ) : (
-            /* Products Grid */
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-              {productsForCards.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </div>
+    <main className="min-h-screen bg-[#E5E9F0]">
+      <div className="container mx-auto max-w-[1400px] px-6 py-12">
+        {/* Search Header */}
+        <div className="mb-12 text-center">
+          <h1 className="font-serif text-4xl md:text-5xl font-bold text-slate-800 mb-4">
+            Search <span className="text-primary italic">Results</span>
+          </h1>
+          <div className="h-1.5 w-24 bg-primary/20 rounded-full mx-auto mb-4" />
+          {query && (
+            <p className="text-lg text-slate-500">
+              {initialResults.length} result{initialResults.length !== 1 ? "s" : ""} for &ldquo;{query}&rdquo;
+            </p>
           )}
         </div>
-      </main>
-    </>
+
+        {!query.trim() ? (
+          <div className="neu-inset rounded-[2rem] p-12 text-center">
+            <Search className="h-16 w-16 mx-auto text-slate-400/50 mb-4" />
+            <h2 className="text-xl font-medium text-slate-600 mb-2">Enter a search term</h2>
+            <p className="text-sm text-slate-500">Use the search bar above to find products</p>
+          </div>
+        ) : initialResults.length === 0 ? (
+          <div className="neu-inset rounded-[2rem] p-12 text-center">
+            <Search className="h-16 w-16 mx-auto text-slate-400/50 mb-4" />
+            <h2 className="text-xl font-medium text-slate-600 mb-2">No products found</h2>
+            <p className="text-sm text-slate-500 mb-6">
+              We couldn&apos;t find any products matching &ldquo;{query}&rdquo;
+            </p>
+            <Link
+              href="/"
+              className="inline-block px-8 py-3 bg-primary text-white font-bold rounded-full hover:bg-primary/90 transition-colors shadow-lg"
+            >
+              Browse All Products
+            </Link>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+            {productsForCards.map((product, i) => (
+              <ProductCard key={product.id} product={product} priority={i < 4} />
+            ))}
+          </div>
+        )}
+      </div>
+    </main>
   )
 }

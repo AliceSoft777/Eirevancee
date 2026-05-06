@@ -7,7 +7,7 @@ import { formatPrice } from "@/lib/utils"
 import { formatOrderDate } from "@/lib/order-utils"
 import { StatusBadge } from "./StatusBadge"
 import { Button } from "@/components/ui/button"
-import { Eye, Download } from "lucide-react"
+import { Eye, Download, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 
 interface OrdersTableProps {
@@ -18,19 +18,27 @@ export function OrdersTable({ orders }: OrdersTableProps) {
   const [selectedOrder, setSelectedOrder] = useState<OrderListItem | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
 
+  const [downloadingId, setDownloadingId] = useState<string | null>(null)
+
   const handleDownloadInvoice = async (order: OrderListItem) => {
+    setDownloadingId(order.id)
     try {
       const res = await fetch(`/api/orders/${order.id}/invoice`, { method: "GET" })
-      const payload = await res.json().catch(() => ({}))
-
-      if (!res.ok || !payload.url) {
-        throw new Error(payload.error || "Invoice is not available")
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || "Failed to generate invoice")
       }
-
-      window.open(payload.url, "_blank", "noopener,noreferrer")
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `${order.orderNumber}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to download invoice"
-      toast.error(message)
+      toast.error(err instanceof Error ? err.message : "Failed to download invoice")
+    } finally {
+      setDownloadingId(null)
     }
   }
 
@@ -107,16 +115,17 @@ export function OrdersTable({ orders }: OrdersTableProps) {
                 </td>
                 <td className="py-3 px-4 text-center">
                   <div className="flex items-center justify-center gap-2">
-                    {(order as any).invoiceFileId && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleDownloadInvoice(order)}
-                        title="Download Invoice"
-                      >
-                        <Download className="w-4 h-4" />
-                      </Button>
-                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleDownloadInvoice(order)}
+                      title="Download Invoice"
+                      disabled={downloadingId === order.id}
+                    >
+                      {downloadingId === order.id
+                        ? <Loader2 className="w-4 h-4 animate-spin" />
+                        : <Download className="w-4 h-4" />}
+                    </Button>
                     <Button
                       size="sm"
                       variant="outline"
